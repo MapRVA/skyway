@@ -184,31 +184,28 @@ fn main() {
 
     println!("Inserting nodes into database...");
 
-    // // let query = "INSERT INTO your_table_name (id, lat, lng, tags) VALUES ($id, $lat, $lng, $tags)";
-    // let query = "CREATE (node:n {id: $id, lat: $lat, lng: $lng})";
+    let query = "CREATE (node:n {id: $id, lat: $lat, lng: $lng})";
 
-    // // Create a progress bar
-    // let progress = ProgressBar::new(nodes.len() as u64);
+    let progress = ProgressBar::new(nodes.len() as u64);
 
-    // // Create a vector of parameter maps
-    // let params: Vec<HashMap<String, QueryParam>> = nodes
-    //     .iter()
-    //     .map(|node| {
-    //         let mut param_map = HashMap::new();
-    //         param_map.insert("id", QueryParam::Int(node.id));
-    //         param_map.insert("lat", QueryParam::Float(node.lat));
-    //         param_map.insert("lng", QueryParam::Float(node.lng));
-    //         // param_map.insert("tags".to_string(), QueryParam::from(node.tags.clone()));
+    // connection.set_lazy(true);
+    // connection.set_autocommit(false);
 
-    //         progress.inc(1); // Increment the progress bar
-    //         param_map
-    //     })
-    //     .collect();
+    for node in nodes {
+        let mut params = HashMap::new();
+        params.insert("id".to_string(), QueryParam::Int(node.id));
+        params.insert("lat".to_string(), QueryParam::Float(node.lat));
+        params.insert("lng".to_string(), QueryParam::Float(node.lng));
+        // param_map.insert("tags".to_string(), QueryParam::from(node.tags.clone()));
 
-    // progress.finish(); // Finish the progress bar
+        progress.inc(1);
 
-    // // Use execute method with parameters
-    // connection.execute(query, Some(&params)).unwrap();
+        connection.execute(query, Some(&params)).unwrap();
+        connection.fetchall();
+    }
 
-    connection.commit().expect("failed to commit to connection");
+    progress.finish(); // Finish the progress bar
+
+    connection.commit();
+    // connection::finalize()
 }
