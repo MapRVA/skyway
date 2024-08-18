@@ -24,38 +24,46 @@ fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Reference {
     }
 }
 
-fn _convert_element(element: osmpbf::Element) -> Box<dyn elements::Element + Send + Sync> {
+fn _convert_element(element: osmpbf::Element) -> elements::Element {
     match element {
-        osmpbf::Element::Node(node) => Box::new(elements::Node {
+        osmpbf::Element::Node(node) => elements::Element {
             id: node.id(),
             version: None,
             tags: _get_tags(node.tags()),
-            latitude: node.lat(),
-            longitude: node.lon(),
-        }),
-        osmpbf::Element::DenseNode(dense_node) => Box::new(elements::Node {
+            element_type: elements::ElementType::Node {
+                latitude: node.lat(),
+                longitude: node.lon(),
+            },
+        },
+        osmpbf::Element::DenseNode(dense_node) => elements::Element {
             id: dense_node.id(),
             version: None,
             tags: _get_dense_tags(dense_node.tags()),
-            latitude: dense_node.lat(),
-            longitude: dense_node.lon(),
-        }),
-        osmpbf::Element::Way(way) => Box::new(elements::Way {
+            element_type: elements::ElementType::Node {
+                latitude: dense_node.lat(),
+                longitude: dense_node.lon(),
+            },
+        },
+        osmpbf::Element::Way(way) => elements::Element {
             id: way.id(),
             version: None,
             tags: _get_tags(way.tags()),
-            nodes: way.refs().collect(),
-        }),
-        osmpbf::Element::Relation(relation) => Box::new(elements::Relation {
+            element_type: elements::ElementType::Way {
+                nodes: way.refs().collect(),
+            },
+        },
+        osmpbf::Element::Relation(relation) => elements::Element {
             id: relation.id(),
             version: None,
             tags: _get_tags(relation.tags()),
-            references: relation.members().map(_convert_member).collect(),
-        })
+            element_type: elements::ElementType::Relation {
+                references: relation.members().map(_convert_member).collect(),
+            },
+        },
     } 
 }
 
-pub fn read_pbf<S: Read + Send>(sender: Sender<Box<dyn elements::Element + Send + Sync>>, src: S) {
+pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, src: S) {
     let reader = osmpbf::ElementReader::new(src);
     let element_count = reader.par_map_reduce(
         |element| {

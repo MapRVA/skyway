@@ -10,7 +10,7 @@ use pbf::read_pbf;
 // use json::read_json;
 
 
-pub fn read_file<S: Read + Send>(sender: Sender<Box<dyn elements::Element + Send + Sync>>, from: &str, source: S) {
+pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, from: &str, source: S) {
     match from {
         "pbf" => read_pbf(sender, source),
         // "json" => read_json(file_path),

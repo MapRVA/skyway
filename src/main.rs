@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 use std::thread;
-use std::io::{Read, stdin};
+use std::io::stdin;
 use std::fs;
 use clap::Parser;
 use std::str::FromStr;

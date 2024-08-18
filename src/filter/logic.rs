@@ -1,8 +1,8 @@
-type BoxedElement = Box<dyn crate::elements::Element + Send + Sync>;
+use crate::elements;
 
 pub enum Element {
-    Modifiable(BoxedElement),
-    Committed(BoxedElement),
+    Modifiable(elements::Element),
+    Committed(elements::Element),
     None,
 }
 
