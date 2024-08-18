@@ -1,3 +1,0 @@
-[include]
-"highway" = [ "footway", "cycleway", "path", "trunk" ]
-"foot" = [ "designated" ]

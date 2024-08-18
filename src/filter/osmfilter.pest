@@ -1,0 +1,58 @@
+// strings
+// TODO: think more about what/how to escape
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+string = @{ char* }
+quoted_string = _{ "\"" ~ string ~ "\"" }
+
+// comments
+comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
+
+// header with version info
+major = { ASCII_DIGIT+ }
+minor = { ASCII_DIGIT+ }
+patch = { ASCII_DIGIT+ }
+version = { major ~ "." ~ minor ~ "." ~ patch}
+header = _{ "OSMFilter " ~ version ~ NEWLINE{2}}
+
+// modifier statements
+set = { "SET " ~ quoted_string ~ " " ~ quoted_string }
+rename = { "RENAME " ~ quoted_string ~ " " ~ quoted_string }
+delete = { "DELETE " ~ quoted_string }
+commit = { "COMMIT" }
+drop = { "DROP" }
+
+modifier = _{ set | rename | delete | commit | drop }
+
+// selector statements
+
+osm_type = { "node" | "way" | "relation" } // TODO: add "area"
+type = { "TYPE " ~ osm_type ~ (", " ~ osm_type)* }
+
+has = { "HAS " ~ quoted_string }
+equals = { "EQUALS " ~ quoted_string ~ " " ~ quoted_string }
+
+// TODO: add timestamps, since, before, user, uid, id, version
+
+selector = { type | has | equals }
+
+new_selection_block = _{
+    // if we were already indented, 
+    PEEK_ALL ~ PUSH("\t") ~ statement ~
+    // subsequent lines in the block
+    (NEWLINE ~ PEEK_ALL ~ statement)* ~
+    // drop the last layer of indentation from the stack
+    DROP
+}
+
+selection_block = {
+    selector ~ NEWLINE ~ new_selection_block
+}
+
+// bigger picture
+statement = _{ (comment | modifier | selection_block) ~ (" "+ ~ comment)? }
+body = { (statement | NEWLINE)+ }
+file = _{ SOI ~ header ~ body ~ EOI }

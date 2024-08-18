@@ -9,8 +9,10 @@ version = "0.0.1"
 [dependencies]
 # steel-interpreter = { git = "https://github.com/mattwparas/steel" }
 # rsmgclient = "2.0.2"
-osmpbf = "0.2"
-clap = { version = "4.4.7", features = ["derive"] }
-indicatif = "0.17.7"
+osmpbf = "0.3.4"
+clap = { version = "4.5.10", features = ["derive"] }
+indicatif = "0.17.8"
 json = "0.12.4"
-chrono = "0.4.31"
+chrono = "0.4.38"
+pest = "2.7.11"
+pest_derive = "2.7.11"
