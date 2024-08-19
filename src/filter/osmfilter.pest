@@ -29,15 +29,18 @@ modifier = _{ set | rename | delete | commit | drop }
 
 // selector statements
 
-osm_type = { "node" | "way" | "relation" } // TODO: add "area"
-type = { "TYPE " ~ osm_type ~ (", " ~ osm_type)* }
+node = { "node" }
+way = { "way" }
+relation = { "relation" }
+osm_type = _{ node | way | relation } // TODO: add "area"
+type_selector = { "TYPE " ~ osm_type ~ (", " ~ osm_type)* }
 
 has = { "HAS " ~ quoted_string }
 equals = { "EQUALS " ~ quoted_string ~ " " ~ quoted_string }
 
 // TODO: add timestamps, since, before, user, uid, id, version
 
-selector = { type | has | equals }
+selector = { type_selector | has | equals }
 
 new_selection_block = _{
     // if we were already indented, 
