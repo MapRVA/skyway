@@ -7,7 +7,9 @@ use crate::elements;
 
 fn _get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
-    let _ = tag_iter.map(|(k, v)| tag_map.insert(k.to_owned(), v.to_owned()));
+    for t in tag_iter {
+        tag_map.insert(t.0.to_owned(), t.1.to_owned());
+    }
     tag_map
 }
 
@@ -44,13 +46,15 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 longitude: dense_node.lon(),
             },
         },
-        osmpbf::Element::Way(way) => elements::Element {
-            id: way.id(),
-            version: None,
-            tags: _get_tags(way.tags()),
-            element_type: elements::ElementType::Way {
-                nodes: way.refs().collect(),
-            },
+        osmpbf::Element::Way(way) => {
+            elements::Element {
+                id: way.id(),
+                version: None,
+                tags: _get_tags(way.tags()),
+                element_type: elements::ElementType::Way {
+                    nodes: way.refs().collect(),
+                },
+            }
         },
         osmpbf::Element::Relation(relation) => elements::Element {
             id: relation.id(),
@@ -69,8 +73,8 @@ pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, src: S) {
         |element| {
             match sender.send(_convert_element(element)) {
                 Ok(_) => 1,
-                Err(_) => {
-                    println!("ERROR: Unable to send an element.");
+                Err(e) => {
+                    println!("ERROR: Unable to send an element: {e:?}");
                     0
                 }
             }
