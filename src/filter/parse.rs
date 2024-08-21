@@ -203,7 +203,7 @@ fn _element_to_option(element: logic::Element) -> Option<elements::Element> {
     }
 }
 
-fn evaluate_filter<'a>(filter: &mut logic::Filter, element: elements::Element) -> Option<elements::Element> {
+fn evaluate_filter(filter: &mut logic::Filter, element: elements::Element) -> Option<elements::Element> {
     let mut current_element = logic::Element::Modifiable(element);
     for statement in &filter.statements {
         current_element = logic::evaluate_statement(statement, current_element);
@@ -217,14 +217,11 @@ fn evaluate_filter<'a>(filter: &mut logic::Filter, element: elements::Element) -
     _element_to_option(current_element)
 }
 
-pub fn filter_elements<'a>(filter_contents: &str, receiver: Receiver<elements::Element>, sender: Sender<elements::Element>) {
+pub fn filter_elements(filter_contents: &str, receiver: Receiver<elements::Element>, sender: Sender<elements::Element>) {
     let mut filter = parse_filter(filter_contents);
     for e in receiver.iter() {
-        match evaluate_filter(&mut filter, e) {
-            Some(v) => {
-                sender.send(v);
-            },
-            _ => {},
+        if let Some(v) = evaluate_filter(&mut filter, e) {
+            let _ = sender.send(v);
         }
     }
 }

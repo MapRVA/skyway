@@ -1,5 +1,4 @@
 use std::sync::mpsc::Sender;
-use osmpbf;
 use std::io::Read;
 use std::collections::HashMap;
 

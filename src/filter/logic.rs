@@ -103,12 +103,9 @@ pub fn evaluate_statement(statement: &Statement, element: Element) -> Element {
                     Element::Modifiable(e)
                 },
                 Statement::RenameStatement { old_key, new_key } => {
-                    match e.tags.remove(old_key.as_str()) {
-                        Some(v) => {
-                            e.tags.insert(new_key.to_owned(), v);
-                            ()
-                        }
-                        _ => ()
+                    if let Some(v) = e.tags.remove(old_key.as_str()) {
+                        e.tags.insert(new_key.to_owned(), v);
+                        
                     }
                     Element::Modifiable(e)
                 },

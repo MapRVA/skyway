@@ -54,7 +54,7 @@ enum JSONElement {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct OSMJSON {
+struct OsmJson {
     version: String,
     generator: String,
     copyright: String,
@@ -65,7 +65,7 @@ struct OSMJSON {
 
 fn _convert_element(element: JSONElement) -> elements::Element {
     match element {
-        JSONElement::Node { id, lat, lon, timestamp, version, changeset, user, uid, tags, .. } => elements::Element {
+        JSONElement::Node { id, lat, lon,      tags, .. } => elements::Element {
             id,
             version: None,
             tags,
@@ -74,7 +74,7 @@ fn _convert_element(element: JSONElement) -> elements::Element {
                 longitude: lon,
             },
         },
-        JSONElement::Way { id, timestamp, version, changeset, user, uid, nodes, tags, .. } => elements::Element {
+        JSONElement::Way { id,      nodes, tags, .. } => elements::Element {
             id,
             version: None,
             tags,
@@ -82,7 +82,7 @@ fn _convert_element(element: JSONElement) -> elements::Element {
                 nodes,
             },
         },
-        JSONElement::Relation { id, timestamp, version, changeset, user, uid, members, tags, .. } => {
+        JSONElement::Relation { id,      members, tags, .. } => {
             let mut references = Vec::new();
             for r in members {
                 references.push(elements::Reference {
@@ -104,7 +104,7 @@ fn _convert_element(element: JSONElement) -> elements::Element {
 
 
 pub fn read_json(sender: Sender<elements::Element>, src: &str) {
-    let osm_json_object: OSMJSON = match from_str(src) {
+    let osm_json_object: OsmJson = match from_str(src) {
         Ok(v) => v,
         Err(e) => {
             panic!("Could not parse JSON file: {e:?}");

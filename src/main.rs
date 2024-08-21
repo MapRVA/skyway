@@ -14,7 +14,7 @@ mod readers;
 use readers::read_file;
 
 mod filter;
-use filter::parse::{parse_filter, filter_elements};
+use filter::parse::filter_elements;
 
 // use writers::write_elements;
 
@@ -100,17 +100,14 @@ fn main() {
 
     let mut counter = 0;
     for _ in filter_reciever {
-        counter = counter + 1;
+        counter += 1;
     }
     println!("Counted {counter} elements coming out of the filter.");
         
 
     read_thread.join().expect("Couldn't join on thread!!");
-    match filter_thread {
-        Some(ft) => {
-            ft.join().expect("Couldn't join on filter thread!!");
-        },
-        _ => {}
+    if let Some(ft) = filter_thread {
+        ft.join().expect("Couldn't join on filter thread!!");
     }
 
 
