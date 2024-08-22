@@ -170,7 +170,7 @@ pub fn parse_filter(filter_content: &str) -> logic::Filter {
                 Rule::version => {
                     let filter_version = a.as_str();
                     if filter_version != VERSION {
-                        println!("WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.", filter_version, VERSION);
+                        eprintln!("WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.", filter_version, VERSION);
                     }
                 },
                 _ => {

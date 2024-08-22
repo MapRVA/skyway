@@ -1,18 +1,15 @@
-// use std::sync::mpsc::Receiver;
-// 
-// use crate::elements;
-// 
-// mod json;
-// use json::write_json;
-// 
-// 
-// pub fn write_file(sender: Sender<Box<dyn elements::Element + Send + Sync>>, file_path: PathBuf) {
-// 
-//     // load filter somehow, pass it to loader?
-// 
-//     match file_path.extension().and_then(OsStr::to_str) {
-//         Some("pbf") => load_pbf(sender, file_path),
-//         // Some("json") => load_json(file_path),
-//         _ => panic!("Filetype not supported!")
-//     }
-// }
+use std::sync::mpsc::Receiver;
+use std::io::Write;
+
+use crate::elements;
+
+mod json;
+use json::write_json;
+
+pub fn write_file<D: Write>(reciever: Receiver<elements::Element>, metadata: elements::Metadata, to: &str, destination: D) {
+    match to {
+        "json" => write_json(reciever, metadata, destination),
+        // Some("json") => load_json(file_path),
+        _ => panic!("Output filetype not supported!")
+    }
+}

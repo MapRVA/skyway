@@ -99,14 +99,14 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
 }
 
 pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, src: S) {
+    eprintln!("Reading PBF input...");
     let reader = osmpbf::ElementReader::new(src);
     let element_count = reader.par_map_reduce(
         |element| {
             match sender.send(_convert_element(element)) {
                 Ok(_) => 1,
                 Err(e) => {
-                    println!("ERROR: Unable to send an element: {e:?}");
-                    0
+                    panic!("ERROR: Unable to send an element: {e:?}");
                 }
             }
         },
@@ -114,5 +114,5 @@ pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, src: S) {
         |a, b| a + b
     );
 
-    println!("Finished reading {element_count:?} elements from source.");
+    eprintln!("Finished reading {element_count:?} elements from source.");
 }

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub struct Member {
     #[serde(rename = "type")]
     pub t: Option<String>,
-    #[serde(alias = "ref")]
+    #[serde(rename = "ref")]
     pub id: i64,
     pub role: Option<String>,
 }
@@ -40,10 +40,16 @@ pub struct Element {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct OsmDocument {
+pub struct Metadata {
     pub version: Option<String>,
     pub generator: Option<String>,
     pub copyright: Option<String>,
     pub license: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct OsmDocument {
+    #[serde(flatten)]
+    pub metadata: Metadata,
     pub elements: Vec<Element>,
 }

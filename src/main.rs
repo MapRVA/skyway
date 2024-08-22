@@ -1,9 +1,8 @@
 use std::sync::mpsc;
 use std::thread;
-use std::io::stdin;
+use std::io::{stdin, stdout};
 use std::fs;
 use clap::Parser;
-use std::str::FromStr;
 use std::path::PathBuf;
 
 // use config::load_config;
@@ -16,6 +15,9 @@ use readers::read_file;
 mod filter;
 use filter::parse::filter_elements;
 
+mod writers;
+use writers::write_file;
+
 // determine current version of crate
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -26,52 +28,40 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[command(name = "skyway")]
 #[command(author = "Jacob Hall <email@jacobhall.net>")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
-#[command(about = "Converts OpenStreetMap data between various formats")]
+#[command(about = "Converts OpenStreetMap data between various file formats")]
 struct Cli {
-    // semantic or routing
-    // #[arg(long, default_value = "memgraph")]
-    // mode: String,
-
-    // Path to configuration TOML
+    // Path to filter file
     #[arg(long)]
     filter: Option<String>,
 
+    // Source file format
     #[arg(long)]
     from: String,
+
+    // Destination file format
+    #[arg(long)]
+    to: String,
 
     // Path to input file
     #[arg(long)]
     input: Option<String>,
 
-    // Hostname of memgraph database
-    #[arg(long, default_value = "localhost")]
-    hostname: String,
-
-    // Password for memgraph database
+    // Path to output file
     #[arg(long)]
-    password: Option<String>,
-
-    // Port for memgraph database
-    #[arg(long, default_value = "7687")]
-    port: String,
-
-    // Username for memgraph database
-    #[arg(long)]
-    username: Option<String>,
+    output: Option<String>,
 }
 
 fn main() {
-    println!("skyway v{}", VERSION);
+    eprintln!("skyway v{}", VERSION);
 
     let cli = Cli::parse();
-    let port: u16 = u16::from_str(cli.port.as_str()).unwrap();
     
     let (reader_sender, reader_reciever) = mpsc::channel();
 
     // spawn a thread that reads the file and spits OSM element
     // data into the channel, to be passed into the filter
     // or data writer
-    let read_thread =  thread::spawn(move || {
+    let read_thread = thread::spawn(move || {
         match cli.input {
             None => {
                 read_file(reader_sender, &cli.from, stdin())
@@ -81,7 +71,7 @@ fn main() {
                     read_file(reader_sender, &cli.from, b)
                 },
                 Err(e) => {
-                    panic!("Unable to read input file: {e:?}");
+                    panic!("Unable to open input file: {e:?}");
                 }
             }
         }
@@ -104,20 +94,35 @@ fn main() {
         }));
     }
 
-    let mut counter = 0;
-    for _ in filter_reciever {
-        counter += 1;
-    }
-    println!("Counted {counter} elements coming out of the filter.");
+    let metadata = elements::Metadata {
+        version: None,
+        generator: None,
+        copyright: None,
+        license: None,
+    };
+
+    let write_thread =  thread::spawn(move || {
+        match cli.output {
+            None => {
+                write_file(filter_reciever, metadata, &cli.to, stdout())
+            },
+            Some(a) => match fs::File::open(PathBuf::from(a)) {
+                Ok(b) => {
+                    write_file(filter_reciever, metadata, &cli.to, b)
+                },
+                Err(e) => {
+                    panic!("Unable to open output file: {e:?}");
+                }
+            }
+
+        }
+    });
         
 
-    read_thread.join().expect("Couldn't join on thread!!");
+    read_thread.join().expect("Couldn't join on read thread!!");
     if let Some(ft) = filter_thread {
         ft.join().expect("Couldn't join on filter thread!!");
     }
-
-
-    // pass element iterator from filter into data writer
-    // write_elements(element_iterator)
+    write_thread.join().expect("Couldn't join on write thread!!");
     
 }
