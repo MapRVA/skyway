@@ -6,6 +6,8 @@ use crate::elements;
 
 use crate::filter::logic;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Parser)]
 #[grammar = "filter/osmfilter.pest"]
 struct OSMFilterParser;
@@ -166,7 +168,10 @@ pub fn parse_filter(filter_content: &str) -> logic::Filter {
             let rule = a.as_rule();
             match rule {
                 Rule::version => {
-                    println!("found version! skipping that for now...");
+                    let filter_version = a.as_str();
+                    if filter_version != VERSION {
+                        println!("WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.", filter_version, VERSION);
+                    }
                 },
                 _ => {
                     unreachable!();

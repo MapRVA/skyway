@@ -16,6 +16,10 @@ use readers::read_file;
 mod filter;
 use filter::parse::filter_elements;
 
+// determine current version of crate
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 // use writers::write_elements;
 
 #[derive(Parser)]
@@ -57,6 +61,8 @@ struct Cli {
 }
 
 fn main() {
+    println!("skyway v{}", VERSION);
+
     let cli = Cli::parse();
     let port: u16 = u16::from_str(cli.port.as_str()).unwrap();
     
