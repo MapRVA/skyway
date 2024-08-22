@@ -2,6 +2,11 @@
 
 skyway is a command-line OpenStreetMap file converter.
 
+> [!WARNING]
+> skyway is currently in [major version (0.y.z)](https://semver.org/), i.e. it is undergoing initial development.
+> While I hope skyway is helpful to you, please expect its API and featureset to change at any time.
+> Your feedback and contributions are welcome, see below. Thanks!
+
 ## Motivation
 
 This project has a few goals:
@@ -27,7 +32,7 @@ With that said, I welcome any contributions to this project that might speed it 
     - [ ] writer
   - OSM JSON
     - [X] reader
-    - [ ] writer
+    - [ ] writer _(works, but does not support document metdata yet!)_
     - [ ] explicitly support both overpass and official OSM JSON
   - OSM XML
     - [ ] reader
@@ -48,6 +53,14 @@ With that said, I welcome any contributions to this project that might speed it 
   - [ ] Release binary for Linux
   - [ ] Investigate supporting other platforms
 
+## Contributing
+
+Before contributing, please review our [code of conduct](CODE_OF_CONDUCT.md).
+
+Thank you for your interest in contributing to skyway!
+Issues, pull requests, and email communication are all welcome.
+If you would like to make drastic changes to skyway, I recommend reaching out first so that we can coordinate our efforts.
+
 ## Alternatives
 
 Before adopting skyway for your project, please also consider [Osmium Tool](https://osmcode.org/osmium-tool/), a mature and well-trusted application that accomplished many of the same things.
@@ -57,4 +70,4 @@ For a complete list of alternatives, please see the [OSM file formats page](http
 ## License
 
 skyway is released under the GPLv3+ license.
-Please see LICENSE.md for more information.
+Please see [LICENSE.md](LICENSE.md) for more information.
