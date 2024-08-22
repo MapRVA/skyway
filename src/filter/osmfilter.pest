@@ -52,7 +52,7 @@ new_selection_block = _{
 }
 
 selection_block = {
-    selector ~ NEWLINE ~ new_selection_block
+    selector ~ (" "+ ~ comment)? ~ NEWLINE ~ new_selection_block
 }
 
 // bigger picture
