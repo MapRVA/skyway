@@ -71,3 +71,6 @@ For a complete list of alternatives, please see the [OSM file formats page](http
 
 skyway is released under the GPLv3+ license.
 Please see [LICENSE.md](LICENSE.md) for more information.
+
+Example data in this repository is from [OpenStreetMap](https://www.openstreetmap.org), and is therefore subject to the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/).
+Please click [here](https://www.openstreetmap.org/copyright) for more information.
