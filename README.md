@@ -16,8 +16,8 @@ This project has a few goals:
 - Learn a new programming language
 
 Perhaps one day this tool will be fast enough to compete with other OpenStreetMap conversion software.
-For now, speed is not currently one of the goals for this package.
-With that said, I welcome any contributions to this project that might speed it up!
+For now, speed is not among my primary goals.
+With that said, I welcome any performance-minded contributions!
 
 ## Usage
 
@@ -43,20 +43,20 @@ If you do not provide a filter to skyway, it will convert the original input as 
 > I would **massively appreciate** your feedback!
 > How would your ideal filter language work?
 
-#### Using skyway with a filter
+#### Running skyway With a Filter
 
 To add a filter to skyway, add the `--filter [FILTER FILE]` option.
 
 #### OSMFilter Syntax
 
-An OSMFilter file must start with a header like this, with the version matching the version of skyway that you are using, **followed by at least two newlines**.
+An OSMFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, **followed by at least two newlines**.
+skyway will warn you if there is a version mismatch.
+After the header, you can use any combination of **selectors** and **modifiers** to manipulate the elements.
+Every selector must be followed by a **tab-indented** block of one or more modifiers or nested selectors.
+Comments start with `#` and extend through the end of a line.
 ```
 OSMFilter v0.0.1
-```
-After the header, you can use any combination of **selectors** and **modifiers** to manipulate the elements how you'd like.
-After a selector, you can write any **tab-indented** block of modifiers or nested selectors.
-Comments start with `#` and extend through rest of the line.
-```
+
 TYPE way                                 # selects ways
 	HAS "footway"                    # selects elements with a "footway" tag (any value)
 		SET "surface" "concrete" # changes the value of the "surface" tag to be "concrete"
@@ -66,6 +66,22 @@ TYPE relation                            # selects relations
 		DROP                     # do not include element in output (skip the rest of the filter)
 COMMIT                                   # commit the element
 ```
+
+#### Selectors
+
+A selector must be followed by one or more tab-indented statements (either a modifier or selection block).
+You can nest selection blocks.
+- `TYPE way, node` — Selects elements of specified type(s), in a comma-separated list.
+- `HAS "key"` — Selects elements with tag `key`.
+- `EQUALS "key" "value"` — Selects elements with tag `key` equalling `value`.
+
+#### Modifiers
+
+- `COMMIT` — Commits element as it currently is to be written to output. Short-circuits the rest of the filter for that element.
+- `DROP` — Drops element, i.e. excluding it entirely from the output. Short-circuits the rest of the filter for that element.
+- `SET "key" "value"` — Sets tag `key` to `value`.
+- `RENAME "oldkey" "newkey"` — Renames tag `oldkey` to `newkey`, keeping the value of the tag the same.
+- `DELETE "key"` — Removes tag `key` from the element.
 
 ## Roadmap
 
