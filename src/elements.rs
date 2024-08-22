@@ -1,37 +1,49 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug)]
-pub struct Version {
-    pub version: u32,
-    pub timestamp: i64,
-    pub uid: Option<String>,
-    pub user: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct Reference {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Member {
+    #[serde(rename = "type")]
+    pub t: Option<String>,
+    #[serde(alias = "ref")]
     pub id: i64,
     pub role: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum ElementType {
     Node {
-        latitude: f64,
-        longitude: f64,
+        lat: f64,
+        lon: f64,
     },
     Way {
         nodes: Vec<i64>,
     },
     Relation {
-        references: Vec<Reference>,
+        members: Vec<Member>,
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Element {
+    pub changeset: Option<i64>,
+    pub user: Option<String>,
+    pub version: Option<i32>,
+    pub uid: Option<i32>,
     pub id: i64,
-    pub version: Option<Version>,
+    pub timestamp: Option<String>,
+    #[serde(default)]
     pub tags: HashMap<String, String>,
+    #[serde(flatten)]
     pub element_type: ElementType,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct OsmDocument {
+    pub version: Option<String>,
+    pub generator: Option<String>,
+    pub copyright: Option<String>,
+    pub license: Option<String>,
+    pub elements: Vec<Element>,
 }

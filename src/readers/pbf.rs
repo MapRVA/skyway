@@ -18,8 +18,13 @@ fn _get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> HashMap<String, Str
     tag_map
 }
 
-fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Reference {
-    elements::Reference {
+fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Member {
+    elements::Member {
+        t: Some(match member.member_type {
+            osmpbf::RelMemberType::Node => String::from("node"),
+            osmpbf::RelMemberType::Way => String::from("way"),
+            osmpbf::RelMemberType::Relation => String::from("relation"),
+        }),
         id: member.member_id,
         role: Some(member.role().unwrap().to_owned())
     }
@@ -27,41 +32,68 @@ fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Reference {
 
 fn _convert_element(element: osmpbf::Element) -> elements::Element {
     match element {
-        osmpbf::Element::Node(node) => elements::Element {
-            id: node.id(),
-            version: None,
-            tags: _get_tags(node.tags()),
-            element_type: elements::ElementType::Node {
-                latitude: node.lat(),
-                longitude: node.lon(),
-            },
+        osmpbf::Element::Node(node) => {
+            let node_info = node.info();
+            elements::Element {
+                id: node.id(),
+                tags: _get_tags(node.tags()),
+                element_type: elements::ElementType::Node {
+                    lat: node.lat(),
+                    lon: node.lon(),
+                },
+                changeset: node_info.changeset(),
+                user: None, // TODO
+                uid: node_info.uid(),
+                timestamp: None,
+                version: node_info.version(),
+            }
         },
-        osmpbf::Element::DenseNode(dense_node) => elements::Element {
-            id: dense_node.id(),
-            version: None,
-            tags: _get_dense_tags(dense_node.tags()),
-            element_type: elements::ElementType::Node {
-                latitude: dense_node.lat(),
-                longitude: dense_node.lon(),
-            },
+        osmpbf::Element::DenseNode(dense_node) => {
+            let dense_node_info = dense_node.info();
+            elements::Element {
+                id: dense_node.id(),
+                tags: _get_dense_tags(dense_node.tags()),
+                element_type: elements::ElementType::Node {
+                    lat: dense_node.lat(),
+                    lon: dense_node.lon(),
+                },
+                // TODO: load metadata out of DenseNodeInfo
+                changeset: None,
+                user: None,
+                uid: None,
+                timestamp: None,
+                version: None,
+            }
         },
         osmpbf::Element::Way(way) => {
+            let way_info = way.info();
             elements::Element {
                 id: way.id(),
-                version: None,
                 tags: _get_tags(way.tags()),
                 element_type: elements::ElementType::Way {
                     nodes: way.refs().collect(),
                 },
+                changeset: way_info.changeset(),
+                user: None, // TODO
+                uid: way_info.uid(),
+                timestamp: None,
+                version: way_info.version()
             }
         },
-        osmpbf::Element::Relation(relation) => elements::Element {
-            id: relation.id(),
-            version: None,
-            tags: _get_tags(relation.tags()),
-            element_type: elements::ElementType::Relation {
-                references: relation.members().map(_convert_member).collect(),
-            },
+        osmpbf::Element::Relation(relation) => {
+            let relation_info = relation.info();
+            elements::Element {
+                id: relation.id(),
+                tags: _get_tags(relation.tags()),
+                element_type: elements::ElementType::Relation {
+                    members: relation.members().map(_convert_member).collect(),
+                },
+                changeset: relation_info.changeset(),
+                user: None, // TODO
+                uid: relation_info.uid(),
+                timestamp: None,
+                version: relation_info.version(),
+            }
         },
     } 
 }

@@ -38,13 +38,13 @@ fn test_selector(selector: &SelectorStatement, element: &elements::Element) -> b
     match selector {
         SelectorStatement::Type { node, way, relation } => {
             match &element.element_type {
-                elements::ElementType::Node { latitude, longitude } => {
+                elements::ElementType::Node { lat, lon } => {
                     node.to_owned()
                 },
                 elements::ElementType::Way { nodes } => {
                     way.to_owned()
                 },
-                elements::ElementType::Relation { references } => {
+                elements::ElementType::Relation { members } => {
                     relation.to_owned()
                 },
             }
