@@ -19,6 +19,54 @@ Perhaps one day this tool will be fast enough to compete with other OpenStreetMa
 For now, speed is not currently one of the goals for this package.
 With that said, I welcome any contributions to this project that might speed it up!
 
+## Usage
+
+Here is an example of how to use skyway.
+For more information, you can run `skyway --help`.
+
+```sh
+skyway --from pbf --input input-file.pbf --to json --output output-file.json
+```
+If you do not specify an input or output file, skyway will default to standard in and standard out, respectively.
+This enables you to stream data into and out of skyway, like this;
+```sh
+cat input-file.pbf | skyway --from pbf --to json > output-file.json
+```
+
+### Filtering Elements
+
+OSMFilter is an experimental filter format, providing a language for transforming element data as they pass through skyway.
+If you do not provide a filter to skyway, it will convert the original input as faithfully as it can.
+
+> [!IMPORTANT]
+> This feature is intended to be the biggest value-add of skyway, but I haven't yet settled on a syntax that feels right.
+> I would **massively appreciate** your feedback!
+> How would your ideal filter language work?
+
+#### Using skyway with a filter
+
+To add a filter to skyway, add the `--filter [FILTER FILE]` option.
+
+#### OSMFilter Syntax
+
+An OSMFilter file must start with a header like this, with the version matching the version of skyway that you are using, **followed by at least two newlines**.
+```
+OSMFilter v0.0.1
+```
+After the header, you can use any combination of **selectors** and **modifiers** to manipulate the elements how you'd like.
+After a selector, you can write any **tab-indented** block of modifiers or nested selectors.
+Comments start with `#` and extend through rest of the line.
+```
+TYPE way                                 # selects ways
+	HAS "footway"                    # selects elements with a "footway" tag (any value)
+		SET "surface" "concrete" # changes the value of the "surface" tag to be "concrete"
+		COMMIT                   # immediately commit this element (skip the rest of the filter)
+TYPE relation                            # selects relations
+	EQUALS "type" "route"            # selects elements with the tag "type" set to "route"
+		DROP                     # do not include element in output (skip the rest of the filter)
+COMMIT                                   # commit the element
+```
+
 ## Roadmap
 
 - File types
