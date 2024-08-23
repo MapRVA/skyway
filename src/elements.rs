@@ -33,7 +33,7 @@ pub struct Element {
     pub uid: Option<i32>,
     pub id: i64,
     pub timestamp: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub tags: HashMap<String, String>,
     #[serde(flatten)]
     pub element_type: ElementType,
