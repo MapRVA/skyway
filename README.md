@@ -96,7 +96,7 @@ You can nest selection blocks.
     - [ ] writer
   - OSM JSON
     - [X] reader
-    - [ ] writer _(works, but does not support document metdata yet!)_
+    - [X] writer
     - [ ] explicitly support both overpass and official OSM JSON
   - OSM XML
     - [ ] reader
