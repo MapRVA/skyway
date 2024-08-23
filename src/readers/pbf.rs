@@ -98,7 +98,13 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
     } 
 }
 
-pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, src: S) {
+pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, metadata_sender: Sender<elements::Metadata>, src: S) {
+    metadata_sender.send(elements::Metadata{
+        version: None,
+        generator: None,
+        copyright: None,
+        license: None
+    });
     eprintln!("Reading PBF input...");
     let reader = osmpbf::ElementReader::new(src);
     let element_count = reader.par_map_reduce(
@@ -113,6 +119,5 @@ pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, src: S) {
         || 0_u64,
         |a, b| a + b
     );
-
     eprintln!("Finished reading {element_count:?} elements from source.");
 }

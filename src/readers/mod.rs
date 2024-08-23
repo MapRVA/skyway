@@ -12,7 +12,7 @@ use json::read_json;
 mod xml;
 use xml::read_xml;
 
-pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, from: &str, mut source: S) {
+pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, metadata_sender: Sender<elements::Metadata>, from: &str, mut source: S) {
     match from {
         "json" => {
             let mut buffer = String::new();
@@ -22,9 +22,9 @@ pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, from: &str, 
                     panic!("Error reading input: {e:?}");
                 },
             };
-            read_json(sender, source_str);
+            read_json(sender, metadata_sender, source_str);
         },
-        "pbf" => read_pbf(sender, source),
+        "pbf" => read_pbf(sender, metadata_sender, source),
         "xml" => {
             let mut buffer = String::new();
             let source_str = match source.read_to_string(&mut buffer) {
@@ -33,7 +33,7 @@ pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, from: &str, 
                     panic!("Error reading input: {e:?}");
                 },
             };
-            read_xml(sender, source_str);
+            read_xml(sender, metadata_sender, source_str);
         },
         _ => panic!("Filetype not supported!")
     }
