@@ -1,27 +1,34 @@
 use std::sync::mpsc::Sender;
 use serde_json::from_str;
-use serde::Deserialize;
-use rename_item::rename;
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
 use crate::elements::{Element, Metadata, ElementType, Member};
 
 #[derive(Deserialize)]
-#[rename(name = "member-def")]
-#[allow(dead_code)]
-pub struct Member {
+#[serde(remote = "Member")]
+struct MemberDef {
     #[serde(rename = "type")]
-    pub t: Option<String>,
+    t: Option<String>,
     #[serde(rename = "ref")]
-    pub id: i64,
-    pub role: Option<String>,
+    id: i64,
+    role: Option<String>,
+}
+
+fn member_vec_annotation<'de, D>(deserializer: D) -> Result<Vec<Member>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    struct Wrapper(#[serde(with = "MemberDef")] Member);
+
+    let v = Vec::deserialize(deserializer)?;
+    Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-#[rename(name = "element-type-def")]
-#[allow(dead_code)]
-pub enum ElementType {
+#[serde(remote = "ElementType", tag = "type", rename_all = "lowercase")]
+enum ElementTypeDef {
     Node {
         lat: f64,
         lon: f64,
@@ -30,41 +37,52 @@ pub enum ElementType {
         nodes: Vec<i64>,
     },
     Relation {
+        #[serde(deserialize_with = "member_vec_annotation")]
         members: Vec<Member>,
     },
 }
 
 #[derive(Deserialize)]
-#[rename(name = "element-def")]
-#[allow(dead_code)]
-pub struct Element {
-    pub changeset: Option<i64>,
-    pub user: Option<String>,
-    pub version: Option<i32>,
-    pub uid: Option<i32>,
-    pub id: i64,
-    pub timestamp: Option<String>,
+#[serde(remote = "Element")]
+struct ElementDef {
+    changeset: Option<i64>,
+    user: Option<String>,
+    version: Option<i32>,
+    uid: Option<i32>,
+    id: i64,
+    timestamp: Option<String>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub tags: HashMap<String, String>,
-    #[serde(flatten)]
-    pub element_type: ElementType,
+    tags: HashMap<String, String>,
+    #[serde(flatten, with = "ElementTypeDef")]
+    element_type: ElementType,
 }
 
 #[derive(Deserialize)]
-#[rename(name = "metadata-def")]
-#[allow(dead_code)]
-pub struct Metadata {
-    pub version: Option<String>,
-    pub generator: Option<String>,
-    pub copyright: Option<String>,
-    pub license: Option<String>,
+#[serde(remote = "Metadata")]
+struct MetadataDef {
+    version: Option<String>,
+    generator: Option<String>,
+    copyright: Option<String>,
+    license: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct OsmDocument {
-    #[serde(flatten)]
+    #[serde(flatten, with = "MetadataDef")]
     metadata: Metadata,
+    #[serde(deserialize_with = "element_vec_annotation")]
     elements: Vec<Element>,
+}
+
+fn element_vec_annotation<'de, D>(deserializer: D) -> Result<Vec<Element>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    struct Wrapper(#[serde(with = "ElementDef")] Element);
+
+    let v = Vec::deserialize(deserializer)?;
+    Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
 
 pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: &str) {
