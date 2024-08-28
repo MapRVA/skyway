@@ -13,7 +13,7 @@ mod readers;
 use readers::read_file;
 
 mod filter;
-use filter::parse::filter_elements;
+use filter::filter_elements;
 
 mod writers;
 use writers::write_file;
@@ -57,7 +57,7 @@ fn main() {
     let cli = Cli::parse();
     
     // will hold this document's metadata
-    let mut metadata: elements::Metadata;
+    let metadata: elements::Metadata;
     
     // channel for sending elements from the reader to either
     // a) the filter or b) the writer (if not using a filter)

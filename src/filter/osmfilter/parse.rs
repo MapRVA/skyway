@@ -1,15 +1,13 @@
 use pest::Parser;
 use pest::iterators::Pair;
 use pest_derive::Parser;
-use std::sync::mpsc::{Sender, Receiver};
-use crate::elements;
 
-use crate::filter::logic;
+use crate::filter::osmfilter::logic;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
-#[grammar = "filter/osmfilter.pest"]
+#[grammar = "filter/osmfilter/osmfilter.pest"]
 struct OSMFilterParser;
 
 fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
@@ -197,36 +195,5 @@ pub fn parse_filter(filter_content: &str) -> logic::Filter {
         _ => {
             unreachable!();
         },
-    }
-}
-
-fn _element_to_option(element: logic::Element) -> Option<elements::Element> {
-    match element {
-        logic::Element::Modifiable(e) => Some(e),
-        logic::Element::Committed(e) => Some(e),
-        logic::Element::None => None,
-    }
-}
-
-fn evaluate_filter(filter: &mut logic::Filter, element: elements::Element) -> Option<elements::Element> {
-    let mut current_element = logic::Element::Modifiable(element);
-    for statement in &filter.statements {
-        current_element = logic::evaluate_statement(statement, current_element);
-        match current_element {
-            logic::Element::Modifiable(_) => {},
-            _ => {
-                return _element_to_option(current_element)
-            }
-        }
-    }
-    _element_to_option(current_element)
-}
-
-pub fn filter_elements(filter_contents: &str, receiver: Receiver<elements::Element>, sender: Sender<elements::Element>) {
-    let mut filter = parse_filter(filter_contents);
-    for e in receiver.iter() {
-        if let Some(v) = evaluate_filter(&mut filter, e) {
-            let _ = sender.send(v);
-        }
     }
 }

@@ -1,4 +1,5 @@
 use crate::elements;
+use crate::filter::ElementFilter;
 
 #[derive(Debug)]
 pub enum Element {
@@ -132,7 +133,31 @@ pub fn evaluate_statement(statement: &Statement, element: Element) -> Element {
     }
 }
 
+fn _element_to_option(element: Element) -> Option<elements::Element> {
+    match element {
+        Element::Modifiable(e) => Some(e),
+        Element::Committed(e) => Some(e),
+        Element::None => None,
+    }
+}
+
 #[derive(Debug)]
 pub struct Filter {
     pub statements: Vec<Statement>
+}
+
+impl ElementFilter for Filter {
+    fn evaluate(&self, element: elements::Element) -> Option<elements::Element> {
+        let mut current_element = Element::Modifiable(element);
+        for statement in &self.statements {
+            current_element = evaluate_statement(statement, current_element);
+            match current_element {
+                Element::Modifiable(_) => {},
+                _ => {
+                    return _element_to_option(current_element)
+                }
+            }
+        }
+        _element_to_option(current_element)
+    }
 }
