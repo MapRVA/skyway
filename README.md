@@ -99,7 +99,7 @@ You can nest selection blocks.
     - [X] writer
     - [ ] explicitly support both overpass and official OSM JSON
   - OSM XML
-    - [ ] reader
+    - [X] reader
     - [ ] writer
   - PBF
     - [X] reader
