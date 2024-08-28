@@ -44,27 +44,42 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 changeset: node_info.changeset(),
                 user: None, // TODO
                 uid: node_info.uid(),
-                timestamp: None,
+                timestamp: None, // TODO
                 visible: Some(node_info.visible()),
                 version: node_info.version(),
             }
         },
         osmpbf::Element::DenseNode(dense_node) => {
-            let dense_node_info = dense_node.info();
-            elements::Element {
-                id: dense_node.id(),
-                tags: _get_dense_tags(dense_node.tags()),
-                element_type: elements::ElementType::Node {
-                    lat: dense_node.lat(),
-                    lon: dense_node.lon(),
-                },
-                // TODO: load metadata out of DenseNodeInfo
-                changeset: None,
-                user: None,
-                uid: None,
-                timestamp: None,
-                visible: None,
-                version: None,
+            if let Some(dense_node_info) = dense_node.info() {
+                elements::Element {
+                    id: dense_node.id(),
+                    tags: _get_dense_tags(dense_node.tags()),
+                    element_type: elements::ElementType::Node {
+                        lat: dense_node.lat(),
+                        lon: dense_node.lon(),
+                    },
+                    changeset: Some(dense_node_info.changeset()),
+                    user: None, // TODO
+                    uid: Some(dense_node_info.uid()),
+                    timestamp: None, // TODO
+                    visible: Some(dense_node_info.visible()),
+                    version: Some(dense_node_info.version()),
+                }
+            } else {
+                elements::Element {
+                    id: dense_node.id(),
+                    tags: _get_dense_tags(dense_node.tags()),
+                    element_type: elements::ElementType::Node {
+                        lat: dense_node.lat(),
+                        lon: dense_node.lon(),
+                    },
+                    changeset: None,
+                    user: None,
+                    uid: None,
+                    timestamp: None,
+                    visible: None,
+                    version: None,
+                }
             }
         },
         osmpbf::Element::Way(way) => {
@@ -78,7 +93,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 changeset: way_info.changeset(),
                 user: None, // TODO
                 uid: way_info.uid(),
-                timestamp: None,
+                timestamp: None, // TODO
                 visible: Some(way_info.visible()),
                 version: way_info.version()
             }
@@ -94,7 +109,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 changeset: relation_info.changeset(),
                 user: None, // TODO
                 uid: relation_info.uid(),
-                timestamp: None,
+                timestamp: None, // TODO
                 visible: Some(relation_info.visible()),
                 version: relation_info.version(),
             }
