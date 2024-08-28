@@ -55,9 +55,13 @@ pub struct Element {
 #[rename(name = "metadata-def")]
 #[allow(dead_code)]
 pub struct Metadata {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub generator: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub copyright: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub license: Option<String>,
 }
 
