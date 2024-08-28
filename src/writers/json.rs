@@ -35,6 +35,10 @@ pub enum ElementType {
     },
 }
 
+fn _skip_visibility(visibility: &Option<bool>) -> bool {
+    visibility.unwrap_or(true)
+}
+
 #[derive(Serialize)]
 #[rename(name = "element-def")]
 #[allow(dead_code)]
@@ -45,6 +49,8 @@ pub struct Element {
     pub uid: Option<i32>,
     pub id: i64,
     pub timestamp: Option<String>,
+    #[serde(skip_serializing_if = "_skip_visibility")]
+    pub visible: Option<bool>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub tags: HashMap<String, String>,
     #[serde(flatten)]

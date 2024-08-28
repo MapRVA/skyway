@@ -29,6 +29,7 @@ pub struct Element {
     pub uid: Option<i32>,
     pub id: i64,
     pub timestamp: Option<String>,
+    pub visible: Option<bool>,
     pub tags: HashMap<String, String>,
     pub element_type: ElementType,
 }

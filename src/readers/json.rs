@@ -51,6 +51,7 @@ struct ElementDef {
     uid: Option<i32>,
     id: i64,
     timestamp: Option<String>,
+    visible: Option<bool>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     tags: HashMap<String, String>,
     #[serde(flatten, with = "ElementTypeDef")]

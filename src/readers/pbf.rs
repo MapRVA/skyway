@@ -45,6 +45,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 user: None, // TODO
                 uid: node_info.uid(),
                 timestamp: None,
+                visible: Some(node_info.visible()),
                 version: node_info.version(),
             }
         },
@@ -62,6 +63,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 user: None,
                 uid: None,
                 timestamp: None,
+                visible: None,
                 version: None,
             }
         },
@@ -77,6 +79,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 user: None, // TODO
                 uid: way_info.uid(),
                 timestamp: None,
+                visible: Some(way_info.visible()),
                 version: way_info.version()
             }
         },
@@ -92,6 +95,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 user: None, // TODO
                 uid: relation_info.uid(),
                 timestamp: None,
+                visible: Some(relation_info.visible()),
                 version: relation_info.version(),
             }
         },
