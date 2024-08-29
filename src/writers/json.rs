@@ -32,12 +32,12 @@ pub enum ElementTypeDef {
     },
 }
 
-fn serialize_member_vec<S: Serializer>(v: &Vec<Member>, serializer: S) -> Result<S::Ok, S::Error> {
+fn serialize_member_vec<S: Serializer>(v: &[Member], serializer: S) -> Result<S::Ok, S::Error> {
     #[derive(Serialize)]
     struct Wrapper<'a>(#[serde(with = "MemberDef")] &'a Member);
 
     v.iter()
-        .map(|e| Wrapper(e))
+        .map(Wrapper)
         .collect::<Vec<_>>()
         .serialize(serializer)
 }
@@ -85,12 +85,12 @@ pub struct OsmDocument {
     pub elements: Vec<Element>,
 }
 
-fn serialize_element_vec<S: Serializer>(v: &Vec<Element>, serializer: S) -> Result<S::Ok, S::Error> {
+fn serialize_element_vec<S: Serializer>(v: &[Element], serializer: S) -> Result<S::Ok, S::Error> {
     #[derive(Serialize)]
     struct Wrapper<'a>(#[serde(with = "ElementDef")] &'a Element);
 
     v.iter()
-        .map(|e| Wrapper(e))
+        .map(Wrapper)
         .collect::<Vec<_>>()
         .serialize(serializer)
 }

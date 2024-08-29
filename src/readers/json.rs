@@ -98,7 +98,8 @@ pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src
     };
 
     // send OSM document metadata to main thread
-    metadata_sender.send(osm_json_object.metadata);
+    metadata_sender.send(osm_json_object.metadata)
+        .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step
     for e in osm_json_object.elements {

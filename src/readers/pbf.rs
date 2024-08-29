@@ -123,7 +123,7 @@ pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, metadata_send
         generator: None,
         copyright: None,
         license: None
-    });
+    }).expect("Couldn't send metdata to main thread!");
     eprintln!("Reading PBF input...");
     let reader = osmpbf::ElementReader::new(src);
     let element_count = reader.par_map_reduce(

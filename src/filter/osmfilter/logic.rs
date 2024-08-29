@@ -39,13 +39,13 @@ fn test_selector(selector: &SelectorStatement, element: &elements::Element) -> b
     match selector {
         SelectorStatement::Type { node, way, relation } => {
             match &element.element_type {
-                elements::ElementType::Node { lat, lon } => {
+                elements::ElementType::Node { .. } => {
                     node.to_owned()
                 },
-                elements::ElementType::Way { nodes } => {
+                elements::ElementType::Way { .. } => {
                     way.to_owned()
                 },
-                elements::ElementType::Relation { members } => {
+                elements::ElementType::Relation { .. } => {
                     relation.to_owned()
                 },
             }
@@ -65,6 +65,7 @@ fn test_selector(selector: &SelectorStatement, element: &elements::Element) -> b
 }
 
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Statement {
     CommitStatement,
     DropStatement,

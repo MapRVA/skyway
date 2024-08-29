@@ -57,6 +57,7 @@ fn main() {
     let cli = Cli::parse();
     
     // will hold this document's metadata
+    #[allow(clippy::needless_late_init)]
     let metadata: elements::Metadata;
     
     // channel for sending elements from the reader to either

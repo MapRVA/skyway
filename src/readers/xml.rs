@@ -107,24 +107,24 @@ struct XmlRelation {
 }
 
 // for now, bounds are not converted
-#[derive(Deserialize)]
-struct Bounds {
-    #[serde(rename = "@minlat")]
-    minlat: String,
-    #[serde(rename = "@minlon")]
-    minlon: String,
-    #[serde(rename = "@maxlat")]
-    maxlat: String,
-    #[serde(rename = "@maxlon")]
-    maxlon: String,
-}
+// #[derive(Deserialize)]
+// struct Bounds {
+//     #[serde(rename = "@minlat")]
+//     minlat: String,
+//     #[serde(rename = "@minlon")]
+//     minlon: String,
+//     #[serde(rename = "@maxlat")]
+//     maxlat: String,
+//     #[serde(rename = "@maxlon")]
+//     maxlon: String,
+// }
 
 #[derive(Deserialize)]
 #[serde(rename = "osm")]
 struct OsmXmlDocument {
     #[serde(flatten, with = "MetadataDef")]
     metadata: Metadata,
-    bounds: Bounds,
+    // bounds: Bounds,
     #[serde(default)]
     node: Vec<XmlNode>,
     #[serde(default)]
@@ -210,7 +210,8 @@ pub fn read_xml(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src:
     };
 
     // send OSM document metadata to main thread
-    metadata_sender.send(osm_xml_object.metadata);
+    metadata_sender.send(osm_xml_object.metadata)
+        .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step
     for n in osm_xml_object.node {
