@@ -8,17 +8,6 @@ pub enum Element {
     None,
 }
 
-pub struct Equals {
-    pub key: String,
-    pub value: String,
-}
-
-pub enum Modifier {
-    Set,
-    Rename,
-    Delete,
-}
-
 #[derive(Debug)]
 pub enum SelectorStatement {
     Type {
