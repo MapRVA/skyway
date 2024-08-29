@@ -2,15 +2,13 @@ use std::sync::mpsc::Receiver;
 use serde_json::to_writer;
 use std::io::Write;
 use std::collections::HashMap;
-use serde::Serialize;
-use rename_item::rename;
+use serde::{Serialize, Serializer};
 
 use crate::elements::{Element, Metadata, Member, ElementType};
 
 #[derive(Serialize)]
-#[rename(name = "member-def")]
-#[allow(dead_code)]
-pub struct Member {
+#[serde(remote = "Member")]
+pub struct MemberDef {
     #[serde(rename = "type")]
     pub t: Option<String>,
     #[serde(rename = "ref")]
@@ -19,10 +17,8 @@ pub struct Member {
 }
 
 #[derive(Serialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-#[rename(name = "element-type-def")]
-#[allow(dead_code)]
-pub enum ElementType {
+#[serde(remote = "ElementType", tag = "type", rename_all = "lowercase")]
+pub enum ElementTypeDef {
     Node {
         lat: f64,
         lon: f64,
@@ -31,18 +27,29 @@ pub enum ElementType {
         nodes: Vec<i64>,
     },
     Relation {
+        #[serde(serialize_with = "serialize_member_vec")]
         members: Vec<Member>,
     },
 }
+
+fn serialize_member_vec<S: Serializer>(v: &Vec<Member>, serializer: S) -> Result<S::Ok, S::Error> {
+    #[derive(Serialize)]
+    struct Wrapper<'a>(#[serde(with = "MemberDef")] &'a Member);
+
+    v.iter()
+        .map(|e| Wrapper(e))
+        .collect::<Vec<_>>()
+        .serialize(serializer)
+}
+
 
 fn _skip_visibility(visibility: &Option<bool>) -> bool {
     visibility.unwrap_or(true)
 }
 
 #[derive(Serialize)]
-#[rename(name = "element-def")]
-#[allow(dead_code)]
-pub struct Element {
+#[serde(remote = "Element")]
+pub struct ElementDef {
     pub changeset: Option<i64>,
     pub user: Option<String>,
     pub version: Option<i32>,
@@ -53,14 +60,13 @@ pub struct Element {
     pub visible: Option<bool>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub tags: HashMap<String, String>,
-    #[serde(flatten)]
+    #[serde(flatten, with = "ElementTypeDef")]
     pub element_type: ElementType,
 }
 
 #[derive(Serialize)]
-#[rename(name = "metadata-def")]
-#[allow(dead_code)]
-pub struct Metadata {
+#[serde(remote = "Metadata")]
+pub struct MetadataDef {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -73,9 +79,20 @@ pub struct Metadata {
 
 #[derive(Serialize)]
 pub struct OsmDocument {
-    #[serde(flatten)]
+    #[serde(flatten, with = "MetadataDef")]
     pub metadata: Metadata,
+    #[serde(serialize_with = "serialize_element_vec")]
     pub elements: Vec<Element>,
+}
+
+fn serialize_element_vec<S: Serializer>(v: &Vec<Element>, serializer: S) -> Result<S::Ok, S::Error> {
+    #[derive(Serialize)]
+    struct Wrapper<'a>(#[serde(with = "ElementDef")] &'a Element);
+
+    v.iter()
+        .map(|e| Wrapper(e))
+        .collect::<Vec<_>>()
+        .serialize(serializer)
 }
 
 pub fn write_json<D: Write>(receiver: Receiver<Element>, metadata: Metadata, dest: D) {
