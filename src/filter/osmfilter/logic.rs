@@ -1,6 +1,5 @@
 use crate::elements;
 use crate::filter::ElementFilter;
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum Element {
@@ -145,11 +144,11 @@ fn _element_to_option(element: Element) -> Option<elements::Element> {
 }
 
 #[derive(Debug)]
-pub struct Filter {
+pub struct OsmFilter {
     pub statements: Vec<Statement>
 }
 
-impl ElementFilter for Filter {
+impl ElementFilter for OsmFilter {
     fn evaluate(&self, element: elements::Element) -> Option<elements::Element> {
         let mut current_element = Element::Modifiable(element);
         for statement in &self.statements {

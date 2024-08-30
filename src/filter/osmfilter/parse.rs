@@ -2,7 +2,7 @@ use pest::Parser;
 use pest::iterators::Pair;
 use pest_derive::Parser;
 
-use crate::filter::osmfilter::logic;
+use crate::filter::osmfilter::logic::{OsmFilter, SelectorStatement, Statement};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -10,13 +10,13 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[grammar = "filter/osmfilter/osmfilter.pest"]
 struct OSMFilterParser;
 
-fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
+fn _interpret_statement(pair: Pair<Rule>) -> Statement {
     match pair.as_rule() {
         Rule::commit => {
-            logic::Statement::CommitStatement
+            Statement::CommitStatement
         },
         Rule::drop => {
-            logic::Statement::DropStatement
+            Statement::DropStatement
         }, 
         Rule::delete => {
             let mut keys = Vec::new();
@@ -26,13 +26,13 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
                     .as_str()
                     .to_owned())
             }
-            logic::Statement::DeleteStatement {
+            Statement::DeleteStatement {
                 keys,
             }
         },
         Rule::set => {
             let mut inner = pair.into_inner();
-            logic::Statement::SetStatement {
+            Statement::SetStatement {
                 key: inner.next()
                     .unwrap()
                     .as_span()
@@ -53,13 +53,13 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
                     .as_str()
                     .to_owned())
             }
-            logic::Statement::KeepStatement {
+            Statement::KeepStatement {
                 keys,
             }
         },
         Rule::rename => {
             let mut inner = pair.into_inner();
-            logic::Statement::RenameStatement {
+            Statement::RenameStatement {
                 old_key: inner.next()
                     .unwrap()
                     .as_span()
@@ -85,10 +85,10 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
             }
             let this_selector_rule = this_selector.as_rule();
             let mut this_selector_inner = this_selector.into_inner();
-            logic::Statement::SelectionBlock {
+            Statement::SelectionBlock {
                 selector: match this_selector_rule {
                     Rule::has => {
-                        logic::SelectorStatement::Has {
+                        SelectorStatement::Has {
                             key: this_selector_inner.next()
                                 .unwrap()
                                 .as_span()
@@ -97,7 +97,7 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
                         }
                     },
                     Rule::equals => {
-                        logic::SelectorStatement::Equals {
+                        SelectorStatement::Equals {
                             key: this_selector_inner.next()
                                 .unwrap()
                                 .as_span()
@@ -130,7 +130,7 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
                                 },
                             }
                         }
-                        logic::SelectorStatement::Type {
+                        SelectorStatement::Type {
                             node: this_node,
                             way: this_way,
                             relation: this_relation,
@@ -150,14 +150,14 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
 }
 
 
-fn _interpret_body(body: Pair<Rule>) -> logic::Filter {
+fn _interpret_body(body: Pair<Rule>) -> OsmFilter {
     match body.as_rule() {
         Rule::body => {
             let mut statements = Vec::new();
             for pair in body.into_inner() {
                 statements.push(_interpret_statement(pair));
             }
-            logic::Filter {
+            OsmFilter {
                 statements
             }
         },
@@ -167,7 +167,7 @@ fn _interpret_body(body: Pair<Rule>) -> logic::Filter {
     }
 }
 
-pub fn parse_filter(filter_content: &str) -> Option<logic::Filter> {
+pub fn parse_filter(filter_content: &str) -> Option<OsmFilter> {
     let mut file = match OSMFilterParser::parse(Rule::file, filter_content) {
         Ok(v) => v,
         Err(_) => {
