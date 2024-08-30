@@ -19,13 +19,15 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
             logic::Statement::DropStatement
         }, 
         Rule::delete => {
-            let mut inner = pair.into_inner();
-            logic::Statement::DeleteStatement {
-                key: inner.next()
-                    .unwrap()
+            let mut keys = Vec::new();
+            for v in pair.into_inner() {
+                keys.push(v
                     .as_span()
                     .as_str()
-                    .to_owned(),
+                    .to_owned())
+            }
+            logic::Statement::DeleteStatement {
+                keys,
             }
         },
         Rule::set => {

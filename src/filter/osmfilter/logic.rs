@@ -60,7 +60,7 @@ pub enum Statement {
     CommitStatement,
     DropStatement,
     DeleteStatement {
-        key: String,
+        keys: Vec<String>,
     },
     KeepStatement {
         keys: Vec<String>,
@@ -89,8 +89,10 @@ pub fn evaluate_statement(statement: &Statement, element: Element) -> Element {
                 Statement::DropStatement => {
                     Element::None
                 },
-                Statement::DeleteStatement { key } => {
-                    e.tags.remove(key.as_str());
+                Statement::DeleteStatement { keys } => {
+                    for key in keys {
+                        e.tags.remove(key.as_str());
+                    }
                     Element::Modifiable(e)
                 },
                 Statement::KeepStatement { keys } => {

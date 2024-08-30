@@ -22,7 +22,7 @@ header = _{ "OSMFilter " ~ version ~ NEWLINE{2}}
 set = { "SET " ~ quoted_string ~ " " ~ quoted_string }
 rename = { "RENAME " ~ quoted_string ~ " " ~ quoted_string }
 keep = { "KEEP " ~ quoted_string ~ (", " ~ quoted_string)* }
-delete = { "DELETE " ~ quoted_string }
+delete = { "DELETE " ~ quoted_string ~ (", " ~ quoted_string)* }
 commit = { "COMMIT" }
 drop = { "DROP" }
 

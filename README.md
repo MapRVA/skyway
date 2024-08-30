@@ -82,7 +82,7 @@ You can nest selection blocks.
 - `SET "key" "value"` — Sets tag `key` to `value`.
 - `KEEP "key_one", "key_two"` — Only keep tags with specified key(s), removing any others from the element.
 - `RENAME "oldkey" "newkey"` — Renames tag `oldkey` to `newkey`, keeping the value of the tag the same.
-- `DELETE "key"` — Removes tag `key` from the element.
+- `DELETE "key_one", "key_two"` — Removes tag(s) with specified key(s) from the element.
 
 ## Roadmap
 
