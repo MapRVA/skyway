@@ -19,6 +19,14 @@ Perhaps one day this tool will be fast enough to compete with other OpenStreetMa
 For now, speed is not among my primary goals.
 With that said, I welcome any performance-minded contributions!
 
+## Installation
+
+Builds of skyway are available on the [releases page](https://github.com/MapRVA/skyway/releases).
+You can also install skyway using cargo:
+```
+cargo install skyway
+```
+
 ## Usage
 
 Here is an example of how to use skyway.
