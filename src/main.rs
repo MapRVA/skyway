@@ -18,10 +18,6 @@ use filter::filter_elements;
 mod writers;
 use writers::write_file;
 
-// determine current version of crate
-
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 // use writers::write_elements;
 
 #[derive(Parser)]
@@ -52,8 +48,6 @@ struct Cli {
 }
 
 fn main() {
-    eprintln!("skyway v{}", VERSION);
-
     let cli = Cli::parse();
     
     // will hold this document's metadata
