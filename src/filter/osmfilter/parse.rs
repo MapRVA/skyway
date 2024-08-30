@@ -43,6 +43,18 @@ fn _interpret_statement(pair: Pair<Rule>) -> logic::Statement {
                     .to_owned(),
             }
         },
+        Rule::keep => {
+            let mut keys = Vec::new();
+            for v in pair.into_inner() {
+                keys.push(v
+                    .as_span()
+                    .as_str()
+                    .to_owned())
+            }
+            logic::Statement::KeepStatement {
+                keys,
+            }
+        },
         Rule::rename => {
             let mut inner = pair.into_inner();
             logic::Statement::RenameStatement {

@@ -80,6 +80,7 @@ You can nest selection blocks.
 - `COMMIT` — Commits element as it currently is to be written to output. Short-circuits the rest of the filter for that element.
 - `DROP` — Drops element, i.e. excluding it entirely from the output. Short-circuits the rest of the filter for that element.
 - `SET "key" "value"` — Sets tag `key` to `value`.
+- `KEEP "key_one", "key_two"` — Only keep tags with specified key(s), removing any others from the element.
 - `RENAME "oldkey" "newkey"` — Renames tag `oldkey` to `newkey`, keeping the value of the tag the same.
 - `DELETE "key"` — Removes tag `key` from the element.
 

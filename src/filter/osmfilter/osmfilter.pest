@@ -21,11 +21,12 @@ header = _{ "OSMFilter " ~ version ~ NEWLINE{2}}
 // modifier statements
 set = { "SET " ~ quoted_string ~ " " ~ quoted_string }
 rename = { "RENAME " ~ quoted_string ~ " " ~ quoted_string }
+keep = { "KEEP " ~ quoted_string ~ (", " ~ quoted_string)* }
 delete = { "DELETE " ~ quoted_string }
 commit = { "COMMIT" }
 drop = { "DROP" }
 
-modifier = _{ set | rename | delete | commit | drop }
+modifier = _{ set | rename | keep | delete | commit | drop }
 
 // selector statements
 

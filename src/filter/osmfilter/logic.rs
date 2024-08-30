@@ -1,5 +1,6 @@
 use crate::elements;
 use crate::filter::ElementFilter;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum Element {
@@ -61,6 +62,9 @@ pub enum Statement {
     DeleteStatement {
         key: String,
     },
+    KeepStatement {
+        keys: Vec<String>,
+    },
     SetStatement {
         key: String,
         value: String,
@@ -87,6 +91,13 @@ pub fn evaluate_statement(statement: &Statement, element: Element) -> Element {
                 },
                 Statement::DeleteStatement { key } => {
                     e.tags.remove(key.as_str());
+                    Element::Modifiable(e)
+                },
+                Statement::KeepStatement { keys } => {
+                    e.tags = e.tags.iter()
+                        .filter(|(k, _)| keys.contains(k))
+                        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                        .collect();
                     Element::Modifiable(e)
                 },
                 Statement::SetStatement { key, value } => {
