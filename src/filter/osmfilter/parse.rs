@@ -153,11 +153,11 @@ fn _interpret_body(body: Pair<Rule>) -> logic::Filter {
     }
 }
 
-pub fn parse_filter(filter_content: &str) -> logic::Filter {
+pub fn parse_filter(filter_content: &str) -> Option<logic::Filter> {
     let mut file = match OSMFilterParser::parse(Rule::file, filter_content) {
         Ok(v) => v,
-        Err(e) => {
-            panic!("Unable to parse filter: {e:?}");
+        Err(_) => {
+            return None;
         }
     };
 
@@ -185,7 +185,7 @@ pub fn parse_filter(filter_content: &str) -> logic::Filter {
         Some(a) => {
             match a.as_rule() {
                 Rule::body => {
-                    _interpret_body(a)
+                    Some(_interpret_body(a))
                 },
                 _ => {
                     unreachable!();
