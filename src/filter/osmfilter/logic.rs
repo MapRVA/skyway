@@ -1,4 +1,5 @@
 use crate::elements;
+use crate::filter::ElementFilter;
 
 #[derive(Debug)]
 pub enum Element {
@@ -147,8 +148,8 @@ pub struct OsmFilter {
     pub statements: Vec<Statement>
 }
 
-impl OsmFilter {
-    pub fn evaluate(&self, element: elements::Element) -> Option<elements::Element> {
+impl ElementFilter for OsmFilter {
+    fn evaluate(&self, element: elements::Element) -> Option<elements::Element> {
         let mut current_element = Element::Modifiable(element);
         for statement in &self.statements {
             current_element = evaluate_statement(statement, current_element);

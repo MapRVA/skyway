@@ -1,4 +1,5 @@
 use cel_interpreter::{Context, Program, Value};
+use crate::filter::ElementFilter;
 
 use crate::elements::{Element, ElementType};
 
@@ -36,8 +37,8 @@ fn _generate_context<'a>(element: &Element) -> Context<'a> {
     context
 }
 
-impl CelFilter {
-    pub fn evaluate(&self, element: Element) -> Option<Element> {
+impl ElementFilter for CelFilter {
+    fn evaluate(&self, element: Element) -> Option<Element> {
         let context = _generate_context(&element);
         match &self.0.execute(&context) {
             Ok(o) => convert_filter_output(o, element),
