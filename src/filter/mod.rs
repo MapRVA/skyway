@@ -31,10 +31,10 @@ fn _create_filter(filter_contents: &str) -> Filter {
     if let Some(f) = osmfilter {
         return Filter::OsmFilter(f);
     }
-    // let celfilter = compile_cel_filter(filter_contents);
-    // if let Some(f) = celfilter {
-    //     return Filter::CelFilter(f);
-    // }
+    let celfilter = compile_cel_filter(filter_contents);
+    if let Some(f) = celfilter {
+        return Filter::CelFilter(f);
+    }
     panic!("Unable to parse filter: {filter_contents:?}");
 }
 
