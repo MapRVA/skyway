@@ -1,9 +1,9 @@
-use std::sync::mpsc::Sender;
-use serde_json::from_str;
 use serde::{Deserialize, Deserializer};
+use serde_json::from_str;
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, Metadata, ElementType, Member};
+use crate::elements::{Element, ElementType, Member, Metadata};
 
 #[derive(Deserialize)]
 #[serde(remote = "Member")]
@@ -91,14 +91,15 @@ pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src
         Ok(v) => {
             eprintln!("Reading JSON input...");
             v
-        },
+        }
         Err(e) => {
             panic!("ERROR: Could not parse JSON file: {e:?}");
         }
     };
 
     // send OSM document metadata to main thread
-    metadata_sender.send(osm_json_object.metadata)
+    metadata_sender
+        .send(osm_json_object.metadata)
         .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step

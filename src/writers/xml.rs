@@ -1,10 +1,10 @@
-use std::sync::mpsc::Receiver;
-use std::fmt::Write;
-use serde::{Serialize, Serializer};
 use quick_xml::se::to_writer_with_root;
+use serde::{Serialize, Serializer};
 use std::collections::HashMap;
+use std::fmt::Write;
+use std::sync::mpsc::Receiver;
 
-use crate::elements::{Element, Metadata, Member, ElementType};
+use crate::elements::{Element, ElementType, Member, Metadata};
 
 #[derive(Serialize)]
 #[serde(remote = "Member")]
@@ -42,7 +42,6 @@ pub struct XmlElementMeta {
     #[serde(rename = "@timestamp")]
     timestamp: Option<String>,
 }
-
 
 #[derive(Serialize)]
 struct XmlNode {
@@ -133,10 +132,7 @@ where
 fn _convert_tags(element_tags: HashMap<String, String>) -> Vec<XmlTags> {
     let mut tags = Vec::new();
     for (k, v) in element_tags {
-        tags.push(XmlTags {
-            k,
-            v,
-        });
+        tags.push(XmlTags { k, v });
     }
     tags
 }
@@ -144,14 +140,14 @@ fn _convert_tags(element_tags: HashMap<String, String>) -> Vec<XmlTags> {
 fn _convert_nodes(way_nodes: Vec<i64>) -> Vec<XmlWayNode> {
     let mut out_nodes = Vec::new();
     for nd_ref in way_nodes {
-        out_nodes.push(XmlWayNode {
-            nd_ref,
-        });
+        out_nodes.push(XmlWayNode { nd_ref });
     }
     out_nodes
 }
 
-fn _split_and_convert_elements<I>(received_elements: I) -> (Vec<XmlNode>, Vec<XmlWay>, Vec<XmlRelation>) 
+fn _split_and_convert_elements<I>(
+    received_elements: I,
+) -> (Vec<XmlNode>, Vec<XmlWay>, Vec<XmlRelation>)
 where
     I: Iterator<Item = Element>,
 {
@@ -170,28 +166,22 @@ where
         };
         let tags = _convert_tags(e.tags);
         match e.element_type {
-            ElementType::Node { lat, lon } => {
-                nodes.push(XmlNode {
-                    lat,
-                    lon,
-                    meta,
-                    tags,
-                })
-            }
-            ElementType::Way { nodes } => {
-                ways.push(XmlWay {
-                    meta,
-                    nd: _convert_nodes(nodes),
-                    tags,
-                })
-            },
-            ElementType::Relation { members } => {
-                relations.push(XmlRelation {
-                    meta,
-                    member: members,
-                    tags,
-                })
-            }
+            ElementType::Node { lat, lon } => nodes.push(XmlNode {
+                lat,
+                lon,
+                meta,
+                tags,
+            }),
+            ElementType::Way { nodes } => ways.push(XmlWay {
+                meta,
+                nd: _convert_nodes(nodes),
+                tags,
+            }),
+            ElementType::Relation { members } => relations.push(XmlRelation {
+                meta,
+                member: members,
+                tags,
+            }),
         }
     }
     (nodes, ways, relations)
@@ -214,15 +204,16 @@ pub fn write_xml<D: std::io::Write>(receiver: Receiver<Element>, metadata: Metad
 
     let mut writer = ToFmtWrite(dest);
 
-    writer.write_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+    writer
+        .write_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         .expect("Unable to write header to XML file!");
 
     match to_writer_with_root(writer, "osm", &xml_osm_document) {
         Ok(_) => {
             eprintln!("Successfully wrote output.");
-        },
+        }
         Err(e) => {
             panic!("XML serialization error: {e:?}");
-        },
+        }
     }
 }

@@ -1,10 +1,13 @@
-use std::sync::mpsc::Sender;
 use quick_xml::de::from_str;
 use serde::{Deserialize, Deserializer};
+use serde_aux::field_attributes::{
+    deserialize_bool_from_anything, deserialize_number_from_string,
+    deserialize_option_number_from_string,
+};
 use std::collections::HashMap;
-use serde_aux::field_attributes::{deserialize_number_from_string, deserialize_bool_from_anything, deserialize_option_number_from_string};
+use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, Metadata, ElementType, Member};
+use crate::elements::{Element, ElementType, Member, Metadata};
 
 #[derive(Deserialize)]
 #[serde(remote = "Member", rename = "member")]
@@ -44,18 +47,29 @@ pub struct XmlElementMeta {
     id: i64,
     #[serde(rename = "@user")]
     user: Option<String>,
-    #[serde(rename = "@uid",  deserialize_with = "deserialize_option_number_from_string")]
+    #[serde(
+        rename = "@uid",
+        deserialize_with = "deserialize_option_number_from_string"
+    )]
     uid: Option<i32>,
-    #[serde(rename = "@visible", deserialize_with = "deserialize_bool_from_anything")]
+    #[serde(
+        rename = "@visible",
+        deserialize_with = "deserialize_bool_from_anything"
+    )]
     visible: bool,
-    #[serde(rename = "@version", deserialize_with = "deserialize_option_number_from_string")]
+    #[serde(
+        rename = "@version",
+        deserialize_with = "deserialize_option_number_from_string"
+    )]
     version: Option<i32>,
-    #[serde(rename = "@changeset", deserialize_with = "deserialize_option_number_from_string")]
+    #[serde(
+        rename = "@changeset",
+        deserialize_with = "deserialize_option_number_from_string"
+    )]
     changeset: Option<i64>,
     #[serde(rename = "@timestamp")]
     timestamp: Option<String>,
 }
-
 
 #[derive(Deserialize)]
 struct XmlNode {
@@ -149,52 +163,46 @@ fn _convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
 
 fn _convert_element(xml_element: XmlElement) -> Element {
     match xml_element {
-        XmlElement::Node(node) => {
-            Element {
-                changeset: node.meta.changeset,
-                user: node.meta.user,
-                version: node.meta.version,
-                uid: node.meta.uid,
-                id: node.meta.id,
-                timestamp: node.meta.timestamp,
-                visible: Some(node.meta.visible),
-                tags: _convert_tags(node.tags),
-                element_type: ElementType::Node {
-                    lat: node.lat,
-                    lon: node.lon,
-                }
-            }
+        XmlElement::Node(node) => Element {
+            changeset: node.meta.changeset,
+            user: node.meta.user,
+            version: node.meta.version,
+            uid: node.meta.uid,
+            id: node.meta.id,
+            timestamp: node.meta.timestamp,
+            visible: Some(node.meta.visible),
+            tags: _convert_tags(node.tags),
+            element_type: ElementType::Node {
+                lat: node.lat,
+                lon: node.lon,
+            },
         },
-        XmlElement::Way(way) => {
-            Element {
-                changeset: way.meta.changeset,
-                user: way.meta.user,
-                version: way.meta.version,
-                uid: way.meta.uid,
-                id: way.meta.id,
-                timestamp: way.meta.timestamp,
-                visible: Some(way.meta.visible),
-                tags: _convert_tags(way.tags),
-                element_type: ElementType::Way {
-                    nodes: way.nd.iter().map(|n| n.nd_ref).collect()
-                }
-            }
+        XmlElement::Way(way) => Element {
+            changeset: way.meta.changeset,
+            user: way.meta.user,
+            version: way.meta.version,
+            uid: way.meta.uid,
+            id: way.meta.id,
+            timestamp: way.meta.timestamp,
+            visible: Some(way.meta.visible),
+            tags: _convert_tags(way.tags),
+            element_type: ElementType::Way {
+                nodes: way.nd.iter().map(|n| n.nd_ref).collect(),
+            },
         },
-        XmlElement::Relation(rel) => {
-            Element {
-                changeset: rel.meta.changeset,
-                user: rel.meta.user,
-                version: rel.meta.version,
-                uid: rel.meta.uid,
-                id: rel.meta.id,
-                timestamp: rel.meta.timestamp,
-                visible: Some(rel.meta.visible),
-                tags: _convert_tags(rel.tags),
-                element_type: ElementType::Relation {
-                    members: rel.member,
-                }
-            }
-        }
+        XmlElement::Relation(rel) => Element {
+            changeset: rel.meta.changeset,
+            user: rel.meta.user,
+            version: rel.meta.version,
+            uid: rel.meta.uid,
+            id: rel.meta.id,
+            timestamp: rel.meta.timestamp,
+            visible: Some(rel.meta.visible),
+            tags: _convert_tags(rel.tags),
+            element_type: ElementType::Relation {
+                members: rel.member,
+            },
+        },
     }
 }
 
@@ -203,14 +211,15 @@ pub fn read_xml(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src:
         Ok(v) => {
             eprintln!("Reading XML input...");
             v
-        },
+        }
         Err(e) => {
             panic!("ERROR: Could not parse XML file: {e:?}");
         }
     };
 
     // send OSM document metadata to main thread
-    metadata_sender.send(osm_xml_object.metadata)
+    metadata_sender
+        .send(osm_xml_object.metadata)
         .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step

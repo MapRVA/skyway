@@ -1,5 +1,5 @@
-use pest::Parser;
 use pest::iterators::Pair;
+use pest::Parser;
 use pest_derive::Parser;
 
 use crate::filter::osmfilter::logic::{OsmFilter, SelectorStatement, Statement};
@@ -12,73 +12,39 @@ struct OSMFilterParser;
 
 fn _interpret_statement(pair: Pair<Rule>) -> Statement {
     match pair.as_rule() {
-        Rule::commit => {
-            Statement::CommitStatement
-        },
-        Rule::drop => {
-            Statement::DropStatement
-        }, 
+        Rule::commit => Statement::CommitStatement,
+        Rule::drop => Statement::DropStatement,
         Rule::delete => {
             let mut keys = Vec::new();
             for v in pair.into_inner() {
-                keys.push(v
-                    .as_span()
-                    .as_str()
-                    .to_owned())
+                keys.push(v.as_span().as_str().to_owned())
             }
-            Statement::DeleteStatement {
-                keys,
-            }
-        },
+            Statement::DeleteStatement { keys }
+        }
         Rule::set => {
             let mut inner = pair.into_inner();
             Statement::SetStatement {
-                key: inner.next()
-                    .unwrap()
-                    .as_span()
-                    .as_str()
-                    .to_owned(),
-                value: inner.next()
-                    .unwrap()
-                    .as_span()
-                    .as_str()
-                    .to_owned(),
+                key: inner.next().unwrap().as_span().as_str().to_owned(),
+                value: inner.next().unwrap().as_span().as_str().to_owned(),
             }
-        },
+        }
         Rule::keep => {
             let mut keys = Vec::new();
             for v in pair.into_inner() {
-                keys.push(v
-                    .as_span()
-                    .as_str()
-                    .to_owned())
+                keys.push(v.as_span().as_str().to_owned())
             }
-            Statement::KeepStatement {
-                keys,
-            }
-        },
+            Statement::KeepStatement { keys }
+        }
         Rule::rename => {
             let mut inner = pair.into_inner();
             Statement::RenameStatement {
-                old_key: inner.next()
-                    .unwrap()
-                    .as_span()
-                    .as_str()
-                    .to_owned(),
-                new_key: inner.next()
-                    .unwrap()
-                    .as_span()
-                    .as_str()
-                    .to_owned(),
+                old_key: inner.next().unwrap().as_span().as_str().to_owned(),
+                new_key: inner.next().unwrap().as_span().as_str().to_owned(),
             }
-        },
+        }
         Rule::selection_block => {
             let mut inner = pair.into_inner();
-            let this_selector = inner.next()
-                .unwrap()
-                .into_inner()
-                .next()
-                .unwrap();
+            let this_selector = inner.next().unwrap().into_inner().next().unwrap();
             let mut statements = Vec::new();
             for p in inner {
                 statements.push(_interpret_statement(p));
@@ -87,28 +53,27 @@ fn _interpret_statement(pair: Pair<Rule>) -> Statement {
             let mut this_selector_inner = this_selector.into_inner();
             Statement::SelectionBlock {
                 selector: match this_selector_rule {
-                    Rule::has => {
-                        SelectorStatement::Has {
-                            key: this_selector_inner.next()
-                                .unwrap()
-                                .as_span()
-                                .as_str()
-                                .to_owned()
-                        }
+                    Rule::has => SelectorStatement::Has {
+                        key: this_selector_inner
+                            .next()
+                            .unwrap()
+                            .as_span()
+                            .as_str()
+                            .to_owned(),
                     },
-                    Rule::equals => {
-                        SelectorStatement::Equals {
-                            key: this_selector_inner.next()
-                                .unwrap()
-                                .as_span()
-                                .as_str()
-                                .to_owned(),
-                            value: this_selector_inner.next()
-                                .unwrap()
-                                .as_span()
-                                .as_str()
-                                .to_owned(),
-                        }
+                    Rule::equals => SelectorStatement::Equals {
+                        key: this_selector_inner
+                            .next()
+                            .unwrap()
+                            .as_span()
+                            .as_str()
+                            .to_owned(),
+                        value: this_selector_inner
+                            .next()
+                            .unwrap()
+                            .as_span()
+                            .as_str()
+                            .to_owned(),
                     },
                     Rule::type_selector => {
                         let mut this_node = false;
@@ -118,16 +83,16 @@ fn _interpret_statement(pair: Pair<Rule>) -> Statement {
                             match p.as_rule() {
                                 Rule::node => {
                                     this_node = true;
-                                },
+                                }
                                 Rule::way => {
                                     this_way = true;
-                                },
+                                }
                                 Rule::relation => {
                                     this_relation = true;
-                                },
+                                }
                                 _ => {
                                     unreachable!();
-                                },
+                                }
                             }
                         }
                         SelectorStatement::Type {
@@ -135,20 +100,19 @@ fn _interpret_statement(pair: Pair<Rule>) -> Statement {
                             way: this_way,
                             relation: this_relation,
                         }
-                    },
+                    }
                     _ => {
                         unreachable!();
-                    },
+                    }
                 },
                 statements,
             }
-        },
+        }
         _ => {
             unreachable!();
-        },
+        }
     }
 }
-
 
 fn _interpret_body(body: Pair<Rule>) -> OsmFilter {
     match body.as_rule() {
@@ -157,13 +121,11 @@ fn _interpret_body(body: Pair<Rule>) -> OsmFilter {
             for pair in body.into_inner() {
                 statements.push(_interpret_statement(pair));
             }
-            OsmFilter {
-                statements
-            }
-        },
+            OsmFilter { statements }
+        }
         _ => {
             unreachable!();
-        },
+        }
     }
 }
 
@@ -184,30 +146,26 @@ pub fn parse_filter(filter_content: &str) -> Option<OsmFilter> {
                     if filter_version != VERSION {
                         eprintln!("WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.", filter_version, VERSION);
                     }
-                },
+                }
                 _ => {
                     unreachable!();
                 }
             }
-        },
+        }
         _ => {
             unreachable!();
         }
     }
 
     match file.next() {
-        Some(a) => {
-            match a.as_rule() {
-                Rule::body => {
-                    Some(_interpret_body(a))
-                },
-                _ => {
-                    unreachable!();
-                }
+        Some(a) => match a.as_rule() {
+            Rule::body => Some(_interpret_body(a)),
+            _ => {
+                unreachable!();
             }
         },
         _ => {
             unreachable!();
-        },
+        }
     }
 }

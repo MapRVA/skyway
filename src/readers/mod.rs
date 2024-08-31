@@ -1,5 +1,5 @@
-use std::sync::mpsc::Sender;
 use std::io::Read;
+use std::sync::mpsc::Sender;
 
 use crate::elements;
 
@@ -12,7 +12,12 @@ use pbf::read_pbf;
 mod xml;
 use xml::read_xml;
 
-pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, metadata_sender: Sender<elements::Metadata>, from: &str, mut source: S) {
+pub fn read_file<S: Read + Send>(
+    sender: Sender<elements::Element>,
+    metadata_sender: Sender<elements::Metadata>,
+    from: &str,
+    mut source: S,
+) {
     match from {
         "json" => {
             let mut buffer = String::new();
@@ -20,10 +25,10 @@ pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, metadata_sen
                 Ok(_) => buffer.as_str(),
                 Err(e) => {
                     panic!("Error reading input: {e:?}");
-                },
+                }
             };
             read_json(sender, metadata_sender, source_str);
-        },
+        }
         "pbf" => read_pbf(sender, metadata_sender, source),
         "xml" => {
             let mut buffer = String::new();
@@ -31,10 +36,10 @@ pub fn read_file<S: Read + Send>(sender: Sender<elements::Element>, metadata_sen
                 Ok(_) => buffer.as_str(),
                 Err(e) => {
                     panic!("Error reading input: {e:?}");
-                },
+                }
             };
             read_xml(sender, metadata_sender, source_str);
-        },
-        _ => panic!("Filetype not supported!")
+        }
+        _ => panic!("Filetype not supported!"),
     }
 }

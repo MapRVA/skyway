@@ -1,10 +1,10 @@
-use std::sync::mpsc::Receiver;
-use serde_json::to_writer;
-use std::io::Write;
-use std::collections::HashMap;
 use serde::{Serialize, Serializer};
+use serde_json::to_writer;
+use std::collections::HashMap;
+use std::io::Write;
+use std::sync::mpsc::Receiver;
 
-use crate::elements::{Element, Metadata, Member, ElementType};
+use crate::elements::{Element, ElementType, Member, Metadata};
 
 #[derive(Serialize)]
 #[serde(remote = "Member")]
@@ -41,7 +41,6 @@ fn serialize_member_vec<S: Serializer>(v: &[Member], serializer: S) -> Result<S:
         .collect::<Vec<_>>()
         .serialize(serializer)
 }
-
 
 fn _skip_visibility(visibility: &Option<bool>) -> bool {
     visibility.unwrap_or(true)
@@ -109,9 +108,9 @@ pub fn write_json<D: Write>(receiver: Receiver<Element>, metadata: Metadata, des
     match to_writer(dest, &osm_document) {
         Ok(_) => {
             eprintln!("Successfully wrote output.");
-        },
+        }
         Err(e) => {
             panic!("JSON serialization error: {e:?}");
-        },
+        }
     }
 }

@@ -1,9 +1,9 @@
 mod cel;
 mod osmfilter;
 
-use osmfilter::parse::parse_filter;
 use cel::compile_cel_filter;
-use std::sync::mpsc::{Sender, Receiver};
+use osmfilter::parse::parse_filter;
+use std::sync::mpsc::{Receiver, Sender};
 
 use crate::elements;
 
@@ -23,7 +23,11 @@ fn _create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
     panic!("Unable to parse filter: {filter_contents:?}");
 }
 
-pub fn filter_elements(filter_contents: &str, receiver: Receiver<elements::Element>, sender: Sender<elements::Element>) {
+pub fn filter_elements(
+    filter_contents: &str,
+    receiver: Receiver<elements::Element>,
+    sender: Sender<elements::Element>,
+) {
     let filter = _create_filter(filter_contents);
     for e in receiver.iter() {
         if let Some(v) = filter.evaluate(e) {

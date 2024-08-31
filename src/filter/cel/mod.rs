@@ -1,5 +1,5 @@
-use cel_interpreter::{Context, Program, Value};
 use crate::filter::ElementFilter;
+use cel_interpreter::{Context, Program, Value};
 
 use crate::elements::{Element, ElementType};
 
@@ -13,27 +13,40 @@ fn convert_filter_output(value: &Value, element: Element) -> Option<Element> {
             } else {
                 None
             }
-        },
+        }
         _ => {
             panic!("Unexpected output from CEL filter (not a boolean): {value:?}");
-        },
+        }
     }
 }
 
 fn _generate_context<'a>(element: &Element) -> Context<'a> {
     let mut context = Context::default();
-    context.add_variable("tags", element.tags.to_owned()).unwrap();
-    context.add_variable("changeset", element.changeset).unwrap();
-    context.add_variable("user", element.user.to_owned()).unwrap();
+    context
+        .add_variable("tags", element.tags.to_owned())
+        .unwrap();
+    context
+        .add_variable("changeset", element.changeset)
+        .unwrap();
+    context
+        .add_variable("user", element.user.to_owned())
+        .unwrap();
     context.add_variable("uid", element.uid).unwrap();
     context.add_variable("id", element.id).unwrap();
-    context.add_variable("timestamp", element.timestamp.to_owned()).unwrap();
+    context
+        .add_variable("timestamp", element.timestamp.to_owned())
+        .unwrap();
     context.add_variable("visible", element.visible).unwrap();
-    context.add_variable("type", match element.element_type {
-        ElementType::Node { .. } => "node",
-        ElementType::Way { .. } => "way",
-        ElementType::Relation { .. } => "relation",
-    }).unwrap();
+    context
+        .add_variable(
+            "type",
+            match element.element_type {
+                ElementType::Node { .. } => "node",
+                ElementType::Way { .. } => "way",
+                ElementType::Relation { .. } => "relation",
+            },
+        )
+        .unwrap();
     context
 }
 

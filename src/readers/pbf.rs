@@ -1,6 +1,6 @@
-use std::sync::mpsc::Sender;
-use std::io::Read;
 use std::collections::HashMap;
+use std::io::Read;
+use std::sync::mpsc::Sender;
 
 use crate::elements;
 
@@ -26,7 +26,7 @@ fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Member {
             osmpbf::RelMemberType::Relation => String::from("relation"),
         }),
         id: member.member_id,
-        role: Some(member.role().unwrap().to_owned())
+        role: Some(member.role().unwrap().to_owned()),
     }
 }
 
@@ -48,7 +48,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 visible: Some(node_info.visible()),
                 version: node_info.version(),
             }
-        },
+        }
         osmpbf::Element::DenseNode(dense_node) => {
             if let Some(dense_node_info) = dense_node.info() {
                 elements::Element {
@@ -81,7 +81,7 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                     version: None,
                 }
             }
-        },
+        }
         osmpbf::Element::Way(way) => {
             let way_info = way.info();
             elements::Element {
@@ -95,9 +95,9 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 uid: way_info.uid(),
                 timestamp: None, // TODO
                 visible: Some(way_info.visible()),
-                version: way_info.version()
+                version: way_info.version(),
             }
-        },
+        }
         osmpbf::Element::Relation(relation) => {
             let relation_info = relation.info();
             elements::Element {
@@ -113,30 +113,34 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                 visible: Some(relation_info.visible()),
                 version: relation_info.version(),
             }
-        },
-    } 
+        }
+    }
 }
 
-pub fn read_pbf<S: Read + Send>(sender: Sender<elements::Element>, metadata_sender: Sender<elements::Metadata>, src: S) {
-    metadata_sender.send(elements::Metadata{
-        version: None,
-        generator: None,
-        copyright: None,
-        license: None
-    }).expect("Couldn't send metdata to main thread!");
+pub fn read_pbf<S: Read + Send>(
+    sender: Sender<elements::Element>,
+    metadata_sender: Sender<elements::Metadata>,
+    src: S,
+) {
+    metadata_sender
+        .send(elements::Metadata {
+            version: None,
+            generator: None,
+            copyright: None,
+            license: None,
+        })
+        .expect("Couldn't send metdata to main thread!");
     eprintln!("Reading PBF input...");
     let reader = osmpbf::ElementReader::new(src);
     let element_count = reader.par_map_reduce(
-        |element| {
-            match sender.send(_convert_element(element)) {
-                Ok(_) => 1,
-                Err(e) => {
-                    panic!("ERROR: Unable to send an element: {e:?}");
-                }
+        |element| match sender.send(_convert_element(element)) {
+            Ok(_) => 1,
+            Err(e) => {
+                panic!("ERROR: Unable to send an element: {e:?}");
             }
         },
         || 0_u64,
-        |a, b| a + b
+        |a, b| a + b,
     );
     eprintln!("Finished reading {element_count:?} elements from source.");
 }

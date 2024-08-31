@@ -9,16 +9,9 @@ pub struct Member {
 
 #[derive(Debug)]
 pub enum ElementType {
-    Node {
-        lat: f64,
-        lon: f64,
-    },
-    Way {
-        nodes: Vec<i64>,
-    },
-    Relation {
-        members: Vec<Member>,
-    },
+    Node { lat: f64, lon: f64 },
+    Way { nodes: Vec<i64> },
+    Relation { members: Vec<Member> },
 }
 
 #[derive(Debug)]

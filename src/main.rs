@@ -1,9 +1,9 @@
+use clap::Parser;
+use std::fs;
+use std::io::{stdin, stdout};
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
-use std::io::{stdin, stdout};
-use std::fs;
-use clap::Parser;
-use std::path::PathBuf;
 
 // use config::load_config;
 
@@ -49,11 +49,11 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
-    
+
     // will hold this document's metadata
     #[allow(clippy::needless_late_init)]
     let metadata: elements::Metadata;
-    
+
     // channel for sending elements from the reader to either
     // a) the filter or b) the writer (if not using a filter)
     let (reader_sender, reader_reciever) = mpsc::channel();
@@ -62,27 +62,21 @@ fn main() {
     // spawn a thread that reads the file and spits OSM element
     // data into the channel, to be passed into the filter
     // or data writer
-    let read_thread = thread::spawn(move || {
-        match cli.input {
-            None => {
-                read_file(reader_sender, metadata_sender, &cli.from, stdin())
-            },
-            Some(a) => match fs::File::open(PathBuf::from(a)) {
-                Ok(b) => {
-                    read_file(reader_sender, metadata_sender, &cli.from, b)
-                },
-                Err(e) => {
-                    panic!("Unable to open input file: {e:?}");
-                }
+    let read_thread = thread::spawn(move || match cli.input {
+        None => read_file(reader_sender, metadata_sender, &cli.from, stdin()),
+        Some(a) => match fs::File::open(PathBuf::from(a)) {
+            Ok(b) => read_file(reader_sender, metadata_sender, &cli.from, b),
+            Err(e) => {
+                panic!("Unable to open input file: {e:?}");
             }
-        }
+        },
     });
 
     metadata = match metadata_reciever.iter().next() {
         Some(m) => m,
         None => {
             panic!("No metadata received from reader!");
-        },
+        }
     };
 
     // stack of filter threads that we'll need to hold open until each
@@ -105,7 +99,7 @@ fn main() {
                     panic!("Unable to read filter file: {e:?}");
                 }
             };
-            (this_sender, next_receiver) = mpsc::channel(); 
+            (this_sender, next_receiver) = mpsc::channel();
             filter_threads.push(Some(thread::spawn(move || {
                 filter_elements(filter_contents.as_str(), last_reciever, this_sender);
             })));
@@ -113,29 +107,22 @@ fn main() {
         }
     }
 
-    let write_thread =  thread::spawn(move || {
-        match cli.output {
-            None => {
-                write_file(last_reciever, metadata, &cli.to, stdout())
-            },
-            Some(a) => match fs::File::create(PathBuf::from(a)) {
-                Ok(b) => {
-                    write_file(last_reciever, metadata, &cli.to, b)
-                },
-                Err(e) => {
-                    panic!("Unable to open output file: {e:?}");
-                }
+    let write_thread = thread::spawn(move || match cli.output {
+        None => write_file(last_reciever, metadata, &cli.to, stdout()),
+        Some(a) => match fs::File::create(PathBuf::from(a)) {
+            Ok(b) => write_file(last_reciever, metadata, &cli.to, b),
+            Err(e) => {
+                panic!("Unable to open output file: {e:?}");
             }
-
-        }
+        },
     });
-        
 
     read_thread.join().expect("Couldn't join on read thread!!");
     for filter_thread in filter_threads {
         let Some(ft) = filter_thread else { continue };
         ft.join().expect("Couldn't join on filter thread!!");
     }
-    write_thread.join().expect("Couldn't join on write thread!!");
-    
+    write_thread
+        .join()
+        .expect("Couldn't join on write thread!!");
 }
