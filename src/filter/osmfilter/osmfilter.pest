@@ -16,7 +16,7 @@ major = { ASCII_DIGIT+ }
 minor = { ASCII_DIGIT+ }
 patch = { ASCII_DIGIT+ }
 version = { major ~ "." ~ minor ~ "." ~ patch}
-header = _{ "OSMFilter " ~ version ~ NEWLINE{2}}
+header = _{ "OSMFilter " ~ "v"? ~ version ~ NEWLINE{2}}
 
 // modifier statements
 set = { "SET " ~ quoted_string ~ " " ~ quoted_string }
