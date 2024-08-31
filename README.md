@@ -54,7 +54,7 @@ The file extension does not matter; skyway will detect if the file is in CEL or 
 
 ### Filtering with CEL
 
-skyway supports the Common Expression Language (CEL) for filtering elements.
+skyway supports the [Common Expression Language](https://cel.dev/) (CEL) for filtering elements.
 Each time the filter is evaluated for a given element, that expression's context (local variables) is updated to match the element's metadata.
 For now, **CEL filters may only return a boolean value**, indicating whether or not the element should be kept.
 Please [file an issue](https://github.com/MapRVA/skyway/issues) if you'd like to see more complex CEL return types supported.
@@ -157,7 +157,7 @@ You can nest selection blocks.
 Before contributing, please review our [code of conduct](CODE_OF_CONDUCT.md).
 
 Thank you for your interest in contributing to skyway!
-Issues, pull requests, and email communication are all welcome.
+[Issues](https://github.com/MapRVA/skyway/issues), [pull requests](https://github.com/MapRVA/skyway/pulls), and [emails](mailto:email@jacobhall.net) are all welcome.
 If you would like to make drastic changes to skyway, I recommend reaching out first so that we can coordinate our efforts.
 
 ## Alternatives
