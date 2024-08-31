@@ -89,7 +89,7 @@ After the header, you can use any combination of **selectors** and **modifiers**
 Every selector must be followed by a **tab-indented** block of one or more modifiers or nested selectors.
 Comments start with `#` and extend through the end of a line.
 ```
-OSMFilter v0.0.1
+OSMFilter v0.0.2
 
 TYPE way                                 # selects ways
 	HAS "footway"                    # selects elements with a "footway" tag (any value)
