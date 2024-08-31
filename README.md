@@ -41,21 +41,47 @@ This enables you to stream data into and out of skyway, like this;
 cat input-file.pbf | skyway --from pbf --to json > output-file.json
 ```
 
-### Filtering Elements
+## Filtering Elements
 
-OSMFilter is an experimental filter format, providing a language for transforming element data as they pass through skyway.
+A skyway filter 
 If you do not provide a filter to skyway, it will convert the original input as faithfully as it can.
+
+### Running skyway with a Filter
+
+To add a filter to skyway, add the `--filter [FILTER FILE]` option.
+You may pass multiple filters to evaluate in sequence by passing multiple `--filter` flags.
+The file extension does not matter; skyway will detect if the file is in CEL or OSMFilter and parse it accordingly.
+
+### Filtering with CEL
+
+skyway supports the Common Expression Language (CEL) for filtering elements.
+Each time the filter is evaluated for a given element, that expression's context (local variables) is updated to match the element's metadata.
+For now, **CEL filters may only return a boolean value**, indicating whether or not the element should be kept.
+Please [file an issue](https://github.com/MapRVA/skyway/issues) if you'd like to see more complex CEL return types supported.
+
+#### CEL Context
+
+The following table describes each variable available to your expression:
+| Variable Name  | CEL Type                                      |
+| -------------- | --------------------------------------------- |
+| `tags`         | `map` with `string` keys and `string` values  |
+| `changeset`    | `int`                                         |
+| `user`         | `string`                                      |
+| `uid`          | `int`                                         |
+| `id`           | `int`                                         |
+| `timestamp`    | `string`                                      |
+| `visible`      | `bool`                                        |
+| `type`         | `string` ("node", "way", or "relation")       |
+
+
+### Filtering with OSMFilter
+
+OSMFilter is a bespoke filtering language designed for skyway, allowing you to transform element data as they pass through skyway.
 
 > [!IMPORTANT]
 > This feature is intended to be the biggest value-add of skyway, but I haven't yet settled on a syntax that feels right.
 > I would **massively appreciate** your feedback!
 > How would your ideal filter language work?
-
-#### Running skyway With a Filter
-
-To add a filter to skyway, add the `--filter [FILTER FILE]` option.
-
-#### OSMFilter Syntax
 
 An OSMFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, **followed by at least two newlines**.
 skyway will warn you if there is a version mismatch.
