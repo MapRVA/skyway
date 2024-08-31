@@ -1,23 +1,42 @@
+mod cel;
 mod osmfilter;
 
 use osmfilter::parse::parse_filter;
+use osmfilter::logic::OsmFilter;
+use cel::{CelFilter, compile_cel_filter};
 use std::sync::mpsc::{Sender, Receiver};
 
 use crate::elements;
 
-pub trait ElementFilter {
-    fn evaluate(&self, element: elements::Element) -> Option<elements::Element>;
+enum Filter {
+    OsmFilter(OsmFilter),
+    CelFilter(CelFilter),
 }
 
+impl Filter {
+    fn evaluate(&self, element: elements::Element) -> Option<elements::Element> {
+        match self {
+            Filter::OsmFilter(f) => {
+                f.evaluate(element)
+            },
+            Filter::CelFilter(f) => {
+                f.evaluate(element)
+            }
+        }
+    }
+}
 
-fn _create_filter(filter_contents: &str) -> impl ElementFilter {
+fn _create_filter(filter_contents: &str) -> Filter {
     let osmfilter = parse_filter(filter_contents);
     if let Some(f) = osmfilter {
-        return f;
+        return Filter::OsmFilter(f);
     }
+    // let celfilter = compile_cel_filter(filter_contents);
+    // if let Some(f) = celfilter {
+    //     return Filter::CelFilter(f);
+    // }
     panic!("Unable to parse filter: {filter_contents:?}");
 }
-
 
 pub fn filter_elements(filter_contents: &str, receiver: Receiver<elements::Element>, sender: Sender<elements::Element>) {
     let filter = _create_filter(filter_contents);
