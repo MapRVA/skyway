@@ -43,7 +43,7 @@ cat input-file.pbf | skyway --from pbf --to json > output-file.json
 
 ## Filtering Elements
 
-A skyway filter 
+A skyway filter decides whether or not to keep an element, or possibly transforms it.
 If you do not provide a filter to skyway, it will convert the original input as faithfully as it can.
 
 ### Running skyway with a Filter
