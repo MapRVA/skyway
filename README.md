@@ -142,15 +142,17 @@ You can nest selection blocks.
 - Filtering
   - [X] Add basic filtering support
   - [ ] Iterate after getting feedback on filter syntax / featureset
-  - [ ] Support multiple filters in sequence
+  - [X] Support multiple filters in sequence
 - Change files
   - [ ] Investigate supporting change file input/output
 - Testing
   - [ ] Begin writing test suite
 - Build
   - [ ] Document build process for Linux
-  - [ ] Release binary for Linux
+  - [X] Release binary for Linux
   - [ ] Investigate supporting other platforms
+- Optimization
+  - [ ] Explore ways to improve performance
 
 ## Contributing
 
