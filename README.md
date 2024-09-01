@@ -170,7 +170,7 @@ For a complete list of alternatives, please see the [OSM file formats page](http
 
 ## License
 
-skyway is released under the GPLv3+ license.
+skyway is released under GPLv3 or any later version.
 Please see [LICENSE.md](LICENSE.md) for more information.
 
 Example data in this repository is from [OpenStreetMap](https://www.openstreetmap.org), and is therefore subject to the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/).
