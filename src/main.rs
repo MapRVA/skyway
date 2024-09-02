@@ -1,24 +1,66 @@
 use clap::Parser;
+use log::{error, info};
 use std::fs;
 use std::io::{stdin, stdout};
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
-
-// use config::load_config;
+use thiserror::Error;
 
 mod elements;
 
 mod readers;
-use readers::read_file;
+use readers::{read_file, InputFileFormat};
 
 mod filter;
 use filter::filter_elements;
 
 mod writers;
-use writers::write_file;
+use writers::{write_file, OutputFileFormat};
 
-// use writers::write_elements;
+#[derive(Error, Debug)]
+pub enum SkywayError {
+    #[error("Unknown input file format")]
+    UnknownInputFormat,
+    #[error("Unknown output file format")]
+    UnknownOutputFormat,
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+fn get_file_extension(path: &Option<String>) -> Option<&str> {
+    path.as_ref()
+        .and_then(|p| std::path::Path::new(p).extension())
+        .and_then(|ext| ext.to_str())
+}
+
+fn parse_format<T: FromStr>(
+    cli_format: &Option<String>,
+    file_path: &Option<String>,
+    io_error: SkywayError,
+) -> Result<T, SkywayError>
+where
+    T::Err: std::fmt::Display,
+{
+    if let Some(format) = cli_format {
+        T::from_str(format).map_err(|_| {
+            error!("Could not parse file format: {}", format);
+            io_error
+        })
+    } else {
+        match get_file_extension(file_path) {
+            Some(ext) => T::from_str(ext).map_err(|_| {
+                error!("File extension not recognized: {}", ext);
+                io_error
+            }),
+            None => {
+                error!("No file format specified.");
+                Err(io_error)
+            }
+        }
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "skyway")]
@@ -32,11 +74,11 @@ struct Cli {
 
     // Source file format
     #[arg(long)]
-    from: String,
+    from: Option<String>,
 
     // Destination file format
     #[arg(long)]
-    to: String,
+    to: Option<String>,
 
     // Path to input file
     #[arg(long)]
@@ -47,8 +89,18 @@ struct Cli {
     output: Option<String>,
 }
 
-fn main() {
+fn main() -> Result<(), SkywayError> {
+    env_logger::init();
+
     let cli = Cli::parse();
+
+    let from =
+        parse_format::<InputFileFormat>(&cli.from, &cli.input, SkywayError::UnknownInputFormat)?;
+    info!("Input format determined: {:?}", from);
+
+    let to =
+        parse_format::<OutputFileFormat>(&cli.to, &cli.output, SkywayError::UnknownOutputFormat)?;
+    info!("Output format determined: {:?}", to);
 
     // will hold this document's metadata
     #[allow(clippy::needless_late_init)]
@@ -63,9 +115,9 @@ fn main() {
     // data into the channel, to be passed into the filter
     // or data writer
     let read_thread = thread::spawn(move || match cli.input {
-        None => read_file(reader_sender, metadata_sender, &cli.from, stdin()),
+        None => read_file(reader_sender, metadata_sender, from, stdin()),
         Some(a) => match fs::File::open(PathBuf::from(a)) {
-            Ok(b) => read_file(reader_sender, metadata_sender, &cli.from, b),
+            Ok(b) => read_file(reader_sender, metadata_sender, from, b),
             Err(e) => {
                 panic!("Unable to open input file: {e:?}");
             }
@@ -108,9 +160,9 @@ fn main() {
     }
 
     let write_thread = thread::spawn(move || match cli.output {
-        None => write_file(last_reciever, metadata, &cli.to, stdout()),
+        None => write_file(last_reciever, metadata, to, stdout()),
         Some(a) => match fs::File::create(PathBuf::from(a)) {
-            Ok(b) => write_file(last_reciever, metadata, &cli.to, b),
+            Ok(b) => write_file(last_reciever, metadata, to, b),
             Err(e) => {
                 panic!("Unable to open output file: {e:?}");
             }
@@ -125,4 +177,6 @@ fn main() {
     write_thread
         .join()
         .expect("Couldn't join on write thread!!");
+
+    Ok(())
 }
