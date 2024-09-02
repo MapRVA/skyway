@@ -5,10 +5,10 @@ use cel::compile_cel_filter;
 use osmfilter::parse::parse_filter;
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::elements;
+use crate::elements::Element;
 
 pub trait ElementFilter {
-    fn evaluate(&self, element: elements::Element) -> Option<elements::Element>;
+    fn evaluate(&self, element: Element) -> Option<Element>;
 }
 
 fn _create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
@@ -25,8 +25,8 @@ fn _create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
 
 pub fn filter_elements(
     filter_contents: &str,
-    receiver: Receiver<elements::Element>,
-    sender: Sender<elements::Element>,
+    receiver: Receiver<Element>,
+    sender: Sender<Element>,
 ) {
     let filter = _create_filter(filter_contents);
     for e in receiver.iter() {
