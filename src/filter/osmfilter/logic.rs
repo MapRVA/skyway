@@ -2,13 +2,6 @@ use crate::elements;
 use crate::filter::ElementFilter;
 
 #[derive(Debug)]
-pub enum Element {
-    Modifiable(elements::Element),
-    Committed(elements::Element),
-    None,
-}
-
-#[derive(Debug)]
 pub enum SelectorStatement {
     Type {
         node: bool,
@@ -68,66 +61,50 @@ pub enum Statement {
     },
 }
 
-pub fn evaluate_statement(statement: &Statement, element: Element) -> Element {
-    match element {
-        Element::Modifiable(mut e) => match statement {
-            Statement::CommitStatement => Element::Committed(e),
-            Statement::DropStatement => Element::None,
-            Statement::DeleteStatement { keys } => {
-                for key in keys {
-                    e.tags.remove(key.as_str());
-                }
-                Element::Modifiable(e)
-            }
-            Statement::KeepStatement { keys } => {
-                e.tags = e
-                    .tags
-                    .iter()
-                    .filter(|(k, _)| keys.contains(k))
-                    .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                    .collect();
-                Element::Modifiable(e)
-            }
-            Statement::SetStatement { key, value } => {
-                e.tags.insert(key.to_owned(), value.to_owned());
-                Element::Modifiable(e)
-            }
-            Statement::RenameStatement { old_key, new_key } => {
-                if let Some(v) = e.tags.remove(old_key.as_str()) {
-                    e.tags.insert(new_key.to_owned(), v);
-                }
-                Element::Modifiable(e)
-            }
-            Statement::SelectionBlock {
-                selector,
-                statements,
-            } => {
-                if test_selector(selector, &e) {
-                    let mut current_element = Element::Modifiable(e);
-                    for current_statement in statements {
-                        current_element = evaluate_statement(current_statement, current_element);
-                        match current_element {
-                            Element::Modifiable(_) => {}
-                            _ => {
-                                return current_element;
-                            }
-                        }
-                    }
-                    current_element
-                } else {
-                    Element::Modifiable(e)
-                }
-            }
-        },
-        e => e,
-    }
+enum StatementResult {
+    Continue,
+    Commit,
+    Drop,
 }
 
-fn _element_to_option(element: Element) -> Option<elements::Element> {
-    match element {
-        Element::Modifiable(e) => Some(e),
-        Element::Committed(e) => Some(e),
-        Element::None => None,
+fn evaluate_statement(statement: &Statement, element: &mut elements::Element) -> StatementResult {
+    match statement {
+        Statement::CommitStatement => StatementResult::Commit,
+        Statement::DropStatement => StatementResult::Drop,
+        Statement::DeleteStatement { keys } => {
+            for key in keys {
+                element.tags.remove(key);
+            }
+            StatementResult::Continue
+        }
+        Statement::KeepStatement { keys } => {
+            element.tags.retain(|k, _| keys.contains(k));
+            StatementResult::Continue
+        }
+        Statement::SetStatement { key, value } => {
+            element.tags.insert(key.to_owned(), value.to_owned());
+            StatementResult::Continue
+        }
+        Statement::RenameStatement { old_key, new_key } => {
+            if let Some(v) = element.tags.remove(old_key) {
+                element.tags.insert(new_key.to_owned(), v);
+            }
+            StatementResult::Continue
+        }
+        Statement::SelectionBlock {
+            selector,
+            statements,
+        } => {
+            if test_selector(selector, element) {
+                for sub_statement in statements {
+                    match evaluate_statement(sub_statement, element) {
+                        StatementResult::Continue => {}
+                        result => return result,
+                    }
+                }
+            }
+            StatementResult::Continue
+        }
     }
 }
 
@@ -137,15 +114,14 @@ pub struct OsmFilter {
 }
 
 impl ElementFilter for OsmFilter {
-    fn evaluate(&self, element: elements::Element) -> Option<elements::Element> {
-        let mut current_element = Element::Modifiable(element);
+    fn evaluate(&self, mut element: elements::Element) -> Option<elements::Element> {
         for statement in &self.statements {
-            current_element = evaluate_statement(statement, current_element);
-            match current_element {
-                Element::Modifiable(_) => {}
-                _ => return _element_to_option(current_element),
+            match evaluate_statement(statement, &mut element) {
+                StatementResult::Continue => {}
+                StatementResult::Commit => return Some(element),
+                StatementResult::Drop => return None,
             }
         }
-        _element_to_option(current_element)
+        Some(element)
     }
 }
