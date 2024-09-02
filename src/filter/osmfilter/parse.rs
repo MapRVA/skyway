@@ -59,10 +59,8 @@ fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
 
 fn parse_selector(pair: Pair<Rule>) -> SelectorStatement {
     match pair.as_rule() {
-        Rule::has => {
-            SelectorStatement::Has {
-                key: get_inner_string(&pair.into_inner().next().unwrap()),
-            }
+        Rule::has => SelectorStatement::Has {
+            key: get_inner_string(&pair.into_inner().next().unwrap()),
         },
         Rule::equals => parse_equals_selector(pair),
         Rule::type_selector => parse_type_selector(pair),

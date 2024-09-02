@@ -9,7 +9,7 @@ pub struct CelFilter(Program);
 fn convert_filter_output(value: &Value, element: &mut Element) -> bool {
     match value {
         Value::Bool(keep_element) => *keep_element,
-        _ => panic!("Unexpected output from CEL filter (not a boolean): {value:?}")
+        _ => panic!("Unexpected output from CEL filter (not a boolean): {value:?}"),
     }
 }
 
