@@ -41,10 +41,10 @@ equals = { "EQUALS " ~ quoted_string ~ " " ~ quoted_string }
 
 // TODO: add timestamps, since, before, user, uid, id, version
 
-selector = { type_selector | has | equals }
+selector = _{ type_selector | has | equals }
 
 new_selection_block = _{
-    // if we were already indented, 
+    // if we were already indented,
     PEEK_ALL ~ PUSH("\t") ~ statement ~
     // subsequent lines in the block
     (NEWLINE ~ PEEK_ALL ~ statement)* ~

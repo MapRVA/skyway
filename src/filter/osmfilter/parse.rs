@@ -10,107 +10,90 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[grammar = "filter/osmfilter/osmfilter.pest"]
 struct OSMFilterParser;
 
-fn _interpret_statement(pair: Pair<Rule>) -> Statement {
+fn get_inner_string(pair: &Pair<Rule>) -> String {
+    pair.as_span().as_str().to_owned()
+}
+
+fn collect_inner_strings(pair: Pair<Rule>) -> Vec<String> {
+    pair.into_inner().map(|x| get_inner_string(&x)).collect()
+}
+
+fn parse_set_statement(pair: Pair<Rule>) -> Statement {
+    let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
+    match &inner[..] {
+        [key, value] => Statement::SetStatement {
+            key: get_inner_string(key),
+            value: get_inner_string(value),
+        },
+        _ => panic!("Invalid set statement"),
+    }
+}
+
+fn parse_rename_statement(pair: Pair<Rule>) -> Statement {
+    let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
+    match &inner[..] {
+        [key, value] => Statement::RenameStatement {
+            old_key: get_inner_string(key),
+            new_key: get_inner_string(value),
+        },
+        _ => panic!("Invalid rename statement"),
+    }
+}
+
+fn parse_type_selector(pair: Pair<Rule>) -> SelectorStatement {
+    let types: Vec<Rule> = pair.into_inner().map(|p| p.as_rule()).collect();
+    SelectorStatement::Type {
+        node: types.contains(&Rule::node),
+        way: types.contains(&Rule::way),
+        relation: types.contains(&Rule::relation),
+    }
+}
+
+fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
+    let mut inner = pair.into_inner();
+    SelectorStatement::Equals {
+        key: get_inner_string(&inner.next().unwrap()),
+        value: get_inner_string(&inner.next().unwrap()),
+    }
+}
+
+fn parse_selector(pair: Pair<Rule>) -> SelectorStatement {
+    match pair.as_rule() {
+        Rule::has => {
+            SelectorStatement::Has {
+                key: get_inner_string(&pair.into_inner().next().unwrap()),
+            }
+        },
+        Rule::equals => parse_equals_selector(pair),
+        Rule::type_selector => parse_type_selector(pair),
+        _ => unreachable!(),
+    }
+}
+
+fn parse_selection_block(pair: Pair<Rule>) -> Statement {
+    let mut inner = pair.into_inner();
+    let selector = parse_selector(inner.next().unwrap());
+    let statements = inner.map(interpret_statement).collect();
+    Statement::SelectionBlock {
+        selector,
+        statements,
+    }
+}
+
+fn interpret_statement(pair: Pair<Rule>) -> Statement {
     match pair.as_rule() {
         Rule::commit => Statement::CommitStatement,
         Rule::drop => Statement::DropStatement,
-        Rule::delete => {
-            let mut keys = Vec::new();
-            for v in pair.into_inner() {
-                keys.push(v.as_span().as_str().to_owned())
-            }
-            Statement::DeleteStatement { keys }
-        }
-        Rule::set => {
-            let mut inner = pair.into_inner();
-            Statement::SetStatement {
-                key: inner.next().unwrap().as_span().as_str().to_owned(),
-                value: inner.next().unwrap().as_span().as_str().to_owned(),
-            }
-        }
-        Rule::keep => {
-            let mut keys = Vec::new();
-            for v in pair.into_inner() {
-                keys.push(v.as_span().as_str().to_owned())
-            }
-            Statement::KeepStatement { keys }
-        }
-        Rule::rename => {
-            let mut inner = pair.into_inner();
-            Statement::RenameStatement {
-                old_key: inner.next().unwrap().as_span().as_str().to_owned(),
-                new_key: inner.next().unwrap().as_span().as_str().to_owned(),
-            }
-        }
-        Rule::selection_block => {
-            let mut inner = pair.into_inner();
-            let this_selector = inner.next().unwrap().into_inner().next().unwrap();
-            let mut statements = Vec::new();
-            for p in inner {
-                statements.push(_interpret_statement(p));
-            }
-            let this_selector_rule = this_selector.as_rule();
-            let mut this_selector_inner = this_selector.into_inner();
-            Statement::SelectionBlock {
-                selector: match this_selector_rule {
-                    Rule::has => SelectorStatement::Has {
-                        key: this_selector_inner
-                            .next()
-                            .unwrap()
-                            .as_span()
-                            .as_str()
-                            .to_owned(),
-                    },
-                    Rule::equals => SelectorStatement::Equals {
-                        key: this_selector_inner
-                            .next()
-                            .unwrap()
-                            .as_span()
-                            .as_str()
-                            .to_owned(),
-                        value: this_selector_inner
-                            .next()
-                            .unwrap()
-                            .as_span()
-                            .as_str()
-                            .to_owned(),
-                    },
-                    Rule::type_selector => {
-                        let mut this_node = false;
-                        let mut this_way = false;
-                        let mut this_relation = false;
-                        for p in this_selector_inner {
-                            match p.as_rule() {
-                                Rule::node => {
-                                    this_node = true;
-                                }
-                                Rule::way => {
-                                    this_way = true;
-                                }
-                                Rule::relation => {
-                                    this_relation = true;
-                                }
-                                _ => {
-                                    unreachable!();
-                                }
-                            }
-                        }
-                        SelectorStatement::Type {
-                            node: this_node,
-                            way: this_way,
-                            relation: this_relation,
-                        }
-                    }
-                    _ => {
-                        unreachable!();
-                    }
-                },
-                statements,
-            }
-        }
-        _ => {
-            unreachable!();
-        }
+        Rule::delete => Statement::DeleteStatement {
+            keys: collect_inner_strings(pair),
+        },
+        Rule::set => parse_set_statement(pair),
+        Rule::keep => Statement::KeepStatement {
+            keys: collect_inner_strings(pair),
+        },
+        Rule::rename => parse_rename_statement(pair),
+        Rule::selection_block => parse_selection_block(pair),
+        _ => unreachable!(),
     }
 }
 
@@ -119,13 +102,11 @@ fn _interpret_body(body: Pair<Rule>) -> OsmFilter {
         Rule::body => {
             let mut statements = Vec::new();
             for pair in body.into_inner() {
-                statements.push(_interpret_statement(pair));
+                statements.push(interpret_statement(pair));
             }
             OsmFilter { statements }
         }
-        _ => {
-            unreachable!();
-        }
+        _ => unreachable!(),
     }
 }
 
@@ -147,25 +128,17 @@ pub fn parse_filter(filter_content: &str) -> Option<OsmFilter> {
                         eprintln!("WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.", filter_version, VERSION);
                     }
                 }
-                _ => {
-                    unreachable!();
-                }
+                _ => unreachable!(),
             }
         }
-        _ => {
-            unreachable!();
-        }
+        _ => unreachable!(),
     }
 
     match file.next() {
         Some(a) => match a.as_rule() {
             Rule::body => Some(_interpret_body(a)),
-            _ => {
-                unreachable!();
-            }
+            _ => unreachable!(),
         },
-        _ => {
-            unreachable!();
-        }
+        _ => unreachable!(),
     }
 }
