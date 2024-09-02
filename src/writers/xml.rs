@@ -115,9 +115,6 @@ struct OsmXmlDocument {
     relation: Vec<XmlRelation>,
 }
 
-// work around quick_xml's strange decision to use
-// std::fmt::Write instead of the standard std::io::Write
-// https://github.com/tafia/quick-xml/issues/499
 struct ToFmtWrite<T>(pub T);
 
 impl<T> Write for ToFmtWrite<T>
@@ -130,19 +127,17 @@ where
 }
 
 fn _convert_tags(element_tags: HashMap<String, String>) -> Vec<XmlTags> {
-    let mut tags = Vec::new();
-    for (k, v) in element_tags {
-        tags.push(XmlTags { k, v });
-    }
-    tags
+    element_tags
+        .into_iter()
+        .map(|(k, v)| XmlTags { k, v })
+        .collect()
 }
 
 fn _convert_nodes(way_nodes: Vec<i64>) -> Vec<XmlWayNode> {
-    let mut out_nodes = Vec::new();
-    for nd_ref in way_nodes {
-        out_nodes.push(XmlWayNode { nd_ref });
-    }
-    out_nodes
+    way_nodes
+        .into_iter()
+        .map(|nd_ref| XmlWayNode { nd_ref })
+        .collect()
 }
 
 fn _split_and_convert_elements<I>(
