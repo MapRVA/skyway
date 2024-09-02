@@ -1,4 +1,4 @@
-use crate::elements;
+use crate::elements::{Element, ElementType};
 use crate::filter::ElementFilter;
 
 #[derive(Debug)]
@@ -17,16 +17,16 @@ pub enum SelectorStatement {
     },
 }
 
-fn test_selector(selector: &SelectorStatement, element: &elements::Element) -> bool {
+fn test_selector(selector: &SelectorStatement, element: &Element) -> bool {
     match selector {
         SelectorStatement::Type {
             node,
             way,
             relation,
         } => match &element.element_type {
-            elements::ElementType::Node { .. } => node.to_owned(),
-            elements::ElementType::Way { .. } => way.to_owned(),
-            elements::ElementType::Relation { .. } => relation.to_owned(),
+            ElementType::Node { .. } => node.to_owned(),
+            ElementType::Way { .. } => way.to_owned(),
+            ElementType::Relation { .. } => relation.to_owned(),
         },
         SelectorStatement::Has { key } => element.tags.contains_key(key.as_str()),
         SelectorStatement::Equals { key, value } => match element.tags.get(key.as_str()) {
@@ -67,7 +67,7 @@ enum StatementResult {
     Drop,
 }
 
-fn evaluate_statement(statement: &Statement, element: &mut elements::Element) -> StatementResult {
+fn evaluate_statement(statement: &Statement, element: &mut Element) -> StatementResult {
     match statement {
         Statement::CommitStatement => StatementResult::Commit,
         Statement::DropStatement => StatementResult::Drop,
@@ -114,7 +114,7 @@ pub struct OsmFilter {
 }
 
 impl ElementFilter for OsmFilter {
-    fn evaluate(&self, mut element: elements::Element) -> Option<elements::Element> {
+    fn evaluate(&self, mut element: Element) -> Option<Element> {
         for statement in &self.statements {
             match evaluate_statement(statement, &mut element) {
                 StatementResult::Continue => {}
