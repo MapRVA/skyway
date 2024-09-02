@@ -8,10 +8,10 @@ use std::sync::mpsc::{Receiver, Sender};
 use crate::elements::Element;
 
 pub trait ElementFilter {
-    fn evaluate(&self, element: Element) -> Option<Element>;
+    fn evaluate(&self, element: &mut Element) -> bool;
 }
 
-fn _create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
+fn create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
     let osmfilter = parse_filter(filter_contents);
     if let Some(f) = osmfilter {
         return Box::new(f);
@@ -28,10 +28,10 @@ pub fn filter_elements(
     receiver: Receiver<Element>,
     sender: Sender<Element>,
 ) {
-    let filter = _create_filter(filter_contents);
-    for e in receiver.iter() {
-        if let Some(v) = filter.evaluate(e) {
-            let _ = sender.send(v);
+    let filter = create_filter(filter_contents);
+    for mut e in receiver.iter() {
+        if filter.evaluate(&mut e) {
+            let _ = sender.send(e);
         }
     }
 }

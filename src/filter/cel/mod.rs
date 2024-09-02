@@ -5,22 +5,15 @@ use crate::elements::{Element, ElementType};
 
 pub struct CelFilter(Program);
 
-fn convert_filter_output(value: &Value, element: Element) -> Option<Element> {
+#[allow(unused_variables)] // I expect to need element in future iterations of this function
+fn convert_filter_output(value: &Value, element: &mut Element) -> bool {
     match value {
-        Value::Bool(keep_element) => {
-            if *keep_element {
-                Some(element)
-            } else {
-                None
-            }
-        }
-        _ => {
-            panic!("Unexpected output from CEL filter (not a boolean): {value:?}");
-        }
+        Value::Bool(keep_element) => *keep_element,
+        _ => panic!("Unexpected output from CEL filter (not a boolean): {value:?}")
     }
 }
 
-fn _generate_context<'a>(element: &Element) -> Context<'a> {
+fn generate_context<'a>(element: &Element) -> Context<'a> {
     let mut context = Context::default();
     context
         .add_variable("tags", element.tags.to_owned())
@@ -51,13 +44,13 @@ fn _generate_context<'a>(element: &Element) -> Context<'a> {
 }
 
 impl ElementFilter for CelFilter {
-    fn evaluate(&self, element: Element) -> Option<Element> {
-        let context = _generate_context(&element);
+    fn evaluate(&self, element: &mut Element) -> bool {
+        let context = generate_context(&element);
         match &self.0.execute(&context) {
             Ok(o) => convert_filter_output(o, element),
             Err(e) => {
                 eprintln!("Unable to execute filter for element: {e:?}, skipping...");
-                None
+                false
             }
         }
     }

@@ -114,14 +114,14 @@ pub struct OsmFilter {
 }
 
 impl ElementFilter for OsmFilter {
-    fn evaluate(&self, mut element: Element) -> Option<Element> {
+    fn evaluate(&self, element: &mut Element) -> bool {
         for statement in &self.statements {
-            match evaluate_statement(statement, &mut element) {
+            match evaluate_statement(statement, element) {
                 StatementResult::Continue => {}
-                StatementResult::Commit => return Some(element),
-                StatementResult::Drop => return None,
+                StatementResult::Commit => return true,
+                StatementResult::Drop => return false,
             }
         }
-        Some(element)
+        true // commit element if we've exhausted all statements
     }
 }
