@@ -121,24 +121,16 @@ You can nest selection blocks.
 ## Roadmap
 
 - File types
-  - GeoJSON
-    - [ ] writer
-  - o5m
-    - [ ] reader
-    - [ ] writer
-  - OPL
-    - [ ] reader
-    - [ ] writer
-  - OSM JSON
-    - [X] reader
-    - [X] writer
-    - [ ] explicitly support both overpass and official OSM JSON
-  - OSM XML
-    - [X] reader
-    - [X] writer
-  - PBF
-    - [X] reader
-    - [ ] writer
+  | Format        | Reader | Writer |
+  | --------------|--------|--------|
+  | GeoJSON       | ➖     | ❌      |
+  | o5m           | ❌     | ❌      |
+  | OPL           | ❌     | ❌      |
+  | OSM JSON      | ✅     | ✅      |
+  | Overpass JSON | ❌     | ❌      |
+  | OSM XML       | ✅     | ✅      |
+  | PBF           | ✅     | ❌      |
+  
 - Filtering
   - [X] Add basic filtering support
   - [ ] Iterate after getting feedback on filter syntax / featureset
