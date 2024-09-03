@@ -7,6 +7,7 @@ name = "skyway"
 version = "0.0.2"
 
 [dependencies]
+bit-vec = "0.8.0"
 cel-interpreter = "0.8.1"
 clap = { version = "4.5.10", features = ["derive"] }
 env_logger = "0.11.5"
