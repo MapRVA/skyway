@@ -121,19 +121,102 @@ impl StringTable {
     }
 }
 
-pub fn write_o5m<D: Write>(receiver: Receiver<Element>, metadata: Metadata, mut dest: D) {
-    let mut waiting_nodes = Vec::new();
-    let mut waiting_ways = Vec::new();
-    let mut waiting_relations = Vec::new();
+fn convert_element(element: Element) -> Vec<u8> {
+    let mut output: Vec<u8> = Vec::new();
 
-    for element in receiver {
-        match element.element_type {
-            ElementType::Node { .. } => waiting_nodes.push(element),
-            ElementType::Way { .. } => waiting_ways.push(element),
-            ElementType::Relation { .. } => waiting_relations.push(element),
+    // special code for element type
+    match element.element_type {
+        ElementType::Node { .. } => output.push(0x10),
+        ElementType::Way { .. } => output.push(0x11),
+        ElementType::Relation { .. } => output.push(0x12),
+    }
+
+    // write element id to output
+    output.extend(convert_i64_as_unsigned(element.id));
+
+    // TODO: output version info instead of 0x00, if it is available
+    output.push(0x00);
+
+    // TODO: if NODE, lon then lat
+    // TODO: if WAY, length of references (unsigned), then node references
+    // TODO: if RELATION, length of references (unsigned), then member references
+
+    // TODO: push tags to output
+    // for tag in element.tags {
+    //     output.extend(convert_tag(&tag.0, &tag.1));
+    // }
+
+    output
+}
+
+// struct to hold elements that need to be held
+// before writing because the output format
+// requires that they are sorted
+struct WaitingElements {
+    nodes: Vec<Element>,
+    ways: Vec<Element>,
+    relations: Vec<Element>,
+}
+
+impl WaitingElements {
+    fn from(receiver: Receiver<Element>) -> Self {
+        let mut new_instance = WaitingElements::new();
+        for element in receiver {
+            match element.element_type {
+                ElementType::Node { .. } => new_instance.nodes.push(element),
+                ElementType::Way { .. } => new_instance.ways.push(element),
+                ElementType::Relation { .. } => new_instance.relations.push(element),
+            }
+        }
+        new_instance
+    }
+
+    fn new() -> Self {
+        return WaitingElements {
+            nodes: Vec::new(),
+            ways: Vec::new(),
+            relations: Vec::new(),
+        };
+    }
+
+    // sort each of the Vecs by element ID, ascending order
+    fn sort(&mut self) {
+        self.nodes.sort_by(|a, b| a.id.cmp(&b.id));
+        self.ways.sort_by(|a, b| a.id.cmp(&b.id));
+        self.relations.sort_by(|a, b| a.id.cmp(&b.id));
+    }
+}
+
+impl Iterator for WaitingElements {
+    type Item = Element;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.nodes.is_empty() {
+            self.nodes.pop()
+        } else if !self.ways.is_empty() {
+            self.ways.pop()
+        } else if !self.relations.is_empty() {
+            self.relations.pop()
+        } else {
+            None
         }
     }
-    unimplemented!()
+}
+
+pub fn write_o5m<D: Write>(receiver: Receiver<Element>, metadata: Metadata, mut dest: D) {
+    let mut waiting_elements = WaitingElements::from(receiver);
+
+    // sort our container of waiting elements
+    waiting_elements.sort();
+
+    // TODO: write timestamp to dest
+    // TODO: write bounding box to dest?
+    // TODO: write header to dest?
+
+    for element in waiting_elements {
+        dest.write(&convert_element(element))
+            .expect("Error while writing o5m output.");
+    }
 }
 
 #[cfg(test)]
