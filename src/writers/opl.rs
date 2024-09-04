@@ -14,7 +14,7 @@ where
     }
 }
 
-fn _should_escape_char(input: char) -> bool {
+fn should_escape_char(input: char) -> bool {
     match input {
         '\u{0021}'..='\u{0024}' => false, // code points 33-36
         '\u{0026}'..='\u{002b}' => false, // code points 38-43
@@ -27,26 +27,44 @@ fn _should_escape_char(input: char) -> bool {
     }
 }
 
-fn _escape_str(input: String) -> String {
+// escape a given char according to the OPL spec, and push
+// it onto a mutable String reference
+fn append_escaped_char(input: char, output: &mut String) {
+    output.push('%');
+
+    // this buffer will hold up to four bytes, encoded in
+    // UTF-8, from the input char
+    let mut buffer = [0; 4];
+
+    input.encode_utf8(&mut buffer);
+
+    // for each encoded byte from the char
+    for b in buffer {
+        // if this byte has value 0, we've exhausted the bytes
+        // for this char and we can break the loop
+        if b == 0 {
+            break;
+        }
+        // format the byte as lowercase hexadecimal (std::fmt::LowerHex)
+        output.push_str(&format!("{b:x}"));
+    }
+    output.push('%');
+}
+
+// takes a String input, returns an escaped String output
+fn escape_string(input: String) -> String {
     let mut output = String::new();
     for c in input.chars() {
-        if _should_escape_char(c) {
-            output.push('%');
-            output = output + (c as u32).to_string().as_str();
-            output.push('%');
+        if should_escape_char(c) {
+            append_escaped_char(c, &mut output);
         } else {
-            // FIXME: this does not appear to be the correct way to escape a character
-            // more research needed
             output.push(c);
         }
     }
     output
 }
 
-// TODO: encode strings correctly
-// see here: https://github.com/osmcode/libosmium/blob/f88048769c13210ca81efca17668dc57ea64c632/include/osmium/io/detail/string_util.hpp#L204-L237
-
-fn _write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(), Error> {
+fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(), Error> {
     for element in receiver {
         match element.element_type {
             ElementType::Node { .. } => {
@@ -87,7 +105,7 @@ fn _write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<()
         }
 
         if let Some(u) = element.user {
-            let escaped_username = _escape_str(u);
+            let escaped_username = escape_string(u);
             write!(w, " u{escaped_username}")?;
         }
 
@@ -95,7 +113,7 @@ fn _write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<()
         let tags_out = element
             .tags
             .into_iter()
-            .map(|(k, v)| (_escape_str(k), _escape_str(v)))
+            .map(|(k, v)| (escape_string(k), escape_string(v)))
             .map(|(k, v)| format!("{k}={v}"))
             .reduce(|acc, s| format!("{acc},{s}"))
             .unwrap_or_default();
@@ -123,7 +141,7 @@ fn _write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<()
                         let mref = m.id;
                         let mrole = m.role;
                         if let Some(mrole) = mrole {
-                            let escaped_member_role = _escape_str(mrole);
+                            let escaped_member_role = escape_string(mrole);
                             format!("n{mref}@{escaped_member_role}") // FIXME: assumes node!!!
                         } else {
                             // TODO: Determine role by finding the relevant element?
@@ -144,10 +162,51 @@ fn _write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<()
 pub fn write_opl<D: std::io::Write>(receiver: Receiver<Element>, metadata: Metadata, dest: D) {
     eprintln!("Writing OPL output...");
     let writer = ToFmtWrite(dest);
-    match _write_elements(receiver, writer) {
+    match write_elements(receiver, writer) {
         Ok(_) => (),
         Err(e) => {
             panic!("Error writing output: {e:?}");
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_append_escaped_char() {
+        let mut string1 = String::from("");
+        append_escaped_char(' ', &mut string1);
+        assert_eq!(string1, "%20%");
+
+        let mut string2 = String::from("");
+        append_escaped_char(',', &mut string2);
+        assert_eq!(string2, "%2c%");
+
+        let mut string3 = String::from("");
+        append_escaped_char('😱', &mut string3);
+        assert_eq!(string3, "%1f631%");
+
+        let mut string4 = String::from("");
+        append_escaped_char('𒄈', &mut string4);
+        assert_eq!(string4, "%12108%");
+    }
+
+    #[test]
+    fn test_should_escape_char() {
+        let test_chars = vec![' ', '\n', ',', '=', '@', '%', '😱'];
+        for c in test_chars {
+            assert_eq!(should_escape_char(c), true);
+        }
+    }
+
+    #[test]
+    fn test_escape_string() {
+        let string1 = String::from("A,B");
+        assert_eq!(escape_string(string1), "A%2c%B");
+
+        let string2 = String::from("ohmy😱goodness");
+        assert_eq!(escape_string(string2), "ohmy%1f631%goodness");
+    }
 }
