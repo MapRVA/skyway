@@ -3,6 +3,9 @@ use std::sync::mpsc::Receiver;
 
 use crate::elements::{Element, ElementType, Metadata};
 
+// wrapper struct that implements std::fmt::Write for any type
+// that implements std::io::Write, this allows us to use write!
+// macros with types that implement std::io::Write
 struct ToFmtWrite<T>(pub T);
 
 impl<T> Write for ToFmtWrite<T>
@@ -14,6 +17,7 @@ where
     }
 }
 
+// this list is from the Osmium OPL implementation
 fn should_escape_char(input: char) -> bool {
     match input {
         '\u{0021}'..='\u{0024}' => false, // code points 33-36
@@ -32,22 +36,13 @@ fn should_escape_char(input: char) -> bool {
 fn append_escaped_char(input: char, output: &mut String) {
     output.push('%');
 
-    // this buffer will hold up to four bytes, encoded in
-    // UTF-8, from the input char
-    let mut buffer = [0; 4];
+    // get the UTF-8 code point of the character
+    let code_point = input as u32;
 
-    input.encode_utf8(&mut buffer);
+    // format the code point as hexadecimal (lowercase)
+    let hex = format!("{:x}", code_point);
+    output.push_str(&hex);
 
-    // for each encoded byte from the char
-    for b in buffer {
-        // if this byte has value 0, we've exhausted the bytes
-        // for this char and we can break the loop
-        if b == 0 {
-            break;
-        }
-        // format the byte as lowercase hexadecimal (std::fmt::LowerHex)
-        output.push_str(&format!("{b:x}"));
-    }
     output.push('%');
 }
 
@@ -88,7 +83,7 @@ fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(),
             if v {
                 write!(w, " dV")?;
             } else {
-                write!(w, "dD")?;
+                write!(w, " dD")?;
             }
         }
 
