@@ -6,28 +6,11 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
-use thiserror::Error;
 
-mod elements;
-
-mod readers;
-use readers::{read_file, InputFileFormat};
-
-mod filter;
-use filter::filter_elements;
-
-mod writers;
-use writers::{write_file, OutputFileFormat};
-
-#[derive(Error, Debug)]
-pub enum SkywayError {
-    #[error("Unknown input file format")]
-    UnknownInputFormat,
-    #[error("Unknown output file format")]
-    UnknownOutputFormat,
-    #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
-}
+use skyway::elements::{Element, Metadata};
+use skyway::{
+    filter_elements, read_file, write_file, InputFileFormat, OutputFileFormat, SkywayError,
+};
 
 fn get_file_extension(path: &Option<String>) -> Option<&str> {
     path.as_ref()
@@ -104,7 +87,7 @@ fn main() -> Result<(), SkywayError> {
 
     // will hold this document's metadata
     #[allow(clippy::needless_late_init)]
-    let metadata: elements::Metadata;
+    let metadata: Metadata;
 
     // channel for sending elements from the reader to either
     // a) the filter or b) the writer (if not using a filter)
@@ -137,9 +120,9 @@ fn main() -> Result<(), SkywayError> {
 
     // create variables that will hold the Sender and Receiver for the
     // current (last created) filter
-    let mut this_sender: mpsc::Sender<elements::Element>;
-    let mut last_reciever: mpsc::Receiver<elements::Element> = reader_reciever;
-    let mut next_receiver: mpsc::Receiver<elements::Element>;
+    let mut this_sender: mpsc::Sender<Element>;
+    let mut last_reciever: mpsc::Receiver<Element> = reader_reciever;
+    let mut next_receiver: mpsc::Receiver<Element>;
 
     // if there are any filters
     if let Some(filters) = cli.filter {

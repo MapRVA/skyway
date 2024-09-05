@@ -4,7 +4,15 @@ description = "A command-line OpenStreetMap file converter"
 edition = "2021"
 license = "GPL-3.0-or-later"
 name = "skyway"
-version = "0.0.2"
+version = "0.0.3"
+
+[lib]
+name = "skyway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "skyway"
+path = "src/main.rs"
 
 [dependencies]
 bit-vec = "0.8.0"
