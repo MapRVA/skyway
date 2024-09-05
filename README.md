@@ -125,7 +125,7 @@ You can nest selection blocks.
   | --------------|--------|--------|
   | GeoJSON       | ➖     | ❌      |
   | o5m           | ❌     | ❌      |
-  | OPL           | ❌     | ❌      |
+  | OPL           | ❌     | ✅      |
   | OSM JSON      | ✅     | ✅      |
   | Overpass JSON | ❌     | ❌      |
   | OSM XML       | ✅     | ✅      |
