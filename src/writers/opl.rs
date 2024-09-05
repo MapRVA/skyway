@@ -1,7 +1,7 @@
 use std::fmt::{Error, Write};
 use std::sync::mpsc::Receiver;
 
-use crate::elements::{Element, ElementType, Metadata};
+use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write, this allows us to use write!
@@ -136,8 +136,14 @@ fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(),
                         let mref = m.id;
                         let mrole = m.role;
                         if let Some(mrole) = mrole {
+                            let element_type_char = match m.t {
+                                Some(SimpleElementType::Node) => 'n',
+                                Some(SimpleElementType::Way) => 'w',
+                                Some(SimpleElementType::Relation) => 'r',
+                                None => panic!("Member type is None"),
+                            };
                             let escaped_member_role = escape_string(mrole);
-                            format!("n{mref}@{escaped_member_role}") // FIXME: assumes node!!!
+                            format!("{element_type_char}{mref}@{escaped_member_role}")
                         } else {
                             // TODO: Determine role by finding the relevant element?
                             format!("{mref}")

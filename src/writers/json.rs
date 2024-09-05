@@ -4,13 +4,28 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::sync::mpsc::Receiver;
 
-use crate::elements::{Element, ElementType, Member, Metadata};
+use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+
+fn serialize_simple_element_type<S>(
+    value: &Option<SimpleElementType>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(SimpleElementType::Node) => serializer.serialize_str("node"),
+        Some(SimpleElementType::Way) => serializer.serialize_str("way"),
+        Some(SimpleElementType::Relation) => serializer.serialize_str("relation"),
+        None => serializer.serialize_none(),
+    }
+}
 
 #[derive(Serialize)]
 #[serde(remote = "Member")]
 pub struct MemberDef {
-    #[serde(rename = "type")]
-    pub t: Option<String>,
+    #[serde(rename = "type", serialize_with = "serialize_simple_element_type")]
+    pub t: Option<SimpleElementType>,
     #[serde(rename = "ref")]
     pub id: i64,
     pub role: Option<String>,

@@ -21,9 +21,9 @@ fn _get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> HashMap<String, Str
 fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Member {
     elements::Member {
         t: Some(match member.member_type {
-            osmpbf::RelMemberType::Node => String::from("node"),
-            osmpbf::RelMemberType::Way => String::from("way"),
-            osmpbf::RelMemberType::Relation => String::from("relation"),
+            osmpbf::RelMemberType::Node => elements::SimpleElementType::Node,
+            osmpbf::RelMemberType::Way => elements::SimpleElementType::Way,
+            osmpbf::RelMemberType::Relation => elements::SimpleElementType::Relation,
         }),
         id: member.member_id,
         role: Some(member.role().unwrap().to_owned()),

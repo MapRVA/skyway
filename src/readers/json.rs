@@ -3,13 +3,32 @@ use serde_json::from_str;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, ElementType, Member, Metadata};
+use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+
+fn deserialize_simple_element_type<'de, D>(
+    deserializer: D,
+) -> Result<Option<SimpleElementType>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s.as_deref() {
+        Some("node") => Ok(Some(SimpleElementType::Node)),
+        Some("way") => Ok(Some(SimpleElementType::Way)),
+        Some("relation") => Ok(Some(SimpleElementType::Relation)),
+        None => Ok(None),
+        Some(other) => Err(serde::de::Error::custom(format!(
+            "Invalid element type: {}",
+            other
+        ))),
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(remote = "Member")]
 struct MemberDef {
-    #[serde(rename = "type")]
-    t: Option<String>,
+    #[serde(rename = "type", deserialize_with = "deserialize_simple_element_type")]
+    t: Option<SimpleElementType>,
     #[serde(rename = "ref")]
     id: i64,
     role: Option<String>,

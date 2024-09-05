@@ -1,8 +1,15 @@
 use std::collections::HashMap;
 
 #[derive(Debug)]
+pub enum SimpleElementType {
+    Node,
+    Way,
+    Relation,
+}
+
+#[derive(Debug)]
 pub struct Member {
-    pub t: Option<String>,
+    pub t: Option<SimpleElementType>,
     pub id: i64,
     pub role: Option<String>,
 }
