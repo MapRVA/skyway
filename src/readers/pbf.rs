@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::sync::mpsc::Sender;
 
-use crate::elements;
+use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
 
 fn _get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
@@ -18,26 +18,26 @@ fn _get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> HashMap<String, Str
     tag_map
 }
 
-fn _convert_member(member: osmpbf::elements::RelMember) -> elements::Member {
-    elements::Member {
+fn _convert_member(member: osmpbf::elements::RelMember) -> Member {
+    Member {
         t: Some(match member.member_type {
-            osmpbf::RelMemberType::Node => elements::SimpleElementType::Node,
-            osmpbf::RelMemberType::Way => elements::SimpleElementType::Way,
-            osmpbf::RelMemberType::Relation => elements::SimpleElementType::Relation,
+            osmpbf::RelMemberType::Node => SimpleElementType::Node,
+            osmpbf::RelMemberType::Way => SimpleElementType::Way,
+            osmpbf::RelMemberType::Relation => SimpleElementType::Relation,
         }),
         id: member.member_id,
         role: Some(member.role().unwrap().to_owned()),
     }
 }
 
-fn _convert_element(element: osmpbf::Element) -> elements::Element {
+fn _convert_element(element: osmpbf::Element) -> Element {
     match element {
         osmpbf::Element::Node(node) => {
             let node_info = node.info();
-            elements::Element {
+            Element {
                 id: node.id(),
                 tags: _get_tags(node.tags()),
-                element_type: elements::ElementType::Node {
+                element_type: ElementType::Node {
                     lat: node.lat(),
                     lon: node.lon(),
                 },
@@ -51,10 +51,10 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
         }
         osmpbf::Element::DenseNode(dense_node) => {
             if let Some(dense_node_info) = dense_node.info() {
-                elements::Element {
+                Element {
                     id: dense_node.id(),
                     tags: _get_dense_tags(dense_node.tags()),
-                    element_type: elements::ElementType::Node {
+                    element_type: ElementType::Node {
                         lat: dense_node.lat(),
                         lon: dense_node.lon(),
                     },
@@ -66,10 +66,10 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
                     version: Some(dense_node_info.version()),
                 }
             } else {
-                elements::Element {
+                Element {
                     id: dense_node.id(),
                     tags: _get_dense_tags(dense_node.tags()),
-                    element_type: elements::ElementType::Node {
+                    element_type: ElementType::Node {
                         lat: dense_node.lat(),
                         lon: dense_node.lon(),
                     },
@@ -84,10 +84,10 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
         }
         osmpbf::Element::Way(way) => {
             let way_info = way.info();
-            elements::Element {
+            Element {
                 id: way.id(),
                 tags: _get_tags(way.tags()),
-                element_type: elements::ElementType::Way {
+                element_type: ElementType::Way {
                     nodes: way.refs().collect(),
                 },
                 changeset: way_info.changeset(),
@@ -100,10 +100,10 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
         }
         osmpbf::Element::Relation(relation) => {
             let relation_info = relation.info();
-            elements::Element {
+            Element {
                 id: relation.id(),
                 tags: _get_tags(relation.tags()),
-                element_type: elements::ElementType::Relation {
+                element_type: ElementType::Relation {
                     members: relation.members().map(_convert_member).collect(),
                 },
                 changeset: relation_info.changeset(),
@@ -118,12 +118,12 @@ fn _convert_element(element: osmpbf::Element) -> elements::Element {
 }
 
 pub fn read_pbf<S: Read + Send>(
-    sender: Sender<elements::Element>,
-    metadata_sender: Sender<elements::Metadata>,
+    sender: Sender<Element>,
+    metadata_sender: Sender<Metadata>,
     src: S,
 ) {
     metadata_sender
-        .send(elements::Metadata {
+        .send(Metadata {
             version: None,
             generator: None,
             copyright: None,
