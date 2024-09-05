@@ -8,9 +8,10 @@ use std::sync::mpsc;
 use std::thread;
 
 use skyway::elements::{Element, Metadata};
-use skyway::{
-    filter_elements, read_file, write_file, InputFileFormat, OutputFileFormat, SkywayError,
-};
+use skyway::filter::filter_elements;
+use skyway::readers::{read_file, InputFileFormat};
+use skyway::writers::{write_file, OutputFileFormat};
+use skyway::SkywayError;
 
 fn get_file_extension(path: &Option<String>) -> Option<&str> {
     path.as_ref()
