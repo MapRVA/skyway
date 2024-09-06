@@ -4,7 +4,7 @@ skyway is a command-line OpenStreetMap file converter.
 
 > [!WARNING]
 > skyway is currently in [major version (0.y.z)](https://semver.org/), i.e. it is undergoing initial development.
-> While I hope skyway is helpful to you, please expect its API and featureset to change at any time.
+> While I hope you find skyway helpful, it might not work as expected.
 > Your feedback and contributions are welcome, see below. Thanks!
 
 ## Motivation
@@ -36,10 +36,25 @@ For more information, you can run `skyway --help`.
 skyway --from pbf --input input-file.pbf --to json --output output-file.json
 ```
 If you do not specify an input or output file, skyway will default to standard in and standard out, respectively.
-This enables you to stream data into and out of skyway, like this;
+This enables you to stream data into and out of skyway, like this:
 ```sh
 cat input-file.pbf | skyway --from pbf --to json > output-file.json
 ```
+
+### Supported Formats
+
+Each supported format has a shortname used after the `--to` and `--from` arguments, see examples above.
+| Format        | Shortname | Reader | Writer |
+| --------------|-----------|--------|--------|
+| GeoJSON       |           | ➖     | ❌     |
+| o5m           |           | ❌     | ❌     |
+| OPL           | `opl`     | ✅     | ✅     |
+| OSM JSON      | `json`    | ✅     | ✅     |
+| Overpass JSON | †         | ✅     | ❌     |
+| OSM XML       | `xml`     | ✅     | ✅     |
+| PBF           | `pbf`     | ✅     | ❌     |
+
+<sup>†</sup>*Use the shortname `json` as if to read OSM JSON, it is the same parser.*
 
 ## Filtering Elements
 
@@ -117,35 +132,6 @@ You can nest selection blocks.
 - `KEEP "key_one", "key_two"` — Only keep tags with specified key(s), removing any others from the element.
 - `RENAME "oldkey" "newkey"` — Renames tag `oldkey` to `newkey`, keeping the value of the tag the same.
 - `DELETE "key_one", "key_two"` — Removes tag(s) with specified key(s) from the element.
-
-## Roadmap
-
-- File types
-  | Format                    | Reader | Writer |
-  | --------------------------|--------|--------|
-  | GeoJSON                   | ➖     | ❌     |
-  | o5m                       | ❌     | ❌     |
-  | OPL                       | ✅     | ✅     |
-  | OSM JSON                  | ✅     | ✅     |
-  | Overpass JSON<sup>†</sup> | ✅     | ❌     |
-  | OSM XML                   | ✅     | ✅     |
-  | PBF                       | ✅     | ❌     |
-<sup>†</sup>*Use the same `--from json` as with OSM JSON, it is the same parser.*
-
-- Filtering
-  - [X] Add basic filtering support
-  - [ ] Iterate after getting feedback on filter syntax / featureset
-  - [X] Support multiple filters in sequence
-- Change files
-  - [ ] Investigate supporting change file input/output
-- Testing
-  - [ ] Begin writing test suite
-- Build
-  - [ ] Document build process for Linux
-  - [X] Release binary for Linux
-  - [ ] Investigate supporting other platforms
-- Optimization
-  - [ ] Explore ways to improve performance
 
 ## Contributing
 
