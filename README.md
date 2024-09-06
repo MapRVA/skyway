@@ -121,15 +121,16 @@ You can nest selection blocks.
 ## Roadmap
 
 - File types
-  | Format        | Reader | Writer |
-  | --------------|--------|--------|
-  | GeoJSON       | ➖     | ❌      |
-  | o5m           | ❌     | ❌      |
-  | OPL           | ❌     | ✅      |
-  | OSM JSON      | ✅     | ✅      |
-  | Overpass JSON | ❌     | ❌      |
-  | OSM XML       | ✅     | ✅      |
-  | PBF           | ✅     | ❌      |
+  | Format                    | Reader | Writer |
+  | --------------------------|--------|--------|
+  | GeoJSON                   | ➖     | ❌     |
+  | o5m                       | ❌     | ❌     |
+  | OPL                       | ❌     | ✅     |
+  | OSM JSON                  | ✅     | ✅     |
+  | Overpass JSON<sup>†</sup> | ✅     | ❌     |
+  | OSM XML                   | ✅     | ✅     |
+  | PBF                       | ✅     | ❌     |
+<sup>†</sup>*Use the same `--from json` as with OSM JSON, it is the same parser.*
   
 - Filtering
   - [X] Add basic filtering support
