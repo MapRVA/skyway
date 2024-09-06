@@ -77,19 +77,73 @@ struct ElementDef {
     element_type: ElementType,
 }
 
+fn deserialize_version<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum VersionType {
+        Str(String),
+        Num(f64),
+    }
+
+    let version = Option::deserialize(deserializer)?;
+    match version {
+        Some(VersionType::Str(s)) => Ok(Some(s)),
+        Some(VersionType::Num(n)) => Ok(Some(n.to_string())),
+        None => Ok(None),
+    }
+}
+
 #[derive(Deserialize)]
-#[serde(remote = "Metadata")]
+struct Osm3s {
+    timestamp_osm_base: Option<String>,
+    copyright: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Osm3sWrapper {
+    Flat {
+        copyright: Option<String>,
+    },
+    Osm3s {
+        #[serde(flatten)]
+        osm3s: Osm3s,
+    },
+}
+
+#[derive(Deserialize)]
 struct MetadataDef {
+    #[serde(deserialize_with = "deserialize_version")]
     version: Option<String>,
     generator: Option<String>,
-    copyright: Option<String>,
     license: Option<String>,
+    #[serde(flatten)]
+    osm3s: Osm3sWrapper,
+}
+
+impl From<MetadataDef> for Metadata {
+    fn from(wrapper: MetadataDef) -> Self {
+        let (copyright, timestamp) = match wrapper.osm3s {
+            Osm3sWrapper::Flat { copyright } => (copyright, None),
+            Osm3sWrapper::Osm3s { osm3s } => (osm3s.copyright, osm3s.timestamp_osm_base),
+        };
+        Metadata {
+            version: wrapper.version,
+            generator: wrapper.generator,
+            copyright,
+            license: wrapper.license,
+            timestamp,
+        }
+    }
 }
 
 #[derive(Deserialize)]
 struct OsmDocument {
-    #[serde(flatten, with = "MetadataDef")]
-    metadata: Metadata,
+    #[serde(flatten)]
+    metadata: MetadataDef,
     #[serde(deserialize_with = "element_vec_annotation")]
     elements: Vec<Element>,
 }
@@ -116,9 +170,12 @@ pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src
         }
     };
 
+    // convert MetadataWrapper to Metadata
+    let metadata = Metadata::from(osm_json_object.metadata);
+
     // send OSM document metadata to main thread
     metadata_sender
-        .send(osm_json_object.metadata)
+        .send(metadata)
         .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step

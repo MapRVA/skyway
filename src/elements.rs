@@ -40,4 +40,5 @@ pub struct Metadata {
     pub generator: Option<String>,
     pub copyright: Option<String>,
     pub license: Option<String>,
+    pub timestamp: Option<String>,
 }

@@ -50,6 +50,8 @@ struct MetadataDef {
     copyright: Option<String>,
     #[serde(rename = "@license")]
     license: Option<String>,
+    #[serde(rename = "@timestamp")]
+    timestamp: Option<String>,
 }
 
 #[derive(Deserialize)]

@@ -128,6 +128,7 @@ pub fn read_pbf<S: Read + Send>(
             generator: None,
             copyright: None,
             license: None,
+            timestamp: None, // TODO: see if this is available?
         })
         .expect("Couldn't send metdata to main thread!");
     eprintln!("Reading PBF input...");
