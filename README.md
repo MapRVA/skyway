@@ -125,13 +125,13 @@ You can nest selection blocks.
   | --------------------------|--------|--------|
   | GeoJSON                   | ➖     | ❌     |
   | o5m                       | ❌     | ❌     |
-  | OPL                       | ❌     | ✅     |
+  | OPL                       | ✅     | ✅     |
   | OSM JSON                  | ✅     | ✅     |
   | Overpass JSON<sup>†</sup> | ✅     | ❌     |
   | OSM XML                   | ✅     | ✅     |
   | PBF                       | ✅     | ❌     |
 <sup>†</sup>*Use the same `--from json` as with OSM JSON, it is the same parser.*
-  
+
 - Filtering
   - [X] Add basic filtering support
   - [ ] Iterate after getting feedback on filter syntax / featureset

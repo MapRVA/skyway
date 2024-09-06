@@ -42,3 +42,15 @@ pub struct Metadata {
     pub license: Option<String>,
     pub timestamp: Option<String>,
 }
+
+impl Metadata {
+    pub fn default() -> Self {
+        Metadata {
+            version: None,
+            generator: None,
+            copyright: None,
+            license: None,
+            timestamp: None,
+        }
+    }
+}

@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::str::FromStr;
 use std::sync::mpsc::Sender;
 
@@ -7,6 +7,9 @@ use crate::SkywayError;
 
 mod json;
 use json::read_json;
+
+mod opl;
+use opl::read_opl;
 
 mod pbf;
 use pbf::read_pbf;
@@ -17,8 +20,9 @@ use xml::read_xml;
 #[derive(Debug)]
 pub enum InputFileFormat {
     Json,
-    Xml,
+    Opl,
     Pbf,
+    Xml,
 }
 
 impl FromStr for InputFileFormat {
@@ -27,8 +31,9 @@ impl FromStr for InputFileFormat {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "json" => Ok(InputFileFormat::Json),
-            "xml" => Ok(InputFileFormat::Xml),
+            "opl" => Ok(InputFileFormat::Opl),
             "pbf" => Ok(InputFileFormat::Pbf),
+            "xml" => Ok(InputFileFormat::Xml),
             _ => Err(SkywayError::UnknownInputFormat),
         }
     }
@@ -50,6 +55,10 @@ pub fn read_file<S: Read + Send>(
                 }
             };
             read_json(sender, metadata_sender, source_str);
+        }
+        InputFileFormat::Opl => {
+            let reader = BufReader::new(source);
+            read_opl(sender, metadata_sender, reader);
         }
         InputFileFormat::Pbf => read_pbf(sender, metadata_sender, source),
         InputFileFormat::Xml => {
