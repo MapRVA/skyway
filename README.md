@@ -157,7 +157,7 @@ If you would like to make drastic changes to skyway, I recommend reaching out fi
 
 ## Alternatives
 
-Before adopting skyway for your project, please also consider [Osmium Tool](https://osmcode.org/osmium-tool/), a mature and well-trusted application that accomplished many of the same things.
+Before adopting skyway for your project, please also consider [Osmium Tool](https://osmcode.org/osmium-tool/), a well-trusted and performant application that accomplishes many of the same things.
 
 For a complete list of alternatives, please see the [OSM file formats page](https://wiki.openstreetmap.org/wiki/OSM_file_formats) on the OpenStreetMap wiki.
 
