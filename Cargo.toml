@@ -4,7 +4,7 @@ description = "A command-line OpenStreetMap file converter"
 edition = "2021"
 license = "GPL-3.0-or-later"
 name = "skyway"
-version = "0.0.3"
+version = "0.1.0"
 
 [lib]
 name = "skyway"
