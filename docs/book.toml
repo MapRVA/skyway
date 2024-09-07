@@ -1,0 +1,10 @@
+[book]
+authors = ["Jacob Hall"]
+language = "en"
+multilingual = false
+src = "src"
+title = "skyway Documentation"
+
+[output.html]
+git-repository-url = "https://github.com/MapRVA/skyway"
+
