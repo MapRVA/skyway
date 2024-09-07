@@ -18,14 +18,14 @@ Comments start with `#` and extend through the end of a line.
 ```osmfilter
 OSMFilter v0.1.0
 
-TYPE way                         # selects ways
-	HAS "footway"                # selects elements with a "footway" tag (any value)
+TYPE way                                 # selects ways
+	HAS "footway"                    # selects elements with a "footway" tag (any value)
 		SET "surface" "concrete" # changes the value of the "surface" tag to be "concrete"
 		COMMIT                   # immediately commit this element (skip the rest of the filter)
-TYPE relation                    # selects relations
-	EQUALS "type" "route"        # selects elements with the tag "type" set to "route"
+TYPE relation                            # selects relations
+	EQUALS "type" "route"            # selects elements with the tag "type" set to "route"
 		DROP                     # do not include element in output (skip the rest of the filter)
-COMMIT                           # commit the element
+COMMIT                                   # commit the element
 ```
 
 ## Statements
