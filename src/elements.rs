@@ -1,5 +1,8 @@
+//! A data structure for OpenStreetMap element data.
+
 use std::collections::HashMap;
 
+/// Element types without any additional metadata.
 #[derive(Debug)]
 pub enum SimpleElementType {
     Node,
@@ -7,6 +10,7 @@ pub enum SimpleElementType {
     Relation,
 }
 
+/// A member of a relation.
 #[derive(Debug)]
 pub struct Member {
     pub t: Option<SimpleElementType>,
@@ -14,6 +18,7 @@ pub struct Member {
     pub role: Option<String>,
 }
 
+/// The varying characteristics of each element type.
 #[derive(Debug)]
 pub enum ElementType {
     Node { lat: f64, lon: f64 },
@@ -21,6 +26,7 @@ pub enum ElementType {
     Relation { members: Vec<Member> },
 }
 
+/// An OpenStreetMap element.
 #[derive(Debug)]
 pub struct Element {
     pub changeset: Option<i64>,
@@ -34,6 +40,7 @@ pub struct Element {
     pub element_type: ElementType,
 }
 
+/// Document-level metadata.
 #[derive(Debug)]
 pub struct Metadata {
     pub version: Option<String>,
@@ -44,6 +51,7 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    /// Returns a Metadata with all fields set to `None`.
     pub fn default() -> Self {
         Metadata {
             version: None,

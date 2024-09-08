@@ -1,3 +1,5 @@
+//! Writes OSM data out.
+
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::mpsc::Receiver;
@@ -17,6 +19,7 @@ use opl::write_opl;
 mod xml;
 use xml::write_xml;
 
+/// Enum that represents the different output file formats skyway supports.
 #[derive(Debug)]
 pub enum OutputFileFormat {
     Json,
@@ -40,6 +43,12 @@ impl FromStr for OutputFileFormat {
     }
 }
 
+/// Writes data out.
+///
+/// * `receiver`: Receiver for a channel of `Element`s.
+/// * `metadata_sender`: Document-level metadata.
+/// * `to`: File format to write.
+/// * `destination`: Output data destination.
 pub fn write_file<D: Write>(
     reciever: Receiver<Element>,
     metadata: Metadata,

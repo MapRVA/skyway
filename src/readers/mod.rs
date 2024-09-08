@@ -1,3 +1,5 @@
+//! Reads OSM data into skyway.
+
 use std::io::{BufReader, Read};
 use std::str::FromStr;
 use std::sync::mpsc::Sender;
@@ -17,6 +19,7 @@ use pbf::read_pbf;
 mod xml;
 use xml::read_xml;
 
+/// Enum that represents the different input file formats skyway supports.
 #[derive(Debug)]
 pub enum InputFileFormat {
     Json,
@@ -28,6 +31,7 @@ pub enum InputFileFormat {
 impl FromStr for InputFileFormat {
     type Err = SkywayError;
 
+    /// Converts a file extension `&str` into the appropriate InputFileFormat variant.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "json" => Ok(InputFileFormat::Json),
@@ -39,6 +43,12 @@ impl FromStr for InputFileFormat {
     }
 }
 
+/// Reads data into skyway.
+///
+/// * `sender`: Sender for a channel of `Element`s.
+/// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
+/// * `from`: File format to parse.
+/// * `source`: Input data source.
 pub fn read_file<S: Read + Send>(
     sender: Sender<elements::Element>,
     metadata_sender: Sender<elements::Metadata>,
