@@ -194,10 +194,14 @@ Your feedback and contributions are welcome. Thanks!
 <p>Before adopting skyway for your project, please also consider <a href="https://osmcode.org/osmium-tool/">Osmium Tool</a>, a well-trusted and performant application that accomplishes many of the same things.</p>
 <p>For a complete list of alternatives, please see the <a href="https://wiki.openstreetmap.org/wiki/OSM_file_formats">OSM file formats page</a> on the OpenStreetMap wiki.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<h2 id="pre-compiled-binaries"><a class="header" href="#pre-compiled-binaries">Pre-compiled Binaries</a></h2>
 <p>Builds of skyway are available on the <a href="https://github.com/MapRVA/skyway/releases">releases page</a>.
-You can also install skyway using cargo:</p>
+Feel free to get in touch if you'd like me to prepare a binary for your platform.</p>
+<h2 id="install-using-cargo"><a class="header" href="#install-using-cargo">Install Using Cargo</a></h2>
+<p>skyway is <a href="https://crates.io/crates/skyway">on crates.io</a>, so you can install it using cargo:</p>
 <pre><code class="language-sh">cargo install skyway
 </code></pre>
+<p>Make sure your cargo bin directory is in your $PATH.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
 <p>Here is an example of how to use skyway.
 For more information, you can run <code>skyway --help</code>.</p>
@@ -266,14 +270,14 @@ Every selector must be followed by a <strong>tab-indented</strong> block of one 
 Comments start with <code>#</code> and extend through the end of a line.</p>
 <pre><code class="language-osmfilter">OSMFilter v0.1.0
 
-TYPE way                         # selects ways
-	HAS "footway"                # selects elements with a "footway" tag (any value)
+TYPE way                                 # selects ways
+	HAS "footway"                    # selects elements with a "footway" tag (any value)
 		SET "surface" "concrete" # changes the value of the "surface" tag to be "concrete"
 		COMMIT                   # immediately commit this element (skip the rest of the filter)
-TYPE relation                    # selects relations
-	EQUALS "type" "route"        # selects elements with the tag "type" set to "route"
+TYPE relation                            # selects relations
+	EQUALS "type" "route"            # selects elements with the tag "type" set to "route"
 		DROP                     # do not include element in output (skip the rest of the filter)
-COMMIT                           # commit the element
+COMMIT                                   # commit the element
 </code></pre>
 <h2 id="statements"><a class="header" href="#statements">Statements</a></h2>
 <p>Below you can find descriptions of each statement supported by OSMFilter.</p>

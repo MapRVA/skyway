@@ -191,14 +191,14 @@ Every selector must be followed by a <strong>tab-indented</strong> block of one 
 Comments start with <code>#</code> and extend through the end of a line.</p>
 <pre><code class="language-osmfilter">OSMFilter v0.1.0
 
-TYPE way                         # selects ways
-	HAS "footway"                # selects elements with a "footway" tag (any value)
+TYPE way                                 # selects ways
+	HAS "footway"                    # selects elements with a "footway" tag (any value)
 		SET "surface" "concrete" # changes the value of the "surface" tag to be "concrete"
 		COMMIT                   # immediately commit this element (skip the rest of the filter)
-TYPE relation                    # selects relations
-	EQUALS "type" "route"        # selects elements with the tag "type" set to "route"
+TYPE relation                            # selects relations
+	EQUALS "type" "route"            # selects elements with the tag "type" set to "route"
 		DROP                     # do not include element in output (skip the rest of the filter)
-COMMIT                           # commit the element
+COMMIT                                   # commit the element
 </code></pre>
 <h2 id="statements"><a class="header" href="#statements">Statements</a></h2>
 <p>Below you can find descriptions of each statement supported by OSMFilter.</p>
