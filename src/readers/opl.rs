@@ -226,8 +226,6 @@ fn convert_element(line: String) -> Element {
 }
 
 pub fn read_opl<S: BufRead>(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: S) {
-    eprintln!("Reading OPL input...");
-
     // create an empty Metadata object
     let metadata = Metadata::default();
 

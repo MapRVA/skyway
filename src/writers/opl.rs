@@ -161,7 +161,6 @@ fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(),
 
 #[allow(unused_variables)]
 pub fn write_opl<D: std::io::Write>(receiver: Receiver<Element>, metadata: Metadata, dest: D) {
-    eprintln!("Writing OPL output...");
     let writer = ToFmtWrite(dest);
     match write_elements(receiver, writer) {
         Ok(_) => (),

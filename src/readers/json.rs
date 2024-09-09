@@ -161,10 +161,7 @@ where
 
 pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: &str) {
     let osm_json_object: OsmDocument = match from_str(src) {
-        Ok(v) => {
-            eprintln!("Reading JSON input...");
-            v
-        }
+        Ok(v) => v,
         Err(e) => {
             panic!("ERROR: Could not parse JSON file: {e:?}");
         }

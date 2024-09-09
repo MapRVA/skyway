@@ -121,9 +121,7 @@ pub fn write_json<D: Write>(receiver: Receiver<Element>, metadata: Metadata, des
     };
 
     match to_writer(dest, &osm_document) {
-        Ok(_) => {
-            eprintln!("Successfully wrote output.");
-        }
+        Ok(_) => (),
         Err(e) => {
             panic!("JSON serialization error: {e:?}");
         }

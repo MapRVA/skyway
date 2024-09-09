@@ -229,10 +229,7 @@ fn _convert_element(xml_element: XmlElement) -> Element {
 
 pub fn read_xml(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: &str) {
     let osm_xml_object: OsmXmlDocument = match from_str(src) {
-        Ok(v) => {
-            eprintln!("Reading XML input...");
-            v
-        }
+        Ok(v) => v,
         Err(e) => {
             panic!("ERROR: Could not parse XML file: {e:?}");
         }

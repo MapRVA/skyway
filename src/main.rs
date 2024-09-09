@@ -1,4 +1,5 @@
 use clap::Parser;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::{error, info};
 use std::fs;
 use std::io::{stdin, stdout};
@@ -8,7 +9,7 @@ use std::sync::mpsc;
 use std::thread;
 
 use skyway::elements::{Element, Metadata};
-use skyway::filter::filter_elements;
+use skyway::filter::{create_filter, filter_elements, ElementFilter};
 use skyway::readers::{read_file, InputFileFormat};
 use skyway::writers::{write_file, OutputFileFormat};
 use skyway::SkywayError;
@@ -95,13 +96,21 @@ fn main() -> Result<(), SkywayError> {
     let (reader_sender, reader_reciever) = mpsc::channel();
     let (metadata_sender, metadata_reciever) = mpsc::channel();
 
+    let multi = MultiProgress::new();
+    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
+        .unwrap()
+        .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ");
+
+    let read_progress = multi.add(ProgressBar::new_spinner());
+    read_progress.set_style(spinner_style.clone());
+
     // spawn a thread that reads the file and spits OSM element
     // data into the channel, to be passed into the filter
     // or data writer
     let read_thread = thread::spawn(move || match cli.input {
-        None => read_file(reader_sender, metadata_sender, from, stdin()),
+        None => read_file(reader_sender, metadata_sender, from, stdin(), read_progress),
         Some(a) => match fs::File::open(PathBuf::from(a)) {
-            Ok(b) => read_file(reader_sender, metadata_sender, from, b),
+            Ok(b) => read_file(reader_sender, metadata_sender, from, b, read_progress),
             Err(e) => {
                 panic!("Unable to open input file: {e:?}");
             }
@@ -125,28 +134,38 @@ fn main() -> Result<(), SkywayError> {
     let mut last_reciever: mpsc::Receiver<Element> = reader_reciever;
     let mut next_receiver: mpsc::Receiver<Element>;
 
-    // if there are any filters
-    if let Some(filters) = cli.filter {
-        // for each of the filters (could be one, or more)
-        for filter in filters {
-            let filter_contents = match fs::read_to_string(filter) {
-                Ok(v) => v,
-                Err(e) => {
-                    panic!("Unable to read filter file: {e:?}");
-                }
-            };
-            (this_sender, next_receiver) = mpsc::channel();
-            filter_threads.push(Some(thread::spawn(move || {
-                filter_elements(filter_contents.as_str(), last_reciever, this_sender);
-            })));
-            last_reciever = next_receiver;
+    let mut filters: Vec<Box<dyn ElementFilter>> = Vec::new();
+
+    if let Some(filter_paths) = cli.filter {
+        for filter_path in filter_paths {
+            filters.push(create_filter(
+                fs::read_to_string(&filter_path)
+                    .unwrap_or_else(|e| {
+                        panic!("Unable to read filter file {}: {}", filter_path, e);
+                    })
+                    .as_str(),
+            ));
         }
     }
 
+    for filter in filters {
+        let filter_progress = multi.add(ProgressBar::new_spinner());
+        filter_progress.set_style(spinner_style.clone());
+
+        (this_sender, next_receiver) = mpsc::channel();
+        filter_threads.push(Some(thread::spawn(move || {
+            filter_elements(filter, last_reciever, this_sender, filter_progress);
+        })));
+        last_reciever = next_receiver;
+    }
+
+    let write_progress = multi.add(ProgressBar::new_spinner());
+    write_progress.set_style(spinner_style.clone());
+
     let write_thread = thread::spawn(move || match cli.output {
-        None => write_file(last_reciever, metadata, to, stdout()),
+        None => write_file(last_reciever, metadata, to, stdout(), write_progress),
         Some(a) => match fs::File::create(PathBuf::from(a)) {
-            Ok(b) => write_file(last_reciever, metadata, to, b),
+            Ok(b) => write_file(last_reciever, metadata, to, b, write_progress),
             Err(e) => {
                 panic!("Unable to open output file: {e:?}");
             }

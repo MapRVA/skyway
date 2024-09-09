@@ -1,5 +1,6 @@
 //! Reads OSM data into skyway.
 
+use indicatif::ProgressBar;
 use std::io::{BufReader, Read};
 use std::str::FromStr;
 use std::sync::mpsc::Sender;
@@ -49,12 +50,24 @@ impl FromStr for InputFileFormat {
 /// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
 /// * `from`: File format to parse.
 /// * `source`: Input data source.
+/// * `progress`: The ProgressBar for this read operation.
 pub fn read_file<S: Read + Send>(
     sender: Sender<elements::Element>,
     metadata_sender: Sender<elements::Metadata>,
     from: InputFileFormat,
     mut source: S,
+    progress: ProgressBar,
 ) {
+    progress.set_message("Reading input...");
+    let progress_clone = progress.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        progress_clone.tick();
+        if progress_clone.is_finished() {
+            break;
+        }
+    });
+
     match from {
         InputFileFormat::Json => {
             let mut buffer = String::new();
@@ -82,4 +95,5 @@ pub fn read_file<S: Read + Send>(
             read_xml(sender, metadata_sender, source_str);
         }
     }
+    progress.finish_with_message("Reading input...done");
 }

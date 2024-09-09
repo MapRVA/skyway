@@ -219,9 +219,7 @@ pub fn write_xml<D: std::io::Write>(receiver: Receiver<Element>, metadata: Metad
         .expect("Unable to write header to XML file!");
 
     match to_writer_with_root(writer, "osm", &xml_osm_document) {
-        Ok(_) => {
-            eprintln!("Successfully wrote output.");
-        }
+        Ok(_) => (),
         Err(e) => {
             panic!("XML serialization error: {e:?}");
         }

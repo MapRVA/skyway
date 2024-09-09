@@ -1,5 +1,6 @@
 //! Writes OSM data out.
 
+use indicatif::ProgressBar;
 use std::io::Write;
 use std::str::FromStr;
 use std::sync::mpsc::Receiver;
@@ -49,16 +50,30 @@ impl FromStr for OutputFileFormat {
 /// * `metadata_sender`: Document-level metadata.
 /// * `to`: File format to write.
 /// * `destination`: Output data destination.
+/// * `progress`: The ProgressBar for this write operation.
 pub fn write_file<D: Write>(
     reciever: Receiver<Element>,
     metadata: Metadata,
     to: OutputFileFormat,
     destination: D,
+    progress: ProgressBar,
 ) {
+    progress.set_message("Writing output...");
+    let progress_clone = progress.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        progress_clone.tick();
+        if progress_clone.is_finished() {
+            break;
+        }
+    });
+
     match to {
         OutputFileFormat::Json => write_json(reciever, metadata, destination),
         // OutputFileFormat::O5m => write_o5m(reciever, metadata, destination),
         OutputFileFormat::Opl => write_opl(reciever, metadata, destination),
         OutputFileFormat::Xml => write_xml(reciever, metadata, destination),
     }
+
+    progress.finish_with_message("Writing output...done");
 }

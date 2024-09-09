@@ -131,9 +131,8 @@ pub fn read_pbf<S: Read + Send>(
             timestamp: None, // TODO: see if this is available?
         })
         .expect("Couldn't send metdata to main thread!");
-    eprintln!("Reading PBF input...");
     let reader = osmpbf::ElementReader::new(src);
-    let element_count = reader.par_map_reduce(
+    let _ = reader.par_map_reduce(
         |element| match sender.send(_convert_element(element)) {
             Ok(_) => 1,
             Err(e) => {
@@ -143,5 +142,4 @@ pub fn read_pbf<S: Read + Send>(
         || 0_u64,
         |a, b| a + b,
     );
-    eprintln!("Finished reading {element_count:?} elements from source.");
 }
