@@ -41,24 +41,11 @@ pub struct Element {
 }
 
 /// Document-level metadata.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Metadata {
     pub version: Option<String>,
     pub generator: Option<String>,
     pub copyright: Option<String>,
     pub license: Option<String>,
     pub timestamp: Option<String>,
-}
-
-impl Metadata {
-    /// Returns a Metadata with all fields set to `None`.
-    pub fn default() -> Self {
-        Metadata {
-            version: None,
-            generator: None,
-            copyright: None,
-            license: None,
-            timestamp: None,
-        }
-    }
 }

@@ -30,7 +30,7 @@ impl From<OplElementType> for ElementType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct OplElement {
     id: Option<i64>,
     version: Option<i32>,
@@ -41,22 +41,6 @@ struct OplElement {
     username: Option<String>,
     tags: Option<HashMap<String, String>>,
     element_type: Option<OplElementType>,
-}
-
-impl OplElement {
-    fn new() -> Self {
-        OplElement {
-            id: None,
-            version: None,
-            visible: None,
-            changeset: None,
-            timestamp: None,
-            user_id: None,
-            username: None,
-            tags: None,
-            element_type: None,
-        }
-    }
 }
 
 impl From<OplElement> for Element {
@@ -221,7 +205,7 @@ fn add_field(field: &str, opl_element: &mut OplElement) {
 }
 
 fn convert_element(line: String) -> Element {
-    let mut opl_element = OplElement::new();
+    let mut opl_element = OplElement::default();
     line.split_whitespace()
         .for_each(|x| add_field(x, &mut opl_element));
     Element::from(opl_element)
