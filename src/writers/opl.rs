@@ -1,8 +1,10 @@
 use lexical;
+use rayon::prelude::*;
 use std::fmt::{Error, Write};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{channel, Receiver};
 
 use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
+use crate::threadpool::WRITER_THREAD_POOL;
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write
@@ -168,11 +170,20 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 #[allow(unused_variables)]
 pub fn write_opl<D: std::io::Write>(receiver: Receiver<Vec<Element>>, metadata: Metadata, dest: D) {
     let mut writer = ToFmtWrite(dest);
-    for output_string in receiver
-        .into_iter()
-        .map(serialize_chunk)
-        .map(|result| result.expect("Failed to serialize chunk"))
-    {
+    let (output_sender, output_reciever) = channel();
+    WRITER_THREAD_POOL.install(move || {
+        receiver
+            .into_iter()
+            .par_bridge()
+            .map(serialize_chunk)
+            .map(|result| result.expect("Failed to serialize chunk"))
+            .for_each(|s| match output_sender.clone().send(s) {
+                Ok(_) => (),
+                Err(e) => panic!("Error passing output chunk between threads."),
+            });
+    });
+
+    for output_string in output_reciever {
         writer
             .write_str(&output_string)
             .expect("Failed to write to output");

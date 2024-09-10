@@ -5,6 +5,7 @@ use std::io::Read;
 use std::sync::mpsc::Sender;
 
 use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+use crate::threadpool::READER_THREAD_POOL;
 
 fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
@@ -135,16 +136,20 @@ pub fn read_pbf<S: Read + Send>(
         .expect("Couldn't send metdata to main thread!");
 
     let reader = BlobReader::new(src);
-    reader
-        .par_bridge()
-        .filter_map(|blob| match blob.unwrap().decode() {
-            Ok(BlobDecode::OsmData(block)) => Some(block.elements().map(convert_element).collect()),
-            Ok(BlobDecode::OsmHeader(_)) | Ok(BlobDecode::Unknown(_)) => None,
-            Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
-        })
-        .for_each(|b| {
-            sender
-                .send(b)
-                .expect("Unable to send chunk of elements to channel.")
-        })
+    READER_THREAD_POOL.install(|| {
+        reader
+            .par_bridge()
+            .filter_map(|blob| match blob.unwrap().decode() {
+                Ok(BlobDecode::OsmData(block)) => {
+                    Some(block.elements().map(convert_element).collect())
+                }
+                Ok(BlobDecode::OsmHeader(_)) | Ok(BlobDecode::Unknown(_)) => None,
+                Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
+            })
+            .for_each(|b| {
+                sender
+                    .send(b)
+                    .expect("Unable to send chunk of elements to channel.")
+            })
+    });
 }
