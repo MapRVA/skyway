@@ -5,7 +5,7 @@ pub mod filter;
 pub mod readers;
 pub mod writers;
 
-pub mod threadpool;
+mod threadpools;
 
 #[derive(Error, Debug)]
 pub enum SkywayError {

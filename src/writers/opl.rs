@@ -4,7 +4,7 @@ use std::fmt::{Error, Write};
 use std::sync::mpsc::{channel, Receiver};
 
 use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
-use crate::threadpool::WRITER_THREAD_POOL;
+use crate::threadpools::WRITER_THREAD_POOL;
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write

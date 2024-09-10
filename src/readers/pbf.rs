@@ -5,7 +5,7 @@ use std::io::Read;
 use std::sync::mpsc::Sender;
 
 use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
-use crate::threadpool::READER_THREAD_POOL;
+use crate::threadpools::READER_THREAD_POOL;
 
 fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
