@@ -33,30 +33,28 @@ fn should_escape_char(input: char) -> bool {
 
 // escape a given char according to the OPL spec, and push
 // it onto a mutable String reference
-fn append_escaped_char(input: char, output: &mut String) {
-    output.push('%');
+fn push_escaped_char(base: &mut String, input: char) {
+    base.push('%');
 
     // get the UTF-8 code point of the character
     let code_point = input as u32;
 
     // format the code point as hexadecimal (lowercase)
     let hex = format!("{:x}", code_point);
-    output.push_str(&hex);
+    base.push_str(&hex);
 
-    output.push('%');
+    base.push('%');
 }
 
 // takes a String input, returns an escaped String output
-fn escape_string(input: String) -> String {
-    let mut output = String::new();
+fn push_escaped_string(base: &mut String, input: &str) {
     for c in input.chars() {
         if should_escape_char(c) {
-            append_escaped_char(c, &mut output);
+            push_escaped_char(base, c);
         } else {
-            output.push(c);
+            base.push(c);
         }
     }
-    output
 }
 
 fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
@@ -101,58 +99,62 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
         }
 
         if let Some(u) = element.user {
-            let escaped_username = escape_string(u);
-            write!(output, " u{escaped_username}")?;
+            output.push_str(" u");
+            push_escaped_string(&mut output, &u);
         }
 
         output.push_str(" T");
-        let tags_out = element
-            .tags
-            .into_iter()
-            .map(|(k, v)| (escape_string(k), escape_string(v)))
-            .map(|(k, v)| format!("{k}={v}"))
-            .reduce(|acc, s| format!("{acc},{s}"))
-            .unwrap_or_default();
-        write!(output, "{tags_out}")?;
+        let mut first_tag_written = false;
+        for (k, v) in element.tags {
+            if first_tag_written {
+                output.push(',');
+            }
+            first_tag_written = true;
+            push_escaped_string(&mut output, &k);
+            output.push('=');
+            push_escaped_string(&mut output, &v);
+        }
 
         match element.element_type {
             ElementType::Node { lat, lon } => {
-                write!(output, " x{lon} y{lat}")?;
+                output.push_str(" x");
+                output.push_str(&lon.to_string());
+                output.push_str(" y");
+                output.push_str(&lat.to_string());
             }
             ElementType::Way { nodes } => {
                 output.push_str(" N");
-                let out = nodes
-                    .into_iter()
-                    .map(|n| format!("n{}", n.to_string()))
-                    .reduce(|acc, s| format!("{acc},{s}"))
-                    .unwrap();
-                write!(output, "{out}")?;
+                let mut first_node_written = false;
+                for n in nodes {
+                    if first_node_written {
+                        output.push(',');
+                    }
+                    first_node_written = true;
+                    output.push('n');
+                    output.push_str(&n.to_string());
+                }
             }
             ElementType::Relation { members } => {
                 output.push_str(" M");
-
-                let out = members
-                    .into_iter()
-                    .map(|m| {
-                        let mref = m.id;
-                        let mrole = m.role;
-                        if let Some(mrole) = mrole {
-                            let element_type_char = match m.t {
-                                Some(SimpleElementType::Node) => 'n',
-                                Some(SimpleElementType::Way) => 'w',
-                                Some(SimpleElementType::Relation) => 'r',
-                                None => panic!("Member type is None"),
-                            };
-                            let escaped_member_role = escape_string(mrole);
-                            format!("{element_type_char}{mref}@{escaped_member_role}")
-                        } else {
-                            // TODO: Determine role by finding the relevant element?
-                            format!("{mref}")
-                        }
-                    })
-                    .reduce(|acc, s| format!("{acc},{s}"))
-                    .unwrap();
-                write!(output, "{out}")?;
+                let mut first_member_written = false;
+                for m in members {
+                    if first_member_written {
+                        output.push(',');
+                    }
+                    first_member_written = true;
+                    output.push(match m.t {
+                        Some(SimpleElementType::Node) => 'n',
+                        Some(SimpleElementType::Way) => 'w',
+                        Some(SimpleElementType::Relation) => 'r',
+                        None => panic!("Member type is None"),
+                    });
+                    output.push_str(&m.id.to_string());
+                    output.push('@');
+                    if let Some(role) = m.role {
+                        push_escaped_string(&mut output, &role);
+                    }
+                    // TODO: determine better course of action if role is None?
+                }
             }
         }
         output.push('\n');
@@ -179,21 +181,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_append_escaped_char() {
-        let mut string1 = String::from("");
-        append_escaped_char(' ', &mut string1);
+    fn test_push_escaped_char() {
+        let mut string1 = String::new();
+        push_escaped_char(&mut string1, ' ');
         assert_eq!(string1, "%20%");
 
-        let mut string2 = String::from("");
-        append_escaped_char(',', &mut string2);
+        let mut string2 = String::new();
+        push_escaped_char(&mut string2, ',');
         assert_eq!(string2, "%2c%");
 
-        let mut string3 = String::from("");
-        append_escaped_char('😱', &mut string3);
+        let mut string3 = String::new();
+        push_escaped_char(&mut string3, '😱');
         assert_eq!(string3, "%1f631%");
 
-        let mut string4 = String::from("");
-        append_escaped_char('𒄈', &mut string4);
+        let mut string4 = String::new();
+        push_escaped_char(&mut string4, '𒄈');
         assert_eq!(string4, "%12108%");
     }
 
@@ -206,11 +208,13 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_string() {
-        let string1 = String::from("A,B");
-        assert_eq!(escape_string(string1), "A%2c%B");
+    fn test_push_escaped_string() {
+        let mut string1 = String::new();
+        push_escaped_string(&mut string1, "A,B");
+        assert_eq!(string1, "A%2c%B");
 
-        let string2 = String::from("ohmy😱goodness");
-        assert_eq!(escape_string(string2), "ohmy%1f631%goodness");
+        let mut string2 = String::new();
+        push_escaped_string(&mut string2, "ohmy😱goodness");
+        assert_eq!(string2, "ohmy%1f631%goodness");
     }
 }
