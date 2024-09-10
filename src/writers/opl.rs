@@ -1,3 +1,4 @@
+use lexical;
 use std::fmt::{Error, Write};
 use std::sync::mpsc::Receiver;
 
@@ -74,7 +75,7 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 
         if let Some(v) = element.version {
             output.push_str(" v");
-            output.push_str(&v.to_string());
+            output.push_str(&lexical::to_string(v));
         }
 
         if let Some(v) = element.visible {
@@ -87,7 +88,7 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 
         if let Some(c) = element.changeset {
             output.push_str(" c");
-            output.push_str(&c.to_string());
+            output.push_str(&lexical::to_string(c));
         }
 
         if let Some(t) = element.timestamp {
@@ -97,7 +98,7 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 
         if let Some(u) = element.uid {
             output.push_str(" i");
-            output.push_str(&u.to_string());
+            output.push_str(&lexical::to_string(u));
         }
 
         if let Some(u) = element.user {
@@ -120,9 +121,9 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
         match element.element_type {
             ElementType::Node { lat, lon } => {
                 output.push_str(" x");
-                output.push_str(&lon.to_string());
+                output.push_str(&lexical::to_string(lon));
                 output.push_str(" y");
-                output.push_str(&lat.to_string());
+                output.push_str(&lexical::to_string(lat));
             }
             ElementType::Way { nodes } => {
                 output.push_str(" N");
@@ -133,7 +134,7 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
                     }
                     first_node_written = true;
                     output.push('n');
-                    output.push_str(&n.to_string());
+                    output.push_str(&lexical::to_string(n));
                 }
             }
             ElementType::Relation { members } => {
@@ -150,7 +151,7 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
                         Some(SimpleElementType::Relation) => 'r',
                         None => panic!("Member type is None"),
                     });
-                    output.push_str(&m.id.to_string());
+                    output.push_str(&lexical::to_string(m.id));
                     output.push('@');
                     if let Some(role) = m.role {
                         push_escaped_string(&mut output, &role);
@@ -167,14 +168,14 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 #[allow(unused_variables)]
 pub fn write_opl<D: std::io::Write>(receiver: Receiver<Vec<Element>>, metadata: Metadata, dest: D) {
     let mut writer = ToFmtWrite(dest);
-    for chunk in receiver {
-        match serialize_chunk(chunk) {
-            Ok(s) => match writer.write_str(s.as_str()) {
-                Ok(_) => (),
-                Err(e) => panic!("Error writing to output {e:?}"),
-            },
-            Err(e) => panic!("Error serializing output: {e:?}"),
-        }
+    for output_string in receiver
+        .into_iter()
+        .map(serialize_chunk)
+        .map(|result| result.expect("Failed to serialize chunk"))
+    {
+        writer
+            .write_str(&output_string)
+            .expect("Failed to write to output");
     }
 }
 

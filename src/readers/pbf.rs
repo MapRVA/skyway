@@ -1,4 +1,5 @@
 use osmpbf::{BlobDecode, BlobReader};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::Read;
 use std::sync::mpsc::Sender;
@@ -135,7 +136,7 @@ pub fn read_pbf<S: Read + Send>(
 
     let reader = BlobReader::new(src);
     reader
-        .into_iter()
+        .par_bridge()
         .filter_map(|blob| match blob.unwrap().decode() {
             Ok(BlobDecode::OsmData(block)) => Some(block.elements().map(convert_element).collect()),
             Ok(BlobDecode::OsmHeader(_)) | Ok(BlobDecode::Unknown(_)) => None,
