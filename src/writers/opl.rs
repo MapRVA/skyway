@@ -4,8 +4,7 @@ use std::sync::mpsc::Receiver;
 use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
 
 // wrapper struct that implements std::fmt::Write for any type
-// that implements std::io::Write, this allows us to use write!
-// macros with types that implement std::io::Write
+// that implements std::io::Write
 struct ToFmtWrite<T>(pub T);
 
 impl<T> Write for ToFmtWrite<T>
@@ -71,11 +70,11 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
                 output.push('r');
             }
         }
-        let id = &element.id;
-        write!(output, "{id}")?;
+        output.push_str(&element.id.to_string());
 
         if let Some(v) = element.version {
-            write!(output, " v{v}")?;
+            output.push_str(" v");
+            output.push_str(&v.to_string());
         }
 
         if let Some(v) = element.visible {
@@ -87,15 +86,18 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
         }
 
         if let Some(c) = element.changeset {
-            write!(output, " c{c}")?;
+            output.push_str(" c");
+            output.push_str(&c.to_string());
         }
 
         if let Some(t) = element.timestamp {
-            write!(output, " t{t}")?;
+            output.push_str(" t");
+            output.push_str(&t);
         }
 
         if let Some(u) = element.uid {
-            write!(output, " i{u}")?;
+            output.push_str(" i");
+            output.push_str(&u.to_string());
         }
 
         if let Some(u) = element.user {
