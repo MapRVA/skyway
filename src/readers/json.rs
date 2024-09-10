@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str;
 use std::collections::HashMap;
@@ -159,7 +160,7 @@ where
     Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
 
-pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: &str) {
+pub fn read_json(sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>, src: &str) {
     let osm_json_object: OsmDocument = match from_str(src) {
         Ok(v) => v,
         Err(e) => {
@@ -176,12 +177,14 @@ pub fn read_json(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src
         .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step
-    for e in osm_json_object.elements {
-        match sender.send(e) {
-            Ok(_) => (),
-            Err(e) => {
-                panic!("ERROR: Unable to send an element: {e:?}");
-            }
-        }
-    }
+    osm_json_object
+        .elements
+        .into_iter()
+        .chunks(1000)
+        .into_iter()
+        .for_each(|e| {
+            sender
+                .send(e.collect())
+                .expect("Unable to send element to channel")
+        });
 }

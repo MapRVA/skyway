@@ -130,9 +130,9 @@ fn main() -> Result<(), SkywayError> {
 
     // create variables that will hold the Sender and Receiver for the
     // current (last created) filter
-    let mut this_sender: mpsc::Sender<Element>;
-    let mut last_reciever: mpsc::Receiver<Element> = reader_reciever;
-    let mut next_receiver: mpsc::Receiver<Element>;
+    let mut this_sender: mpsc::Sender<Vec<Element>>;
+    let mut last_receiver: mpsc::Receiver<Vec<Element>> = reader_reciever;
+    let mut next_receiver: mpsc::Receiver<Vec<Element>>;
 
     let mut filters: Vec<Box<dyn ElementFilter>> = Vec::new();
 
@@ -154,18 +154,18 @@ fn main() -> Result<(), SkywayError> {
 
         (this_sender, next_receiver) = mpsc::channel();
         filter_threads.push(Some(thread::spawn(move || {
-            filter_elements(filter, last_reciever, this_sender, filter_progress);
+            filter_elements(filter, last_receiver, this_sender, filter_progress);
         })));
-        last_reciever = next_receiver;
+        last_receiver = next_receiver;
     }
 
     let write_progress = multi.add(ProgressBar::new_spinner());
     write_progress.set_style(spinner_style.clone());
 
     let write_thread = thread::spawn(move || match cli.output {
-        None => write_file(last_reciever, metadata, to, stdout(), write_progress),
+        None => write_file(last_receiver, metadata, to, stdout(), write_progress),
         Some(a) => match fs::File::create(PathBuf::from(a)) {
-            Ok(b) => write_file(last_reciever, metadata, to, b, write_progress),
+            Ok(b) => write_file(last_receiver, metadata, to, b, write_progress),
             Err(e) => {
                 panic!("Unable to open output file: {e:?}");
             }

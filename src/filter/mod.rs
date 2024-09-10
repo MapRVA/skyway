@@ -35,8 +35,8 @@ pub fn create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
 /// * `progress`: The ProgressBar for this read operation.
 pub fn filter_elements(
     filter: Box<dyn ElementFilter>,
-    receiver: Receiver<Element>,
-    sender: Sender<Element>,
+    receiver: Receiver<Vec<Element>>,
+    sender: Sender<Vec<Element>>,
     progress: ProgressBar,
 ) {
     progress.set_message("Filtering elements...");
@@ -49,10 +49,17 @@ pub fn filter_elements(
         }
     });
 
-    for mut e in receiver.iter() {
-        if filter.evaluate(&mut e) {
-            let _ = sender.send(e);
-        }
-    }
+    receiver
+        .iter()
+        .map(|c| {
+            let mut keep_elements = Vec::new();
+            for mut element in c {
+                if filter.evaluate(&mut element) {
+                    keep_elements.push(element);
+                }
+            }
+            keep_elements
+        })
+        .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
     progress.finish_with_message("Filtering elements...done");
 }

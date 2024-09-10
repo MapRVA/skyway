@@ -109,11 +109,8 @@ fn serialize_element_vec<S: Serializer>(v: &[Element], serializer: S) -> Result<
         .serialize(serializer)
 }
 
-pub fn write_json<D: Write>(receiver: Receiver<Element>, metadata: Metadata, dest: D) {
-    let mut received_elements = Vec::new();
-    for e in receiver {
-        received_elements.push(e);
-    }
+pub fn write_json<D: Write>(receiver: Receiver<Vec<Element>>, metadata: Metadata, dest: D) {
+    let received_elements: Vec<Element> = receiver.into_iter().flatten().collect();
 
     let osm_document = OsmDocument {
         metadata,

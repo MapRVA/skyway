@@ -59,52 +59,53 @@ fn escape_string(input: String) -> String {
     output
 }
 
-fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(), Error> {
-    for element in receiver {
+fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
+    let mut output = String::new();
+    for element in chunk {
         match element.element_type {
             ElementType::Node { .. } => {
-                w.write_char('n')?;
+                output.push('n');
             }
             ElementType::Way { .. } => {
-                w.write_char('w')?;
+                output.push('w');
             }
             ElementType::Relation { .. } => {
-                w.write_char('r')?;
+                output.push('r');
             }
         }
         let id = &element.id;
-        write!(w, "{id}")?;
+        write!(output, "{id}")?;
 
         if let Some(v) = element.version {
-            write!(w, " v{v}")?;
+            write!(output, " v{v}")?;
         }
 
         if let Some(v) = element.visible {
             if v {
-                write!(w, " dV")?;
+                output.push_str(" dV");
             } else {
-                write!(w, " dD")?;
+                output.push_str(" dD");
             }
         }
 
         if let Some(c) = element.changeset {
-            write!(w, " c{c}")?;
+            write!(output, " c{c}")?;
         }
 
         if let Some(t) = element.timestamp {
-            write!(w, " t{t}")?;
+            write!(output, " t{t}")?;
         }
 
         if let Some(u) = element.uid {
-            write!(w, " i{u}")?;
+            write!(output, " i{u}")?;
         }
 
         if let Some(u) = element.user {
             let escaped_username = escape_string(u);
-            write!(w, " u{escaped_username}")?;
+            write!(output, " u{escaped_username}")?;
         }
 
-        write!(w, " T")?;
+        output.push_str(" T");
         let tags_out = element
             .tags
             .into_iter()
@@ -112,23 +113,23 @@ fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(),
             .map(|(k, v)| format!("{k}={v}"))
             .reduce(|acc, s| format!("{acc},{s}"))
             .unwrap_or_default();
-        write!(w, "{tags_out}")?;
+        write!(output, "{tags_out}")?;
 
         match element.element_type {
             ElementType::Node { lat, lon } => {
-                write!(w, " x{lon} y{lat}")?;
+                write!(output, " x{lon} y{lat}")?;
             }
             ElementType::Way { nodes } => {
-                write!(w, " N")?;
+                output.push_str(" N");
                 let out = nodes
                     .into_iter()
                     .map(|n| format!("n{}", n.to_string()))
                     .reduce(|acc, s| format!("{acc},{s}"))
                     .unwrap();
-                write!(w, "{out}")?;
+                write!(output, "{out}")?;
             }
             ElementType::Relation { members } => {
-                write!(w, " M")?;
+                output.push_str(" M");
 
                 let out = members
                     .into_iter()
@@ -151,23 +152,26 @@ fn write_elements<W: Write>(receiver: Receiver<Element>, mut w: W) -> Result<(),
                     })
                     .reduce(|acc, s| format!("{acc},{s}"))
                     .unwrap();
-                write!(w, "{out}")?;
+                write!(output, "{out}")?;
             }
         }
-        w.write_char('\n')?;
+        output.push('\n');
     }
-    Ok(())
+    Ok(output)
 }
 
 #[allow(unused_variables)]
-pub fn write_opl<D: std::io::Write>(receiver: Receiver<Element>, metadata: Metadata, dest: D) {
-    let writer = ToFmtWrite(dest);
-    match write_elements(receiver, writer) {
-        Ok(_) => (),
-        Err(e) => {
-            panic!("Error writing output: {e:?}");
+pub fn write_opl<D: std::io::Write>(receiver: Receiver<Vec<Element>>, metadata: Metadata, dest: D) {
+    let mut writer = ToFmtWrite(dest);
+    for chunk in receiver {
+        match serialize_chunk(chunk) {
+            Ok(s) => match writer.write_str(s.as_str()) {
+                Ok(_) => (),
+                Err(e) => panic!("Error writing to output {e:?}"),
+            },
+            Err(e) => panic!("Error serializing output: {e:?}"),
         }
-    };
+    }
 }
 
 #[cfg(test)]

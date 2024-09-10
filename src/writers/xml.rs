@@ -141,21 +141,21 @@ where
     }
 }
 
-fn _convert_tags(element_tags: HashMap<String, String>) -> Vec<XmlTags> {
+fn convert_tags(element_tags: HashMap<String, String>) -> Vec<XmlTags> {
     element_tags
         .into_iter()
         .map(|(k, v)| XmlTags { k, v })
         .collect()
 }
 
-fn _convert_nodes(way_nodes: Vec<i64>) -> Vec<XmlWayNode> {
+fn convert_nodes(way_nodes: Vec<i64>) -> Vec<XmlWayNode> {
     way_nodes
         .into_iter()
         .map(|nd_ref| XmlWayNode { nd_ref })
         .collect()
 }
 
-fn _split_and_convert_elements<I>(
+fn split_and_convert_elements<I>(
     received_elements: I,
 ) -> (Vec<XmlNode>, Vec<XmlWay>, Vec<XmlRelation>)
 where
@@ -174,7 +174,7 @@ where
             changeset: e.changeset,
             timestamp: e.timestamp,
         };
-        let tags = _convert_tags(e.tags);
+        let tags = convert_tags(e.tags);
         match e.element_type {
             ElementType::Node { lat, lon } => nodes.push(XmlNode {
                 lat,
@@ -184,7 +184,7 @@ where
             }),
             ElementType::Way { nodes } => ways.push(XmlWay {
                 meta,
-                nd: _convert_nodes(nodes),
+                nd: convert_nodes(nodes),
                 tags,
             }),
             ElementType::Relation { members } => relations.push(XmlRelation {
@@ -197,8 +197,8 @@ where
     (nodes, ways, relations)
 }
 
-pub fn write_xml<D: std::io::Write>(receiver: Receiver<Element>, metadata: Metadata, dest: D) {
-    let (node, way, relation) = _split_and_convert_elements(receiver.iter());
+pub fn write_xml<D: std::io::Write>(receiver: Receiver<Vec<Element>>, metadata: Metadata, dest: D) {
+    let (node, way, relation) = split_and_convert_elements(receiver.iter().flatten());
 
     let xml_osm_document = OsmXmlDocument {
         metadata: XmlMetadata {

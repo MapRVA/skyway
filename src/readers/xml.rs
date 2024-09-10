@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use quick_xml::de::from_str;
 use serde::{Deserialize, Deserializer};
 use serde_aux::field_attributes::{
@@ -174,7 +175,7 @@ enum XmlElement {
     Relation(XmlRelation),
 }
 
-fn _convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
+fn convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
     let mut tags_hashmap = HashMap::new();
     for tag in xml_tags {
         tags_hashmap.insert(tag.k, tag.v);
@@ -182,7 +183,7 @@ fn _convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
     tags_hashmap
 }
 
-fn _convert_element(xml_element: XmlElement) -> Element {
+fn convert_element(xml_element: XmlElement) -> Element {
     match xml_element {
         XmlElement::Node(node) => Element {
             changeset: node.meta.changeset,
@@ -192,7 +193,7 @@ fn _convert_element(xml_element: XmlElement) -> Element {
             id: node.meta.id,
             timestamp: node.meta.timestamp,
             visible: Some(node.meta.visible),
-            tags: _convert_tags(node.tags),
+            tags: convert_tags(node.tags),
             element_type: ElementType::Node {
                 lat: node.lat,
                 lon: node.lon,
@@ -206,7 +207,7 @@ fn _convert_element(xml_element: XmlElement) -> Element {
             id: way.meta.id,
             timestamp: way.meta.timestamp,
             visible: Some(way.meta.visible),
-            tags: _convert_tags(way.tags),
+            tags: convert_tags(way.tags),
             element_type: ElementType::Way {
                 nodes: way.nd.iter().map(|n| n.nd_ref).collect(),
             },
@@ -219,7 +220,7 @@ fn _convert_element(xml_element: XmlElement) -> Element {
             id: rel.meta.id,
             timestamp: rel.meta.timestamp,
             visible: Some(rel.meta.visible),
-            tags: _convert_tags(rel.tags),
+            tags: convert_tags(rel.tags),
             element_type: ElementType::Relation {
                 members: rel.member,
             },
@@ -227,7 +228,7 @@ fn _convert_element(xml_element: XmlElement) -> Element {
     }
 }
 
-pub fn read_xml(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: &str) {
+pub fn read_xml(sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>, src: &str) {
     let osm_xml_object: OsmXmlDocument = match from_str(src) {
         Ok(v) => v,
         Err(e) => {
@@ -241,28 +242,27 @@ pub fn read_xml(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src:
         .expect("Couldn't send metdata to main thread!");
 
     // send each deserialized element to the next processing step
-    for n in osm_xml_object.node {
-        match sender.send(_convert_element(XmlElement::Node(n))) {
-            Ok(_) => (),
-            Err(e) => {
-                panic!("ERROR: Unable to send a node: {e:?}");
-            }
-        }
-    }
-    for w in osm_xml_object.way {
-        match sender.send(_convert_element(XmlElement::Way(w))) {
-            Ok(_) => (),
-            Err(e) => {
-                panic!("ERROR: Unable to send a way: {e:?}");
-            }
-        }
-    }
-    for r in osm_xml_object.relation {
-        match sender.send(_convert_element(XmlElement::Relation(r))) {
-            Ok(_) => (),
-            Err(e) => {
-                panic!("ERROR: Unable to send a relation: {e:?}");
-            }
-        }
-    }
+    osm_xml_object
+        .node
+        .into_iter()
+        .map(|n| convert_element(XmlElement::Node(n)))
+        .chain(
+            osm_xml_object
+                .way
+                .into_iter()
+                .map(|w| convert_element(XmlElement::Way(w))),
+        )
+        .chain(
+            osm_xml_object
+                .relation
+                .into_iter()
+                .map(|r| convert_element(XmlElement::Relation(r))),
+        )
+        .chunks(1000)
+        .into_iter()
+        .for_each(|e| {
+            sender
+                .send(e.collect())
+                .expect("Unable to send element to channel")
+        });
 }

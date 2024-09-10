@@ -52,7 +52,7 @@ impl FromStr for OutputFileFormat {
 /// * `destination`: Output data destination.
 /// * `progress`: The ProgressBar for this write operation.
 pub fn write_file<D: Write>(
-    reciever: Receiver<Element>,
+    receiver: Receiver<Vec<Element>>,
     metadata: Metadata,
     to: OutputFileFormat,
     destination: D,
@@ -69,10 +69,10 @@ pub fn write_file<D: Write>(
     });
 
     match to {
-        OutputFileFormat::Json => write_json(reciever, metadata, destination),
+        OutputFileFormat::Json => write_json(receiver, metadata, destination),
         // OutputFileFormat::O5m => write_o5m(reciever, metadata, destination),
-        OutputFileFormat::Opl => write_opl(reciever, metadata, destination),
-        OutputFileFormat::Xml => write_xml(reciever, metadata, destination),
+        OutputFileFormat::Opl => write_opl(receiver, metadata, destination),
+        OutputFileFormat::Xml => write_xml(receiver, metadata, destination),
     }
 
     progress.finish_with_message("Writing output...done");

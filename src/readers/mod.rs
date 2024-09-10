@@ -52,7 +52,7 @@ impl FromStr for InputFileFormat {
 /// * `source`: Input data source.
 /// * `progress`: The ProgressBar for this read operation.
 pub fn read_file<S: Read + Send>(
-    sender: Sender<elements::Element>,
+    sender: Sender<Vec<elements::Element>>,
     metadata_sender: Sender<elements::Metadata>,
     from: InputFileFormat,
     mut source: S,

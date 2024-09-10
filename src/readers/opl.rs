@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::io::BufRead;
 use std::sync::mpsc::Sender;
 
+use itertools::Itertools;
+
 use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
 
 #[derive(Debug)]
@@ -225,7 +227,11 @@ fn convert_element(line: String) -> Element {
     Element::from(opl_element)
 }
 
-pub fn read_opl<S: BufRead>(sender: Sender<Element>, metadata_sender: Sender<Metadata>, src: S) {
+pub fn read_opl<S: BufRead>(
+    sender: Sender<Vec<Element>>,
+    metadata_sender: Sender<Metadata>,
+    src: S,
+) {
     // create an empty Metadata object
     let metadata = Metadata::default();
 
@@ -234,15 +240,16 @@ pub fn read_opl<S: BufRead>(sender: Sender<Element>, metadata_sender: Sender<Met
         .send(metadata)
         .expect("Couldn't send metdata to main thread!");
 
-    for line in src.lines().take_while(|l| l.is_ok()) {
-        let line = line.unwrap();
-        match sender.send(convert_element(line)) {
-            Ok(_) => (),
-            Err(e) => {
-                panic!("ERROR: Unable to send an element: {e:?}");
-            }
-        }
-    }
+    src.lines()
+        .take_while(|l| l.is_ok())
+        .map(|l| convert_element(l.unwrap()))
+        .chunks(1000)
+        .into_iter()
+        .for_each(|e| {
+            sender
+                .send(e.collect())
+                .expect("Unable to send element to channel")
+        });
 }
 
 #[cfg(test)]
