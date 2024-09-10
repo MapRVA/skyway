@@ -13,6 +13,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 | GeoJSON       | ➖     | ❌     |
 | o5m           | ❌     | ❌     |
 | OPL           | ✅     | ✅     |
+| OSM Express   | ❌     | ❌     |
 | OSM JSON      | ✅     | ✅     |
 | Overpass JSON | ✅     | ❌     |
 | OSM XML       | ✅     | ✅     |
