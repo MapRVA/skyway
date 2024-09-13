@@ -17,15 +17,20 @@ cat input-file.pbf | skyway --from pbf --to json > output-file.json
 Here is a table showing the formats skyway supports reading and writing.
 The shortname is used to indicate the format when running skyway, e.g. `skyway --from xml ...`
 
+**Key:**<br>
+❌ – Not Supported<br>
+✅ – Supported<br>
+⚡ – Speedy!<br>
+
 | Format        | Shortname | Reader | Writer |
 | --------------|-----------|--------|--------|
 | GeoJSON       |           | ➖     | ❌     |
 | o5m           |           | ❌     | ❌     |
-| OPL           | `opl`     | ✅     | ✅     |
+| OPL           | `opl`     | ✅     | ⚡     |
 | OSM Express   |           | ❌     | ❌     |
-| OSM JSON      | `json`    | ✅     | ✅     |
+| OSM JSON      | `json`    | ✅     | ⚡     |
 | Overpass JSON | †         | ✅     | ❌     |
 | OSM XML       | `xml`     | ✅     | ✅     |
-| PBF           | `pbf`     | ✅     | ❌     |
+| PBF           | `pbf`     | ⚡     | ❌     |
 
 <sup>†</sup>*Use the shortname `json` as if to read OSM JSON, it is the same parser.*

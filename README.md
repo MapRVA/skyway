@@ -8,16 +8,21 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 
 ## Supported Formats
 
+**Key:**<br>
+❌ – Not Supported<br>
+✅ – Supported<br>
+⚡ – Speedy!<br>
+
 | Format        | Reader | Writer |
 | --------------|--------|--------|
 | GeoJSON       | ➖     | ❌     |
 | o5m           | ❌     | ❌     |
-| OPL           | ✅     | ✅     |
+| OPL           | ✅     | ⚡     |
 | OSM Express   | ❌     | ❌     |
-| OSM JSON      | ✅     | ✅     |
+| OSM JSON      | ✅     | ⚡     |
 | Overpass JSON | ✅     | ❌     |
 | OSM XML       | ✅     | ✅     |
-| PBF           | ✅     | ❌     |
+| PBF           | ⚡     | ❌     |
 
 ## Contributing
 
