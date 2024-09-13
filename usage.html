@@ -188,15 +188,19 @@ This enables you to stream data into and out of skyway, like this:</p>
 <h2 id="supported-formats"><a class="header" href="#supported-formats">Supported Formats</a></h2>
 <p>Here is a table showing the formats skyway supports reading and writing.
 The shortname is used to indicate the format when running skyway, e.g. <code>skyway --from xml ...</code></p>
+<p><strong>Key:</strong><br>
+❌ – Not Supported<br>
+✅ – Supported<br>
+⚡ – Speedy!<br></p>
 <div class="table-wrapper"><table><thead><tr><th>Format</th><th>Shortname</th><th>Reader</th><th>Writer</th></tr></thead><tbody>
 <tr><td>GeoJSON</td><td></td><td>➖</td><td>❌</td></tr>
 <tr><td>o5m</td><td></td><td>❌</td><td>❌</td></tr>
-<tr><td>OPL</td><td><code>opl</code></td><td>✅</td><td>✅</td></tr>
+<tr><td>OPL</td><td><code>opl</code></td><td>✅</td><td>⚡</td></tr>
 <tr><td>OSM Express</td><td></td><td>❌</td><td>❌</td></tr>
-<tr><td>OSM JSON</td><td><code>json</code></td><td>✅</td><td>✅</td></tr>
+<tr><td>OSM JSON</td><td><code>json</code></td><td>✅</td><td>⚡</td></tr>
 <tr><td>Overpass JSON</td><td>†</td><td>✅</td><td>❌</td></tr>
 <tr><td>OSM XML</td><td><code>xml</code></td><td>✅</td><td>✅</td></tr>
-<tr><td>PBF</td><td><code>pbf</code></td><td>✅</td><td>❌</td></tr>
+<tr><td>PBF</td><td><code>pbf</code></td><td>⚡</td><td>❌</td></tr>
 </tbody></table>
 </div>
 <p><sup>†</sup><em>Use the shortname <code>json</code> as if to read OSM JSON, it is the same parser.</em></p>
