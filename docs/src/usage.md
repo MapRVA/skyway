@@ -29,8 +29,8 @@ The shortname is used to indicate the format when running skyway, e.g. `skyway -
 | OPL           | `opl`     | ✅     | ⚡     |
 | OSM Express   |           | ❌     | ❌     |
 | OSM JSON      | `json`    | ✅     | ⚡     |
-| Overpass JSON | †         | ✅     | ❌     |
+| Overpass JSON | †         | ✅     | ⚡     |
 | OSM XML       | `xml`     | ✅     | ✅     |
 | PBF           | `pbf`     | ⚡     | ❌     |
 
-<sup>†</sup>*Use the shortname `json` as if to read OSM JSON, it is the same parser.*
+<sup>†</sup>*Use the shortname `json` to read OSM JSON, it is the same parser. Use `overpass` for writing.*

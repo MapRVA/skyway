@@ -26,6 +26,7 @@ pub enum OutputFileFormat {
     Json,
     // O5m,
     Opl,
+    Overpass,
     Xml,
 }
 
@@ -38,6 +39,7 @@ impl FromStr for OutputFileFormat {
             "json" => Ok(OutputFileFormat::Json),
             // "o5m" => Ok(OutputFileFormat::O5m),
             "opl" => Ok(OutputFileFormat::Opl),
+            "overpass" => Ok(OutputFileFormat::Overpass),
             "xml" => Ok(OutputFileFormat::Xml),
             _ => Err(SkywayError::UnknownOutputFormat),
         }
@@ -69,9 +71,10 @@ pub fn write_file<D: Write>(
     });
 
     match to {
-        OutputFileFormat::Json => write_json(receiver, metadata, destination),
+        OutputFileFormat::Json => write_json(receiver, metadata, destination, false),
         // OutputFileFormat::O5m => write_o5m(reciever, metadata, destination),
         OutputFileFormat::Opl => write_opl(receiver, metadata, destination),
+        OutputFileFormat::Overpass => write_json(receiver, metadata, destination, true),
         OutputFileFormat::Xml => write_xml(receiver, metadata, destination),
     }
 

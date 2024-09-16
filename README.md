@@ -20,7 +20,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 | OPL           | ✅     | ⚡     |
 | OSM Express   | ❌     | ❌     |
 | OSM JSON      | ✅     | ⚡     |
-| Overpass JSON | ✅     | ❌     |
+| Overpass JSON | ✅     | ⚡     |
 | OSM XML       | ✅     | ✅     |
 | PBF           | ⚡     | ❌     |
 

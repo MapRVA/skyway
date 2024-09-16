@@ -20,22 +20,8 @@ where
     }
 }
 
-fn create_header(metadata: Metadata) -> String {
+fn create_header(metadata: Metadata, overpass: bool) -> String {
     let mut header = String::from("{");
-
-    if let Some(c) = metadata.copyright {
-        header.push_str("\"copyright\":");
-        header.push_str(&stringify(c));
-        header.push(',');
-    }
-
-    // TODO: attribution as well as copyright?
-
-    if let Some(l) = metadata.license {
-        header.push_str("\"license\":");
-        header.push_str(&stringify(l));
-        header.push(',');
-    }
 
     // TODO: add skyway details to this?
     if let Some(g) = metadata.generator {
@@ -44,8 +30,44 @@ fn create_header(metadata: Metadata) -> String {
         header.push(',');
     }
 
-    header.push_str("\"version\":\"0.6\",\"elements\":[");
+    if overpass {
+        let mut item_appended = false;
+        header.push_str("\"osm3s\":{");
 
+        if let Some(t) = metadata.timestamp {
+            header.push_str("\"timestamp_osm_base\":");
+            header.push_str(&stringify(t));
+            item_appended = true;
+        }
+
+        if let Some(c) = metadata.copyright {
+            if item_appended {
+                header.push(',')
+            };
+            header.push_str("\"copyright\":");
+            header.push_str(&stringify(c));
+        }
+
+        // numeric version value
+        header.push_str("},\"version\":0.6,\"elements\":[");
+    } else {
+        if let Some(c) = metadata.copyright {
+            header.push_str("\"copyright\":");
+            header.push_str(&stringify(c));
+            header.push(',');
+        }
+
+        // TODO: attribution as well as copyright?
+
+        if let Some(l) = metadata.license {
+            header.push_str("\"license\":");
+            header.push_str(&stringify(l));
+            header.push(',');
+        }
+
+        // string version value
+        header.push_str("\"version\":\"0.6\",\"elements\":[");
+    }
     header
 }
 
@@ -182,10 +204,9 @@ pub fn write_json<D: std::io::Write>(
     receiver: Receiver<Vec<Element>>,
     metadata: Metadata,
     dest: D,
+    overpass: bool,
 ) {
     let mut writer = ToFmtWrite(dest);
-
-    // TODO: append metadata to output
 
     let (output_sender, output_reciever) = channel();
     WRITER_THREAD_POOL.install(move || {
@@ -200,7 +221,7 @@ pub fn write_json<D: std::io::Write>(
             });
     });
 
-    let header = create_header(metadata);
+    let header = create_header(metadata, overpass);
 
     writer
         .write_str(&header)
