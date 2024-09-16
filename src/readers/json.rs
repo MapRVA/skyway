@@ -106,13 +106,8 @@ struct Osm3s {
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum Osm3sWrapper {
-    Flat {
-        copyright: Option<String>,
-    },
-    Osm3s {
-        #[serde(flatten)]
-        osm3s: Osm3s,
-    },
+    Osm3s { osm3s: Osm3s },
+    Flat { copyright: Option<String> },
 }
 
 #[derive(Deserialize)]
