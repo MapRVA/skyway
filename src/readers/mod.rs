@@ -37,6 +37,7 @@ impl FromStr for InputFileFormat {
         match s.to_lowercase().as_str() {
             "json" => Ok(InputFileFormat::Json),
             "opl" => Ok(InputFileFormat::Opl),
+            "osm" => Ok(InputFileFormat::Xml),
             "pbf" => Ok(InputFileFormat::Pbf),
             "xml" => Ok(InputFileFormat::Xml),
             _ => Err(SkywayError::UnknownInputFormat),

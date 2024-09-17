@@ -39,6 +39,7 @@ impl FromStr for OutputFileFormat {
             "json" => Ok(OutputFileFormat::Json),
             // "o5m" => Ok(OutputFileFormat::O5m),
             "opl" => Ok(OutputFileFormat::Opl),
+            "osm" => Ok(OutputFileFormat::Xml),
             "overpass" => Ok(OutputFileFormat::Overpass),
             "xml" => Ok(OutputFileFormat::Xml),
             _ => Err(SkywayError::UnknownOutputFormat),
