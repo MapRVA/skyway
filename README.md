@@ -17,6 +17,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 | Format        | Reader | Writer |
 | --------------|--------|--------|
 | GeoJSON       | ➖     | ❌     |
+| GOL           | ❌     | ❌     |
 | o5m           | ❌     | ❌     |
 | OPL           | ✅     | ⚡     |
 | OSM Express   | ❌     | ❌     |
