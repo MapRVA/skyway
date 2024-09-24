@@ -10,6 +10,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 
 **Key:**<br>
 ❌ – Not Supported<br>
+➖ – Not Planned<br>
 ✅ – Supported<br>
 ⚡ – Speedy!<br>
 
