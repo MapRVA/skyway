@@ -24,10 +24,7 @@ The shortname is used to indicate the format when running skyway, e.g. `skyway -
 
 | Format        | Shortname | Reader | Writer |
 | --------------|-----------|--------|--------|
-| GeoJSON       |           | ➖     | ❌     |
-| o5m           |           | ❌     | ❌     |
 | OPL           | `opl`     | ✅     | ⚡     |
-| OSM Express   |           | ❌     | ❌     |
 | OSM JSON      | `json`    | ✅     | ⚡     |
 | Overpass JSON | †         | ✅     | ⚡     |
 | OSM XML       | `xml`     | ✅     | ✅     |
