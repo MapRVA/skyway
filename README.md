@@ -14,17 +14,17 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 ✅ – Supported<br>
 ⚡ – Speedy!<br>
 
-| Format        | Reader | Writer |
-| --------------|--------|--------|
-| GeoJSON       | ➖     | ❌     |
-| GOL           | ❌     | ❌     |
-| o5m           | ❌     | ❌     |
-| OPL           | ✅     | ⚡     |
-| OSM Express   | ❌     | ❌     |
-| OSM JSON      | ✅     | ⚡     |
-| Overpass JSON | ✅     | ⚡     |
-| OSM XML       | ✅     | ✅     |
-| PBF           | ⚡     | ❌     |
+| Format | Reader | Writer |
+| -------|--------|--------|
+| [GeoJSON](https://wiki.openstreetmap.org/wiki/GeoJSON) | ➖ | ❌ |
+| [GOL](https://wiki.openstreetmap.org/wiki/Geographic_Object_Library) | ❌ | ❌ |
+| [o5m](https://wiki.openstreetmap.org/wiki/O5m) | ❌ | ❌ |
+| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | ✅ | ⚡ |
+| [OSM Express](https://wiki.openstreetmap.org/wiki/OSM_Express) | ❌ | ❌ |
+| [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | ✅     | ⚡     |
+| [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | ✅ | ⚡ |
+| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | ✅ | ✅ |
+| [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | ⚡ | ❌ |
 
 ## Contributing
 
