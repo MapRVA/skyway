@@ -11,8 +11,8 @@ use crate::SkywayError;
 mod json;
 use json::write_json;
 
-// mod o5m;
-// use o5m::write_o5m;
+mod o5m;
+use o5m::write_o5m;
 
 mod opl;
 use opl::write_opl;

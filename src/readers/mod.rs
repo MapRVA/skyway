@@ -15,6 +15,9 @@ use json::JsonReader;
 mod opl;
 use opl::OplReader;
 
+mod osmx;
+use osmx::OsmxReader;
+
 mod pbf;
 use pbf::PbfReader;
 
