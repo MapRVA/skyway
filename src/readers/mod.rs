@@ -1,24 +1,25 @@
 //! Reads OSM data into skyway.
 
-use indicatif::ProgressBar;
-use std::io::{BufReader, Read};
+use std::fs;
+use std::io::{stdin, BufReader, Read};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::mpsc::Sender;
 
-use crate::elements;
+use crate::elements::{Element, Metadata};
 use crate::SkywayError;
 
 mod json;
-use json::read_json;
+use json::JsonReader;
 
 mod opl;
-use opl::read_opl;
+use opl::OplReader;
 
 mod pbf;
-use pbf::read_pbf;
+use pbf::PbfReader;
 
 mod xml;
-use xml::read_xml;
+use xml::XmlReader;
 
 /// Enum that represents the different input file formats skyway supports.
 #[derive(Debug)]
@@ -45,56 +46,60 @@ impl FromStr for InputFileFormat {
     }
 }
 
-/// Reads data into skyway.
-///
-/// * `sender`: Sender for a channel of `Element`s.
-/// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
-/// * `from`: File format to parse.
-/// * `source`: Input data source.
-/// * `progress`: The ProgressBar for this read operation.
-pub fn read_file<S: Read + Send>(
-    sender: Sender<Vec<elements::Element>>,
-    metadata_sender: Sender<elements::Metadata>,
-    from: InputFileFormat,
-    mut source: S,
-    progress: ProgressBar,
-) {
-    progress.set_message("Reading input...");
-    let progress_clone = progress.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        progress_clone.tick();
-        if progress_clone.is_finished() {
-            break;
-        }
-    });
+pub trait Reader: Send {
+    /// Reads data into skyway.
+    ///
+    /// * `sender`: Sender for a channel of `Element`s.
+    /// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
+    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>);
+}
 
+fn open_or_stdin(path: Option<PathBuf>) -> Box<dyn Read + Send> {
+    match path {
+        Some(p) => match fs::File::open(p) {
+            Ok(f) => Box::new(f) as Box<dyn Read + Send>,
+            Err(e) => panic!("Unable to open input file: {e:?}"),
+        },
+        None => Box::new(stdin()) as Box<dyn Read + Send>,
+    }
+}
+
+pub fn generate_reader(from: InputFileFormat, path: Option<PathBuf>) -> Box<dyn Reader> {
     match from {
         InputFileFormat::Json => {
             let mut buffer = String::new();
-            let source_str = match source.read_to_string(&mut buffer) {
-                Ok(_) => buffer.as_str(),
+            let mut source = open_or_stdin(path);
+            let src = match source.read_to_string(&mut buffer) {
+                Ok(_) => buffer,
                 Err(e) => {
                     panic!("Error reading input: {e:?}");
                 }
             };
-            read_json(sender, metadata_sender, source_str);
+            Box::new(JsonReader { src })
         }
-        InputFileFormat::Opl => {
-            let reader = BufReader::new(source);
-            read_opl(sender, metadata_sender, reader);
-        }
-        InputFileFormat::Pbf => read_pbf(sender, metadata_sender, source),
+        InputFileFormat::Opl => Box::new(OplReader {
+            src: Box::new(BufReader::new(open_or_stdin(path))),
+        }),
+        InputFileFormat::Pbf => Box::new(PbfReader {
+            src: Box::new(BufReader::new(open_or_stdin(path))),
+        }),
         InputFileFormat::Xml => {
             let mut buffer = String::new();
-            let source_str = match source.read_to_string(&mut buffer) {
-                Ok(_) => buffer.as_str(),
+            let mut source = open_or_stdin(path);
+            let src = match source.read_to_string(&mut buffer) {
+                Ok(_) => buffer,
                 Err(e) => {
                     panic!("Error reading input: {e:?}");
                 }
             };
-            read_xml(sender, metadata_sender, source_str);
+            Box::new(XmlReader { src })
         }
     }
-    progress.finish_with_message("Reading input...done");
+}
+
+pub fn get_reader(input: Option<&str>, from: InputFileFormat) -> Box<dyn Reader> {
+    match input {
+        None => generate_reader(from, None),
+        Some(a) => generate_reader(from, Some(PathBuf::from(a))),
+    }
 }

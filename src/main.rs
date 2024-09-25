@@ -2,7 +2,7 @@ use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::{error, info};
 use std::fs;
-use std::io::{stdin, stdout};
+use std::io::stdout;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::mpsc;
@@ -10,7 +10,7 @@ use std::thread;
 
 use skyway::elements::{Element, Metadata};
 use skyway::filter::{create_filter, filter_elements, ElementFilter};
-use skyway::readers::{read_file, InputFileFormat};
+use skyway::readers::{get_reader, InputFileFormat};
 use skyway::writers::{write_file, OutputFileFormat};
 use skyway::SkywayError;
 
@@ -104,17 +104,28 @@ fn main() -> Result<(), SkywayError> {
     let read_progress = multi.add(ProgressBar::new_spinner());
     read_progress.set_style(spinner_style.clone());
 
+    //  for reader progress
+    let progress_clone = read_progress.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        progress_clone.tick();
+        if progress_clone.is_finished() {
+            break;
+        }
+    });
+
+    let mut reader = get_reader(cli.input.as_deref(), from);
+
     // spawn a thread that reads the file and spits OSM element
     // data into the channel, to be passed into the filter
     // or data writer
-    let read_thread = thread::spawn(move || match cli.input {
-        None => read_file(reader_sender, metadata_sender, from, stdin(), read_progress),
-        Some(a) => match fs::File::open(PathBuf::from(a)) {
-            Ok(b) => read_file(reader_sender, metadata_sender, from, b, read_progress),
-            Err(e) => {
-                panic!("Unable to open input file: {e:?}");
-            }
-        },
+    let read_thread = thread::spawn(move || {
+        read_progress.set_message("Reading input...");
+
+        reader.read(reader_sender, metadata_sender);
+
+        // complete reader progress spinner
+        read_progress.finish_with_message("Reading input...done");
     });
 
     metadata = match metadata_reciever.iter().next() {

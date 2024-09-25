@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+use crate::readers::Reader;
 
 fn deserialize_simple_element_type<'de, D>(
     deserializer: D,
@@ -155,31 +156,37 @@ where
     Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
 
-pub fn read_json(sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>, src: &str) {
-    let osm_json_object: OsmDocument = match from_str(src) {
-        Ok(v) => v,
-        Err(e) => {
-            panic!("ERROR: Could not parse JSON file: {e:?}");
-        }
-    };
+pub struct JsonReader {
+    pub src: String,
+}
 
-    // convert MetadataWrapper to Metadata
-    let metadata = Metadata::from(osm_json_object.metadata);
+impl Reader for JsonReader {
+    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+        let osm_json_object: OsmDocument = match from_str(&self.src) {
+            Ok(v) => v,
+            Err(e) => {
+                panic!("ERROR: Could not parse JSON file: {e:?}");
+            }
+        };
 
-    // send OSM document metadata to main thread
-    metadata_sender
-        .send(metadata)
-        .expect("Couldn't send metdata to main thread!");
+        // convert MetadataWrapper to Metadata
+        let metadata = Metadata::from(osm_json_object.metadata);
 
-    // send each deserialized element to the next processing step
-    osm_json_object
-        .elements
-        .into_iter()
-        .chunks(1000)
-        .into_iter()
-        .for_each(|e| {
-            sender
-                .send(e.collect())
-                .expect("Unable to send element to channel")
-        });
+        // send OSM document metadata to main thread
+        metadata_sender
+            .send(metadata)
+            .expect("Couldn't send metdata to main thread!");
+
+        // send each deserialized element to the next processing step
+        osm_json_object
+            .elements
+            .into_iter()
+            .chunks(1000)
+            .into_iter()
+            .for_each(|e| {
+                sender
+                    .send(e.collect())
+                    .expect("Unable to send element to channel")
+            });
+    }
 }

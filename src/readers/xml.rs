@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+use crate::readers::Reader;
 
 fn deserialize_simple_element_type<'de, D>(
     deserializer: D,
@@ -228,41 +229,47 @@ fn convert_element(xml_element: XmlElement) -> Element {
     }
 }
 
-pub fn read_xml(sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>, src: &str) {
-    let osm_xml_object: OsmXmlDocument = match from_str(src) {
-        Ok(v) => v,
-        Err(e) => {
-            panic!("ERROR: Could not parse XML file: {e:?}");
-        }
-    };
+pub struct XmlReader {
+    pub src: String,
+}
 
-    // send OSM document metadata to main thread
-    metadata_sender
-        .send(osm_xml_object.metadata)
-        .expect("Couldn't send metdata to main thread!");
+impl Reader for XmlReader {
+    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+        let osm_xml_object: OsmXmlDocument = match from_str(&self.src) {
+            Ok(v) => v,
+            Err(e) => {
+                panic!("ERROR: Could not parse XML file: {e:?}");
+            }
+        };
 
-    // send each deserialized element to the next processing step
-    osm_xml_object
-        .node
-        .into_iter()
-        .map(|n| convert_element(XmlElement::Node(n)))
-        .chain(
-            osm_xml_object
-                .way
-                .into_iter()
-                .map(|w| convert_element(XmlElement::Way(w))),
-        )
-        .chain(
-            osm_xml_object
-                .relation
-                .into_iter()
-                .map(|r| convert_element(XmlElement::Relation(r))),
-        )
-        .chunks(1000)
-        .into_iter()
-        .for_each(|e| {
-            sender
-                .send(e.collect())
-                .expect("Unable to send element to channel")
-        });
+        // send OSM document metadata to main thread
+        metadata_sender
+            .send(osm_xml_object.metadata)
+            .expect("Couldn't send metdata to main thread!");
+
+        // send each deserialized element to the next processing step
+        osm_xml_object
+            .node
+            .into_iter()
+            .map(|n| convert_element(XmlElement::Node(n)))
+            .chain(
+                osm_xml_object
+                    .way
+                    .into_iter()
+                    .map(|w| convert_element(XmlElement::Way(w))),
+            )
+            .chain(
+                osm_xml_object
+                    .relation
+                    .into_iter()
+                    .map(|r| convert_element(XmlElement::Relation(r))),
+            )
+            .chunks(1000)
+            .into_iter()
+            .for_each(|e| {
+                sender
+                    .send(e.collect())
+                    .expect("Unable to send element to channel")
+            });
+    }
 }

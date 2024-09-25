@@ -1,10 +1,12 @@
 use std::collections::HashMap;
-use std::io::BufRead;
+use std::io::{empty, BufRead};
+use std::mem;
 use std::sync::mpsc::Sender;
 
 use itertools::Itertools;
 
 use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+use crate::readers::Reader;
 
 #[derive(Debug)]
 enum OplElementType {
@@ -211,29 +213,32 @@ fn convert_element(line: String) -> Element {
     Element::from(opl_element)
 }
 
-pub fn read_opl<S: BufRead>(
-    sender: Sender<Vec<Element>>,
-    metadata_sender: Sender<Metadata>,
-    src: S,
-) {
-    // create an empty Metadata object
-    let metadata = Metadata::default();
+pub struct OplReader {
+    pub src: Box<dyn BufRead + Send>,
+}
 
-    // send metadata to main thread
-    metadata_sender
-        .send(metadata)
-        .expect("Couldn't send metdata to main thread!");
+impl Reader for OplReader {
+    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+        // create an empty Metadata object
+        let metadata = Metadata::default();
 
-    src.lines()
-        .take_while(|l| l.is_ok())
-        .map(|l| convert_element(l.unwrap()))
-        .chunks(1000)
-        .into_iter()
-        .for_each(|e| {
-            sender
-                .send(e.collect())
-                .expect("Unable to send element to channel")
-        });
+        // send metadata to main thread
+        metadata_sender
+            .send(metadata)
+            .expect("Couldn't send metdata to main thread!");
+
+        let src = mem::replace(&mut self.src, Box::new(empty()));
+        src.lines()
+            .take_while(|l| l.is_ok())
+            .map(|l| convert_element(l.unwrap()))
+            .chunks(1000)
+            .into_iter()
+            .for_each(|e| {
+                sender
+                    .send(e.collect())
+                    .expect("Unable to send element to channel")
+            });
+    }
 }
 
 #[cfg(test)]
