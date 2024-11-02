@@ -1,10 +1,14 @@
 //! Filters/transforms OSM data.
 
+#[cfg(feature = "cel")]
 mod cel;
+#[cfg(feature = "osmfilter")]
 mod osmfilter;
 
+#[cfg(feature = "cel")]
 use cel::compile_cel_filter;
 use indicatif::ProgressBar;
+#[cfg(feature = "osmfilter")]
 use osmfilter::parse::parse_filter;
 use std::sync::mpsc::{Receiver, Sender};
 
@@ -16,14 +20,16 @@ pub trait ElementFilter: Send {
 }
 
 pub fn create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
-    let osmfilter = parse_filter(filter_contents);
-    if let Some(f) = osmfilter {
+    #[cfg(feature = "osmfilter")]
+    if let Some(f) = parse_filter(filter_contents) {
         return Box::new(f);
     }
-    let celfilter = compile_cel_filter(filter_contents);
-    if let Some(f) = celfilter {
+
+    #[cfg(feature = "cel")]
+    if let Some(f) = compile_cel_filter(filter_contents) {
         return Box::new(f);
     }
+
     panic!("Unable to parse filter: {filter_contents:?}");
 }
 
