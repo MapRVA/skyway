@@ -9,20 +9,20 @@ use std::sync::mpsc::Sender;
 use crate::elements::{Element, Metadata};
 use crate::SkywayError;
 
+#[cfg(feature = "json")]
 mod json;
-use json::JsonReader;
 
+#[cfg(feature = "opl")]
 mod opl;
-use opl::OplReader;
 
+#[cfg(feature = "osmx")]
 mod osmx;
-use osmx::OsmxReader;
 
+#[cfg(feature = "pbf")]
 mod pbf;
-use pbf::PbfReader;
 
+#[cfg(feature = "xml")]
 mod xml;
-use xml::XmlReader;
 
 /// Enum that represents the different input file formats skyway supports.
 #[derive(Debug)]
@@ -68,7 +68,9 @@ fn open_or_stdin(path: Option<PathBuf>) -> Box<dyn Read + Send> {
 }
 
 pub fn generate_reader(from: InputFileFormat, path: Option<PathBuf>) -> Box<dyn Reader> {
+    #[allow(unreachable_patterns)]
     match from {
+        #[cfg(feature = "json")]
         InputFileFormat::Json => {
             let mut buffer = String::new();
             let mut source = open_or_stdin(path);
@@ -78,14 +80,17 @@ pub fn generate_reader(from: InputFileFormat, path: Option<PathBuf>) -> Box<dyn 
                     panic!("Error reading input: {e:?}");
                 }
             };
-            Box::new(JsonReader { src })
+            Box::new(json::JsonReader { src })
         }
-        InputFileFormat::Opl => Box::new(OplReader {
+        #[cfg(feature = "opl")]
+        InputFileFormat::Opl => Box::new(opl::OplReader {
             src: Box::new(BufReader::new(open_or_stdin(path))),
         }),
-        InputFileFormat::Pbf => Box::new(PbfReader {
+        #[cfg(feature = "pbf")]
+        InputFileFormat::Pbf => Box::new(pbf::PbfReader {
             src: Box::new(BufReader::new(open_or_stdin(path))),
         }),
+        #[cfg(feature = "xml")]
         InputFileFormat::Xml => {
             let mut buffer = String::new();
             let mut source = open_or_stdin(path);
@@ -95,8 +100,9 @@ pub fn generate_reader(from: InputFileFormat, path: Option<PathBuf>) -> Box<dyn 
                     panic!("Error reading input: {e:?}");
                 }
             };
-            Box::new(XmlReader { src })
+            Box::new(xml::XmlReader { src })
         }
+        _ => panic!("Feature not enabled for input format {:?}", from),
     }
 }
 

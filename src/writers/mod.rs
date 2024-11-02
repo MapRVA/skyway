@@ -8,17 +8,17 @@ use std::sync::mpsc::Receiver;
 use crate::elements::{Element, Metadata};
 use crate::SkywayError;
 
+#[cfg(feature = "json")]
 mod json;
-use json::write_json;
 
+#[cfg(feature = "o5m")]
 mod o5m;
-use o5m::write_o5m;
 
+#[cfg(feature = "opl")]
 mod opl;
-use opl::write_opl;
 
+#[cfg(feature = "xml")]
 mod xml;
-use xml::write_xml;
 
 /// Enum that represents the different output file formats skyway supports.
 #[derive(Debug)]
@@ -37,6 +37,7 @@ impl FromStr for OutputFileFormat {
         match s.to_lowercase().as_str() {
             // TODO: recognize JSON, but warn user that it may be confused for Overpass JSON
             "json" => Ok(OutputFileFormat::Json),
+            // #[cfg(feature = "o5m")]
             // "o5m" => Ok(OutputFileFormat::O5m),
             "opl" => Ok(OutputFileFormat::Opl),
             "osm" => Ok(OutputFileFormat::Xml),
@@ -71,12 +72,19 @@ pub fn write_file<D: Write>(
         }
     });
 
+    #[allow(unreachable_patterns)]
     match to {
-        OutputFileFormat::Json => write_json(receiver, metadata, destination, false),
-        // OutputFileFormat::O5m => write_o5m(reciever, metadata, destination),
-        OutputFileFormat::Opl => write_opl(receiver, metadata, destination),
-        OutputFileFormat::Overpass => write_json(receiver, metadata, destination, true),
-        OutputFileFormat::Xml => write_xml(receiver, metadata, destination),
+        #[cfg(feature = "json")]
+        OutputFileFormat::Json => json::write_json(receiver, metadata, destination, false),
+        //#[cfg(feature = "o5m")]
+        // OutputFileFormat::O5m => o5m::write_o5m(reciever, metadata, destination),
+        #[cfg(feature = "opl")]
+        OutputFileFormat::Opl => opl::write_opl(receiver, metadata, destination),
+        #[cfg(feature = "json")]
+        OutputFileFormat::Overpass => json::write_json(receiver, metadata, destination, true),
+        #[cfg(feature = "xml")]
+        OutputFileFormat::Xml => xml::write_xml(receiver, metadata, destination),
+        _ => panic!("Feature not enabled for output format {:?}", to),
     }
 
     progress.finish_with_message("Writing output...done");
