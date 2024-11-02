@@ -208,7 +208,7 @@ pub fn write_json<D: std::io::Write>(
 ) {
     let mut writer = ToFmtWrite(dest);
 
-    let (output_sender, output_reciever) = channel();
+    let (output_sender, output_receiver) = channel();
     WRITER_THREAD_POOL.install(move || {
         receiver
             .into_iter()
@@ -227,7 +227,7 @@ pub fn write_json<D: std::io::Write>(
         .write_str(&header)
         .expect("Couldn't write opening metadata to output.");
 
-    for output_string in output_reciever {
+    for output_string in output_receiver {
         writer
             .write_str(&output_string)
             .expect("Failed to write to output");
