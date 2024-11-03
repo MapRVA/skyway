@@ -27,7 +27,7 @@ The shortname is used to indicate the format when running skyway, e.g. `skyway -
 | [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ✅ | ⚡ |
 | [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | `json` | ✅ | ⚡ |
 | [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | † | ✅ | ⚡ |
-| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ✅ |
+| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ⚡ |
 | [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | `pbf` | ⚡ | ❌ |
 
 <sup>†</sup>*Use the shortname `json` to read OSM JSON, it is the same parser. Use `overpass` for writing.*

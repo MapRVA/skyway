@@ -23,7 +23,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 | [OSM Express](https://wiki.openstreetmap.org/wiki/OSM_Express) | ❌ | ❌ |
 | [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | ✅     | ⚡     |
 | [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | ✅ | ⚡ |
-| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | ✅ | ✅ |
+| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | ✅ | ⚡ |
 | [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | ⚡ | ❌ |
 
 ## Contributing
