@@ -2,19 +2,27 @@ use osmx::Database;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, Metadata};
-use crate::readers::Reader;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::{Element, Metadata},
+    readers::Reader,
+};
 
 pub struct OsmxReader {
     pub path: PathBuf,
 }
 
-fn extract_elements(database: Database) -> Vec<Vec<Element>> {
+fn extract_elements(database: Database) -> Vec<Chunk> {
     unimplemented!()
 }
 
 impl Reader for OsmxReader {
-    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+    fn read(
+        &mut self,
+        chunk_builder: ChunkBuilder,
+        sender: Sender<Chunk>,
+        metadata_sender: Sender<Metadata>,
+    ) {
         // create an empty Metadata object
         let metadata = Metadata::default();
 

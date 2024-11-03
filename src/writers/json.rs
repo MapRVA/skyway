@@ -4,8 +4,11 @@ use rayon::prelude::*;
 use std::fmt::{Error, Write};
 use std::sync::mpsc::{channel, Receiver};
 
-use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
-use crate::threadpools::WRITER_THREAD_POOL;
+use crate::{
+    chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
+    elements::{Element, ElementType, Metadata, SimpleElementType},
+    threadpools::WRITER_THREAD_POOL,
+};
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write
@@ -187,10 +190,10 @@ fn append_serialized_element(base: &mut String, element: Element) {
     base.push('}');
 }
 
-fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
+fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
     let mut output = String::new();
     let mut first_element_appended = false;
-    for element in chunk {
+    for element in chunk.elements {
         if first_element_appended {
             output.push(',');
         }
@@ -201,7 +204,7 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 }
 
 pub fn write_json<D: std::io::Write>(
-    receiver: Receiver<Vec<Element>>,
+    receiver: Receiver<Chunk>,
     metadata: Metadata,
     dest: D,
     overpass: bool,
@@ -213,24 +216,28 @@ pub fn write_json<D: std::io::Write>(
         receiver
             .into_iter()
             .par_bridge()
-            .map(serialize_chunk)
-            .map(|result| result.expect("Failed to serialize chunk"))
-            .for_each(|s| match output_sender.clone().send(s) {
-                Ok(_) => (),
-                Err(e) => panic!("Error passing output chunk between threads: {e:?}"),
+            .map(|chunk| {
+                let index = chunk.index;
+                let content = serialize_chunk(chunk).expect("Failed to serialize chunk");
+                OrderedOutput { index, content }
+            })
+            .for_each(|output| {
+                output_sender
+                    .send(output)
+                    .expect("Failed to send serialized chunk");
             });
     });
 
     let header = create_header(metadata, overpass);
-
     writer
         .write_str(&header)
         .expect("Couldn't write opening metadata to output.");
 
-    for output_string in output_receiver {
+    let ordered_chunks = OrderedOutputIterator::new(output_receiver.into_iter());
+    for chunk_content in ordered_chunks {
         writer
-            .write_str(&output_string)
-            .expect("Failed to write to output");
+            .write_str(&chunk_content)
+            .expect("Failed to write chunk");
     }
 
     writer

@@ -7,9 +7,11 @@ use std::sync::mpsc::Sender;
 
 use clap::ValueEnum;
 
-use crate::elements::{Element, Metadata};
-use crate::FileFormatOptions;
-use crate::SkywayError;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::Metadata,
+    FileFormatOptions, SkywayError,
+};
 
 #[cfg(feature = "json")]
 mod json;
@@ -27,7 +29,7 @@ mod pbf;
 mod xml;
 
 /// Enum that represents the different input file formats skyway supports.
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum InputFileFormat {
     #[value(name = "json")]
     Json,
@@ -91,7 +93,12 @@ pub trait Reader: Send {
     ///
     /// * `sender`: Sender for a channel of `Element`s.
     /// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
-    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>);
+    fn read(
+        &mut self,
+        chunk_builder: ChunkBuilder,
+        sender: Sender<Chunk>,
+        metadata_sender: Sender<Metadata>,
+    );
 }
 
 fn open_or_stdin(path: Option<PathBuf>) -> Box<dyn Read + Send> {

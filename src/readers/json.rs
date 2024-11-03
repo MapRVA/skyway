@@ -4,8 +4,11 @@ use serde_json::from_str;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
-use crate::readers::Reader;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::{Element, ElementType, Member, Metadata, SimpleElementType},
+    readers::Reader,
+};
 
 fn deserialize_simple_element_type<'de, D>(
     deserializer: D,
@@ -161,7 +164,12 @@ pub struct JsonReader {
 }
 
 impl Reader for JsonReader {
-    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+    fn read(
+        &mut self,
+        chunk_builder: ChunkBuilder,
+        sender: Sender<Chunk>,
+        metadata_sender: Sender<Metadata>,
+    ) {
         let osm_json_object: OsmDocument = match from_str(&self.src) {
             Ok(v) => v,
             Err(e) => {
@@ -178,15 +186,9 @@ impl Reader for JsonReader {
             .expect("Couldn't send metdata to main thread!");
 
         // send each deserialized element to the next processing step
-        osm_json_object
-            .elements
-            .into_iter()
-            .chunks(1000)
-            .into_iter()
-            .for_each(|e| {
-                sender
-                    .send(e.collect())
-                    .expect("Unable to send element to channel")
-            });
+        let elements = osm_json_object.elements.into_iter();
+        chunk_builder
+            .chunk_iterator(elements)
+            .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
     }
 }

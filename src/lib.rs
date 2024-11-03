@@ -3,6 +3,7 @@ use thiserror::Error;
 
 use std::path::PathBuf;
 
+pub mod chunks;
 pub mod elements;
 pub mod filter;
 pub mod readers;

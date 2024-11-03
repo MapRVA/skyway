@@ -3,8 +3,11 @@ use rayon::prelude::*;
 use std::fmt::{Error, Write};
 use std::sync::mpsc::{channel, Receiver};
 
-use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
-use crate::threadpools::WRITER_THREAD_POOL;
+use crate::{
+    chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
+    elements::{ElementType, Metadata, SimpleElementType},
+    threadpools::WRITER_THREAD_POOL,
+};
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write
@@ -59,9 +62,9 @@ fn push_escaped_string(base: &mut String, input: &str) {
     }
 }
 
-fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
+fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
     let mut output = String::new();
-    for element in chunk {
+    for element in chunk.elements {
         match element.element_type {
             ElementType::Node { .. } => {
                 output.push('n');
@@ -168,25 +171,31 @@ fn serialize_chunk(chunk: Vec<Element>) -> Result<String, Error> {
 }
 
 #[allow(unused_variables)]
-pub fn write_opl<D: std::io::Write>(receiver: Receiver<Vec<Element>>, metadata: Metadata, dest: D) {
+pub fn write_opl<D: std::io::Write>(receiver: Receiver<Chunk>, metadata: Metadata, dest: D) {
     let mut writer = ToFmtWrite(dest);
-    let (output_sender, output_reciever) = channel();
+    let (output_sender, output_receiver) = channel();
+
     WRITER_THREAD_POOL.install(move || {
         receiver
             .into_iter()
             .par_bridge()
-            .map(serialize_chunk)
-            .map(|result| result.expect("Failed to serialize chunk"))
-            .for_each(|s| match output_sender.clone().send(s) {
-                Ok(_) => (),
-                Err(e) => panic!("Error passing output chunk between threads."),
+            .map(|chunk| {
+                let index = chunk.index;
+                let content = serialize_chunk(chunk).expect("Failed to serialize chunk");
+                OrderedOutput { index, content }
+            })
+            .for_each(|output| {
+                output_sender
+                    .send(output)
+                    .expect("Failed to send serialized chunk");
             });
     });
 
-    for output_string in output_reciever {
+    let ordered_chunks = OrderedOutputIterator::new(output_receiver.into_iter());
+    for chunk_content in ordered_chunks {
         writer
-            .write_str(&output_string)
-            .expect("Failed to write to output");
+            .write_str(&chunk_content)
+            .expect("Failed to write chunk");
     }
 }
 

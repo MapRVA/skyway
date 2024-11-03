@@ -6,8 +6,7 @@ use std::sync::mpsc::Receiver;
 
 use clap::ValueEnum;
 
-use crate::elements::{Element, Metadata};
-use crate::{FileFormatOptions, SkywayError};
+use crate::{chunks::Chunk, elements::Metadata, FileFormatOptions, SkywayError};
 
 #[cfg(feature = "json")]
 mod json;
@@ -50,7 +49,7 @@ impl FileFormatOptions for OutputFileFormat {
 /// * `destination`: Output data destination.
 /// * `progress`: The ProgressBar for this write operation.
 pub fn write_file<D: Write>(
-    receiver: Receiver<Vec<Element>>,
+    receiver: Receiver<Chunk>,
     metadata: Metadata,
     to: OutputFileFormat,
     destination: D,

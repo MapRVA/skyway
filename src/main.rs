@@ -1,17 +1,20 @@
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use log::info;
+use log::{info, warn};
 use std::fs;
 use std::io::stdout;
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
-use skyway::elements::{Element, Metadata};
-use skyway::filter::{create_filter, filter_elements, ElementFilter};
-use skyway::readers::InputFileFormat;
-use skyway::writers::{write_file, OutputFileFormat};
-use skyway::{FileFormatOptions, SkywayError};
+use skyway::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::Metadata,
+    filter::{create_filter, filter_elements, ElementFilter},
+    readers::InputFileFormat,
+    writers::{write_file, OutputFileFormat},
+    FileFormatOptions, SkywayError,
+};
 
 #[derive(Parser)]
 #[command(name = "skyway")]
@@ -40,6 +43,10 @@ struct Cli {
     #[arg(long)]
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     output: Option<PathBuf>,
+
+    /// Maximum number of elements to store in each chunk passed between threads
+    #[arg(long)]
+    chunksize: Option<usize>,
 }
 
 fn main() -> Result<(), SkywayError> {
@@ -52,6 +59,17 @@ fn main() -> Result<(), SkywayError> {
 
     let to = OutputFileFormat::parse(cli.to, &cli.output)?;
     info!("Output format determined: {:?}", to);
+
+    let chunksize: usize = match cli.chunksize {
+        None => 8000,
+        Some(c) => {
+            #[cfg(feature = "pbf")]
+            if InputFileFormat::Pbf == from {
+                warn!("For now, skyway's PBF reader ignores the chunksize argument.")
+            }
+            c
+        }
+    };
 
     // will hold this document's metadata
     #[allow(clippy::needless_late_init)]
@@ -88,7 +106,7 @@ fn main() -> Result<(), SkywayError> {
     let read_thread = thread::spawn(move || {
         read_progress.set_message("Reading input...");
 
-        reader.read(reader_sender, metadata_sender);
+        reader.read(ChunkBuilder::new(chunksize), reader_sender, metadata_sender);
 
         // complete reader progress spinner
         read_progress.finish_with_message("Reading input...done");
@@ -107,9 +125,9 @@ fn main() -> Result<(), SkywayError> {
 
     // create variables that will hold the Sender and Receiver for the
     // current (last created) filter
-    let mut this_sender: mpsc::Sender<Vec<Element>>;
-    let mut last_receiver: mpsc::Receiver<Vec<Element>> = reader_reciever;
-    let mut next_receiver: mpsc::Receiver<Vec<Element>>;
+    let mut this_sender: mpsc::Sender<Chunk>;
+    let mut last_receiver: mpsc::Receiver<Chunk> = reader_reciever;
+    let mut next_receiver: mpsc::Receiver<Chunk>;
 
     let mut filters: Vec<Box<dyn ElementFilter>> = Vec::new();
 
@@ -131,7 +149,13 @@ fn main() -> Result<(), SkywayError> {
 
         (this_sender, next_receiver) = mpsc::channel();
         filter_threads.push(Some(thread::spawn(move || {
-            filter_elements(filter, last_receiver, this_sender, filter_progress);
+            filter_elements(
+                filter,
+                ChunkBuilder::new(chunksize),
+                last_receiver,
+                this_sender,
+                filter_progress,
+            );
         })));
         last_receiver = next_receiver;
     }

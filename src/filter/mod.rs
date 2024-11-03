@@ -12,7 +12,10 @@ use indicatif::ProgressBar;
 use osmfilter::parse::parse_filter;
 use std::sync::mpsc::{Receiver, Sender};
 
-use crate::elements::Element;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::Element,
+};
 
 /// Represents a filter that can be evaluated on an `Element`, transforming it.
 pub trait ElementFilter: Send {
@@ -41,8 +44,9 @@ pub fn create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
 /// * `progress`: The ProgressBar for this read operation.
 pub fn filter_elements(
     filter: Box<dyn ElementFilter>,
-    receiver: Receiver<Vec<Element>>,
-    sender: Sender<Vec<Element>>,
+    chunk_builder: ChunkBuilder,
+    receiver: Receiver<Chunk>,
+    sender: Sender<Chunk>,
     progress: ProgressBar,
 ) {
     progress.set_message("Filtering elements...");
@@ -57,14 +61,17 @@ pub fn filter_elements(
 
     receiver
         .iter()
-        .map(|c| {
-            let mut keep_elements = Vec::new();
-            for mut element in c {
+        .map(|chunk| {
+            let mut keep_elements = Vec::with_capacity(chunk_builder.max_size);
+            for mut element in chunk.elements {
                 if filter.evaluate(&mut element) {
                     keep_elements.push(element);
                 }
             }
-            keep_elements
+            Chunk {
+                index: chunk.index,
+                elements: keep_elements.into_boxed_slice(),
+            }
         })
         .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
     progress.finish_with_message("Filtering elements...done");

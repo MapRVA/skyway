@@ -1,13 +1,18 @@
 use osmpbf::{BlobDecode, BlobReader};
 use rayon::prelude::*;
-use std::collections::HashMap;
-use std::io::{empty, Read};
-use std::mem;
-use std::sync::mpsc::Sender;
+use std::{
+    collections::HashMap,
+    io::{empty, Read},
+    mem,
+    sync::mpsc::Sender,
+};
 
-use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
-use crate::readers::Reader;
-use crate::threadpools::READER_THREAD_POOL;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::{Element, ElementType, Member, Metadata, SimpleElementType},
+    readers::Reader,
+    threadpools::READER_THREAD_POOL,
+};
 
 fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
@@ -127,7 +132,12 @@ pub struct PbfReader {
 }
 
 impl Reader for PbfReader {
-    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+    fn read(
+        &mut self,
+        chunk_builder: ChunkBuilder,
+        sender: Sender<Chunk>,
+        metadata_sender: Sender<Metadata>,
+    ) {
         metadata_sender
             .send(Metadata {
                 version: None,
@@ -142,19 +152,22 @@ impl Reader for PbfReader {
         let reader = BlobReader::new(src);
         READER_THREAD_POOL.install(|| {
             reader
-                .par_bridge()
                 .filter_map(|blob| match blob.unwrap().decode() {
-                    Ok(BlobDecode::OsmData(block)) => {
-                        Some(block.elements().map(convert_element).collect())
-                    }
-                    Ok(BlobDecode::OsmHeader(_)) | Ok(BlobDecode::Unknown(_)) => None,
+                    Ok(BlobDecode::OsmData(block)) => Some(block),
                     Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
+                    _ => None,
                 })
-                .for_each(|b| {
-                    sender
-                        .send(b)
-                        .expect("Unable to send chunk of elements to channel.")
+                .enumerate()
+                .par_bridge()
+                .map(|(block_index, block)| Chunk {
+                    index: block_index,
+                    elements: block
+                        .elements()
+                        .map(convert_element)
+                        .collect::<Vec<Element>>()
+                        .into_boxed_slice(),
                 })
+                .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
         });
     }
 }

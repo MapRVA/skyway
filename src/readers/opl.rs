@@ -3,10 +3,11 @@ use std::io::{empty, BufRead};
 use std::mem;
 use std::sync::mpsc::Sender;
 
-use itertools::Itertools;
-
-use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
-use crate::readers::Reader;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::{Element, ElementType, Member, Metadata, SimpleElementType},
+    readers::Reader,
+};
 
 #[derive(Debug)]
 enum OplElementType {
@@ -218,7 +219,12 @@ pub struct OplReader {
 }
 
 impl Reader for OplReader {
-    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+    fn read(
+        &mut self,
+        chunk_builder: ChunkBuilder,
+        sender: Sender<Chunk>,
+        metadata_sender: Sender<Metadata>,
+    ) {
         // create an empty Metadata object
         let metadata = Metadata::default();
 
@@ -228,16 +234,13 @@ impl Reader for OplReader {
             .expect("Couldn't send metdata to main thread!");
 
         let src = mem::replace(&mut self.src, Box::new(empty()));
-        src.lines()
+        let elements = src
+            .lines()
             .take_while(|l| l.is_ok())
-            .map(|l| convert_element(l.unwrap()))
-            .chunks(1000)
-            .into_iter()
-            .for_each(|e| {
-                sender
-                    .send(e.collect())
-                    .expect("Unable to send element to channel")
-            });
+            .map(|l| convert_element(l.unwrap()));
+        chunk_builder
+            .chunk_iterator(elements)
+            .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
     }
 }
 

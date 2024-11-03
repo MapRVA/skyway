@@ -8,8 +8,11 @@ use serde_aux::field_attributes::{
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
-use crate::readers::Reader;
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::{Element, ElementType, Member, Metadata, SimpleElementType},
+    readers::Reader,
+};
 
 fn deserialize_simple_element_type<'de, D>(
     deserializer: D,
@@ -234,7 +237,12 @@ pub struct XmlReader {
 }
 
 impl Reader for XmlReader {
-    fn read(&mut self, sender: Sender<Vec<Element>>, metadata_sender: Sender<Metadata>) {
+    fn read(
+        &mut self,
+        chunk_builder: ChunkBuilder,
+        sender: Sender<Chunk>,
+        metadata_sender: Sender<Metadata>,
+    ) {
         let osm_xml_object: OsmXmlDocument = match from_str(&self.src) {
             Ok(v) => v,
             Err(e) => {
@@ -248,7 +256,7 @@ impl Reader for XmlReader {
             .expect("Couldn't send metdata to main thread!");
 
         // send each deserialized element to the next processing step
-        osm_xml_object
+        let elements = osm_xml_object
             .node
             .into_iter()
             .map(|n| convert_element(XmlElement::Node(n)))
@@ -263,13 +271,9 @@ impl Reader for XmlReader {
                     .relation
                     .into_iter()
                     .map(|r| convert_element(XmlElement::Relation(r))),
-            )
-            .chunks(1000)
-            .into_iter()
-            .for_each(|e| {
-                sender
-                    .send(e.collect())
-                    .expect("Unable to send element to channel")
-            });
+            );
+        chunk_builder
+            .chunk_iterator(elements)
+            .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
     }
 }
