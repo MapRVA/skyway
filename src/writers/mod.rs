@@ -2,11 +2,12 @@
 
 use indicatif::ProgressBar;
 use std::io::Write;
-use std::str::FromStr;
 use std::sync::mpsc::Receiver;
 
+use clap::ValueEnum;
+
 use crate::elements::{Element, Metadata};
-use crate::SkywayError;
+use crate::{FileFormatOptions, SkywayError};
 
 #[cfg(feature = "json")]
 mod json;
@@ -21,30 +22,23 @@ mod opl;
 mod xml;
 
 /// Enum that represents the different output file formats skyway supports.
-#[derive(Debug)]
+#[derive(Clone, Debug, ValueEnum)]
 pub enum OutputFileFormat {
+    #[value(name = "json")]
     Json,
+    // #[value(name = "o5m")]
     // O5m,
+    #[value(name = "opl")]
     Opl,
+    #[value(name = "overpass")]
     Overpass,
+    #[value(name = "xml", alias = "osm")]
     Xml,
 }
 
-impl FromStr for OutputFileFormat {
-    type Err = SkywayError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            // TODO: recognize JSON, but warn user that it may be confused for Overpass JSON
-            "json" => Ok(OutputFileFormat::Json),
-            // #[cfg(feature = "o5m")]
-            // "o5m" => Ok(OutputFileFormat::O5m),
-            "opl" => Ok(OutputFileFormat::Opl),
-            "osm" => Ok(OutputFileFormat::Xml),
-            "overpass" => Ok(OutputFileFormat::Overpass),
-            "xml" => Ok(OutputFileFormat::Xml),
-            _ => Err(SkywayError::UnknownOutputFormat),
-        }
+impl FileFormatOptions for OutputFileFormat {
+    fn format_error(ext: &str) -> SkywayError {
+        SkywayError::UnknownOutputFormat(ext.to_string())
     }
 }
 

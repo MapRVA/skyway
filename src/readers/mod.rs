@@ -3,10 +3,12 @@
 use std::fs;
 use std::io::{stdin, BufReader, Read};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::mpsc::Sender;
 
+use clap::ValueEnum;
+
 use crate::elements::{Element, Metadata};
+use crate::FileFormatOptions;
 use crate::SkywayError;
 
 #[cfg(feature = "json")]
@@ -25,26 +27,61 @@ mod pbf;
 mod xml;
 
 /// Enum that represents the different input file formats skyway supports.
-#[derive(Debug)]
+#[derive(Clone, Debug, ValueEnum)]
 pub enum InputFileFormat {
+    #[value(name = "json")]
     Json,
+    #[value(name = "opl")]
     Opl,
+    #[value(name = "pbf")]
     Pbf,
+    #[value(name = "xml", alias = "osm")]
     Xml,
 }
 
-impl FromStr for InputFileFormat {
-    type Err = SkywayError;
+impl FileFormatOptions for InputFileFormat {
+    fn format_error(ext: &str) -> SkywayError {
+        SkywayError::UnknownInputFormat(ext.to_string())
+    }
+}
 
-    /// Converts a file extension `&str` into the appropriate InputFileFormat variant.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "json" => Ok(InputFileFormat::Json),
-            "opl" => Ok(InputFileFormat::Opl),
-            "osm" => Ok(InputFileFormat::Xml),
-            "pbf" => Ok(InputFileFormat::Pbf),
-            "xml" => Ok(InputFileFormat::Xml),
-            _ => Err(SkywayError::UnknownInputFormat),
+impl InputFileFormat {
+    pub fn generate_reader(self, path: Option<PathBuf>) -> Box<dyn Reader> {
+        #[allow(unreachable_patterns)]
+        match self {
+            #[cfg(feature = "json")]
+            InputFileFormat::Json => {
+                let mut buffer = String::new();
+                let mut source = open_or_stdin(path);
+                let src = match source.read_to_string(&mut buffer) {
+                    Ok(_) => buffer,
+                    Err(e) => {
+                        panic!("Error reading input: {e:?}");
+                    }
+                };
+                Box::new(json::JsonReader { src })
+            }
+            #[cfg(feature = "opl")]
+            InputFileFormat::Opl => Box::new(opl::OplReader {
+                src: Box::new(BufReader::new(open_or_stdin(path))),
+            }),
+            #[cfg(feature = "pbf")]
+            InputFileFormat::Pbf => Box::new(pbf::PbfReader {
+                src: Box::new(BufReader::new(open_or_stdin(path))),
+            }),
+            #[cfg(feature = "xml")]
+            InputFileFormat::Xml => {
+                let mut buffer = String::new();
+                let mut source = open_or_stdin(path);
+                let src = match source.read_to_string(&mut buffer) {
+                    Ok(_) => buffer,
+                    Err(e) => {
+                        panic!("Error reading input: {e:?}");
+                    }
+                };
+                Box::new(xml::XmlReader { src })
+            }
+            _ => panic!("Feature not enabled for input format {:?}", self),
         }
     }
 }
@@ -64,51 +101,5 @@ fn open_or_stdin(path: Option<PathBuf>) -> Box<dyn Read + Send> {
             Err(e) => panic!("Unable to open input file: {e:?}"),
         },
         None => Box::new(stdin()) as Box<dyn Read + Send>,
-    }
-}
-
-pub fn generate_reader(from: InputFileFormat, path: Option<PathBuf>) -> Box<dyn Reader> {
-    #[allow(unreachable_patterns)]
-    match from {
-        #[cfg(feature = "json")]
-        InputFileFormat::Json => {
-            let mut buffer = String::new();
-            let mut source = open_or_stdin(path);
-            let src = match source.read_to_string(&mut buffer) {
-                Ok(_) => buffer,
-                Err(e) => {
-                    panic!("Error reading input: {e:?}");
-                }
-            };
-            Box::new(json::JsonReader { src })
-        }
-        #[cfg(feature = "opl")]
-        InputFileFormat::Opl => Box::new(opl::OplReader {
-            src: Box::new(BufReader::new(open_or_stdin(path))),
-        }),
-        #[cfg(feature = "pbf")]
-        InputFileFormat::Pbf => Box::new(pbf::PbfReader {
-            src: Box::new(BufReader::new(open_or_stdin(path))),
-        }),
-        #[cfg(feature = "xml")]
-        InputFileFormat::Xml => {
-            let mut buffer = String::new();
-            let mut source = open_or_stdin(path);
-            let src = match source.read_to_string(&mut buffer) {
-                Ok(_) => buffer,
-                Err(e) => {
-                    panic!("Error reading input: {e:?}");
-                }
-            };
-            Box::new(xml::XmlReader { src })
-        }
-        _ => panic!("Feature not enabled for input format {:?}", from),
-    }
-}
-
-pub fn get_reader(input: Option<&str>, from: InputFileFormat) -> Box<dyn Reader> {
-    match input {
-        None => generate_reader(from, None),
-        Some(a) => generate_reader(from, Some(PathBuf::from(a))),
     }
 }

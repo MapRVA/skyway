@@ -1,51 +1,17 @@
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use log::{error, info};
+use log::info;
 use std::fs;
 use std::io::stdout;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
 
 use skyway::elements::{Element, Metadata};
 use skyway::filter::{create_filter, filter_elements, ElementFilter};
-use skyway::readers::{get_reader, InputFileFormat};
+use skyway::readers::InputFileFormat;
 use skyway::writers::{write_file, OutputFileFormat};
-use skyway::SkywayError;
-
-fn get_file_extension(path: &Option<String>) -> Option<&str> {
-    path.as_ref()
-        .and_then(|p| std::path::Path::new(p).extension())
-        .and_then(|ext| ext.to_str())
-}
-
-fn parse_format<T: FromStr>(
-    cli_format: &Option<String>,
-    file_path: &Option<String>,
-    io_error: SkywayError,
-) -> Result<T, SkywayError>
-where
-    T::Err: std::fmt::Display,
-{
-    if let Some(format) = cli_format {
-        T::from_str(format).map_err(|_| {
-            error!("Could not parse file format: {}", format);
-            io_error
-        })
-    } else {
-        match get_file_extension(file_path) {
-            Some(ext) => T::from_str(ext).map_err(|_| {
-                error!("File extension not recognized: {}", ext);
-                io_error
-            }),
-            None => {
-                error!("No file format specified.");
-                Err(io_error)
-            }
-        }
-    }
-}
+use skyway::{FileFormatOptions, SkywayError};
 
 #[derive(Parser)]
 #[command(name = "skyway")]
@@ -53,25 +19,27 @@ where
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Converts OpenStreetMap data between various file formats")]
 struct Cli {
-    // Path to filter file
+    /// Path to filter file
     #[arg(long)]
     filter: Option<Vec<String>>,
 
-    // Source file format
+    /// Source file format
     #[arg(long)]
-    from: Option<String>,
+    from: Option<InputFileFormat>,
 
-    // Destination file format
+    /// Destination file format
     #[arg(long)]
-    to: Option<String>,
+    to: Option<OutputFileFormat>,
 
-    // Path to input file
+    /// Path to input file
     #[arg(long)]
-    input: Option<String>,
+    #[arg(value_parser = clap::value_parser!(PathBuf))]
+    input: Option<PathBuf>,
 
-    // Path to output file
+    /// Path to output file
     #[arg(long)]
-    output: Option<String>,
+    #[arg(value_parser = clap::value_parser!(PathBuf))]
+    output: Option<PathBuf>,
 }
 
 fn main() -> Result<(), SkywayError> {
@@ -79,12 +47,10 @@ fn main() -> Result<(), SkywayError> {
 
     let cli = Cli::parse();
 
-    let from =
-        parse_format::<InputFileFormat>(&cli.from, &cli.input, SkywayError::UnknownInputFormat)?;
+    let from = InputFileFormat::parse(cli.from, &cli.input)?;
     info!("Input format determined: {:?}", from);
 
-    let to =
-        parse_format::<OutputFileFormat>(&cli.to, &cli.output, SkywayError::UnknownOutputFormat)?;
+    let to = OutputFileFormat::parse(cli.to, &cli.output)?;
     info!("Output format determined: {:?}", to);
 
     // will hold this document's metadata
@@ -114,7 +80,7 @@ fn main() -> Result<(), SkywayError> {
         }
     });
 
-    let mut reader = get_reader(cli.input.as_deref(), from);
+    let mut reader = from.generate_reader(cli.input);
 
     // spawn a thread that reads the file and spits OSM element
     // data into the channel, to be passed into the filter
