@@ -3,7 +3,7 @@ use rayon::prelude::*;
 use std::fmt::{Error, Write};
 use std::sync::mpsc::{channel, Receiver};
 
-use crate::elements::{Element, ElementType, Member, Metadata, SimpleElementType};
+use crate::elements::{Element, ElementType, Metadata, SimpleElementType};
 use crate::threadpools::WRITER_THREAD_POOL;
 
 // wrapper struct that implements std::fmt::Write for any type
@@ -20,7 +20,27 @@ where
 }
 
 fn create_header(metadata: Metadata) -> String {
-    return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osm version=\"0.6\">\n".to_string();
+    let mut header = String::new();
+    header.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osm version=\"0.6\"");
+
+    macro_rules! append_attribute {
+        ($attr:ident) => {
+            if let Some($attr) = &metadata.$attr {
+                header.push_str(concat!(" ", stringify!($attr), "=\""));
+                header.push_str($attr);
+                header.push('\"');
+            }
+        };
+    }
+
+    append_attribute!(copyright);
+    append_attribute!(generator);
+    append_attribute!(license);
+    append_attribute!(timestamp);
+    append_attribute!(version);
+
+    header.push_str(">\n");
+    header
 }
 
 fn append_serialized_metadata(base: &mut String, element: &Element) {
@@ -29,28 +49,33 @@ fn append_serialized_metadata(base: &mut String, element: &Element) {
     base.push('\"');
 
     if let Some(c) = element.changeset {
-        base.push_str(" changeset=");
+        base.push_str(" changeset=\"");
         base.push_str(&lexical::to_string(c));
+        base.push('\"');
     }
 
-    if let Some(t) = element.timestamp {
-        base.push_str(",\"timestamp\":");
-        base.push_str(&stringify(t));
+    if let Some(t) = &element.timestamp {
+        base.push_str(" timestamp=\"");
+        base.push_str(t);
+        base.push('\"');
     }
 
     if let Some(u) = element.uid {
-        base.push_str(",\"uid\":");
+        base.push_str(" uid=\"");
         base.push_str(&lexical::to_string(u));
+        base.push('\"');
     }
 
-    if let Some(u) = element.user {
-        base.push_str(",\"user\":");
-        base.push_str(&stringify(u));
+    if let Some(u) = &element.user {
+        base.push_str(" user=\"");
+        base.push_str(u);
+        base.push('\"');
     }
 
-    // add visible field only if it is false
-    if element.visible == Some(false) {
-        base.push_str(",\"visible\":false");
+    if element.visible == Some(true) {
+        base.push_str(" visible=\"true\"");
+    } else if element.visible == Some(false) {
+        base.push_str(" visible=\"false\"");
     }
 }
 
