@@ -30,7 +30,7 @@ fn create_header(metadata: Metadata) -> String {
         ($attr:ident) => {
             if let Some($attr) = &metadata.$attr {
                 header.push_str(concat!(" ", stringify!($attr), "=\""));
-                header.push_str($attr);
+                header.push_str(&escape($attr));
                 header.push('\"');
             }
         };
@@ -59,7 +59,7 @@ fn append_serialized_metadata(base: &mut String, element: &Element) {
 
     if let Some(t) = &element.timestamp {
         base.push_str(" timestamp=\"");
-        base.push_str(t);
+        base.push_str(&escape(t));
         base.push('\"');
     }
 
@@ -71,7 +71,7 @@ fn append_serialized_metadata(base: &mut String, element: &Element) {
 
     if let Some(u) = &element.user {
         base.push_str(" user=\"");
-        base.push_str(u);
+        base.push_str(&escape(u));
         base.push('\"');
     }
 
@@ -85,9 +85,9 @@ fn append_serialized_metadata(base: &mut String, element: &Element) {
 fn append_serialized_tags(base: &mut String, element: &Element) {
     for (k, v) in &element.tags {
         base.push_str("  <tag k=\"");
-        base.push_str(k);
+        base.push_str(&escape(k));
         base.push_str("\" v=\"");
-        base.push_str(v);
+        base.push_str(&escape(v));
         base.push_str("\"/>\n");
     }
 }
@@ -144,8 +144,8 @@ fn append_serialized_element(base: &mut String, element: Element) {
                 base.push_str(" ref=\"");
                 base.push_str(&lexical::to_string(m.id));
                 base.push_str("\" role=\"");
-                if let Some(ref r) = m.role {
-                    base.push_str(&escape(r.as_str()));
+                if let Some(ref r) = &m.role {
+                    base.push_str(&escape(r));
                 }
                 base.push_str("\"/>\n");
             }
