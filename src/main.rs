@@ -7,14 +7,63 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
 
+#[cfg(feature = "filter")]
+use skyway::filter::{create_filter, filter_elements, ElementFilter};
 use skyway::{
     chunks::{Chunk, ChunkBuilder},
     elements::Metadata,
-    filter::{create_filter, filter_elements, ElementFilter},
     readers::InputFileFormat,
     writers::{write_file, OutputFileFormat},
     FileFormatOptions, SkywayError,
 };
+
+#[cfg(feature = "filter")]
+fn setup_filter_chain(
+    filter_paths: Vec<String>,
+    chunksize: usize,
+    mut last_receiver: mpsc::Receiver<Chunk>,
+    multi: &MultiProgress,
+    spinner_style: &ProgressStyle,
+) -> (Vec<Option<thread::JoinHandle<()>>>, mpsc::Receiver<Chunk>) {
+    // stack of filter threads that we'll need to hold open until each
+    // is done
+    let mut filter_threads = Vec::new();
+
+    // create variables that will hold the Sender and Receiver for the
+    // current (last created) filter
+    let mut this_sender: mpsc::Sender<Chunk>;
+    let mut next_receiver: mpsc::Receiver<Chunk>;
+
+    let mut filters: Vec<Box<dyn ElementFilter>> = Vec::new();
+
+    for filter_path in filter_paths {
+        filters.push(create_filter(
+            fs::read_to_string(&filter_path)
+                .unwrap_or_else(|e| {
+                    panic!("Unable to read filter file {}: {}", filter_path, e);
+                })
+                .as_str(),
+        ));
+    }
+
+    for filter in filters {
+        let filter_progress = multi.add(ProgressBar::new_spinner());
+        filter_progress.set_style(spinner_style.clone());
+
+        (this_sender, next_receiver) = mpsc::channel();
+        filter_threads.push(Some(thread::spawn(move || {
+            filter_elements(
+                filter,
+                ChunkBuilder::new(chunksize),
+                last_receiver,
+                this_sender,
+                filter_progress,
+            );
+        })));
+        last_receiver = next_receiver;
+    }
+    (filter_threads, last_receiver)
+}
 
 #[derive(Parser)]
 #[command(name = "skyway")]
@@ -22,7 +71,8 @@ use skyway::{
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Converts OpenStreetMap data between various file formats")]
 struct Cli {
-    /// Path to filter file
+    /// Path to filter file, may be used multiple times
+    #[cfg(feature = "filter")]
     #[arg(long)]
     filter: Option<Vec<String>>,
 
@@ -77,8 +127,8 @@ fn main() -> Result<(), SkywayError> {
 
     // channel for sending elements from the reader to either
     // a) the filter or b) the writer (if not using a filter)
-    let (reader_sender, reader_reciever) = mpsc::channel();
-    let (metadata_sender, metadata_reciever) = mpsc::channel();
+    let (reader_sender, reader_receiver) = mpsc::channel();
+    let (metadata_sender, metadata_receiver) = mpsc::channel();
 
     let multi = MultiProgress::new();
     let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
@@ -112,53 +162,26 @@ fn main() -> Result<(), SkywayError> {
         read_progress.finish_with_message("Reading input...done");
     });
 
-    metadata = match metadata_reciever.iter().next() {
+    metadata = match metadata_receiver.iter().next() {
         Some(m) => m,
         None => {
             panic!("No metadata received from reader!");
         }
     };
 
-    // stack of filter threads that we'll need to hold open until each
-    // is done
-    let mut filter_threads = Vec::new();
+    let last_receiver: mpsc::Receiver<Chunk> = reader_receiver;
 
-    // create variables that will hold the Sender and Receiver for the
-    // current (last created) filter
-    let mut this_sender: mpsc::Sender<Chunk>;
-    let mut last_receiver: mpsc::Receiver<Chunk> = reader_reciever;
-    let mut next_receiver: mpsc::Receiver<Chunk>;
-
-    let mut filters: Vec<Box<dyn ElementFilter>> = Vec::new();
-
-    if let Some(filter_paths) = cli.filter {
-        for filter_path in filter_paths {
-            filters.push(create_filter(
-                fs::read_to_string(&filter_path)
-                    .unwrap_or_else(|e| {
-                        panic!("Unable to read filter file {}: {}", filter_path, e);
-                    })
-                    .as_str(),
-            ));
-        }
-    }
-
-    for filter in filters {
-        let filter_progress = multi.add(ProgressBar::new_spinner());
-        filter_progress.set_style(spinner_style.clone());
-
-        (this_sender, next_receiver) = mpsc::channel();
-        filter_threads.push(Some(thread::spawn(move || {
-            filter_elements(
-                filter,
-                ChunkBuilder::new(chunksize),
-                last_receiver,
-                this_sender,
-                filter_progress,
-            );
-        })));
-        last_receiver = next_receiver;
-    }
+    #[cfg(feature = "filter")]
+    let (filter_threads, last_receiver) = match cli.filter {
+        Some(filter_paths) => setup_filter_chain(
+            filter_paths,
+            chunksize,
+            last_receiver,
+            &multi,
+            &spinner_style,
+        ),
+        None => (vec![], last_receiver),
+    };
 
     let write_progress = multi.add(ProgressBar::new_spinner());
     write_progress.set_style(spinner_style.clone());
@@ -174,10 +197,13 @@ fn main() -> Result<(), SkywayError> {
     });
 
     read_thread.join().expect("Couldn't join on read thread!!");
+
+    #[cfg(feature = "filter")]
     for filter_thread in filter_threads {
         let Some(ft) = filter_thread else { continue };
         ft.join().expect("Couldn't join on filter thread!!");
     }
+
     write_thread
         .join()
         .expect("Couldn't join on write thread!!");
