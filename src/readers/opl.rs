@@ -1,12 +1,16 @@
+use core::str;
+use itertools::Itertools;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::{empty, BufRead};
 use std::mem;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{channel, Sender};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
+    threadpools::READER_THREAD_POOL,
 };
 
 #[derive(Debug)]
@@ -91,75 +95,84 @@ fn unescape_str(input: &str) -> String {
     output
 }
 
-fn add_field(field: &str, opl_element: &mut OplElement) {
+fn str_or_fail(value: &[u8]) -> &str {
+    str::from_utf8(value).expect("Invalid UTF-8 in input file")
+}
+
+fn add_byte_field(field: &[u8], opl_element: &mut OplElement) {
     let (flag, value) = field.split_at(1);
+    macro_rules! value_as {
+        ($type:ty) => {
+            str_or_fail(value).parse::<$type>().unwrap()
+        };
+    }
     match flag {
-        "n" => {
-            opl_element.id = Some(value.parse::<i64>().unwrap());
+        b"n" => {
+            opl_element.id = Some(value_as!(i64));
         }
-        "w" => {
-            opl_element.id = Some(value.parse::<i64>().unwrap());
+        b"w" => {
+            opl_element.id = Some(value_as!(i64));
         }
-        "r" => {
-            opl_element.id = Some(value.parse::<i64>().unwrap());
+        b"r" => {
+            opl_element.id = Some(value_as!(i64));
         }
-        "v" => {
-            opl_element.version = Some(value.parse::<i32>().unwrap());
+        b"v" => {
+            opl_element.version = Some(value_as!(i32));
         }
-        "d" => match value {
-            "V" => opl_element.visible = Some(true),
-            "D" => opl_element.visible = Some(false),
+        b"d" => match value {
+            b"V" => opl_element.visible = Some(true),
+            b"D" => opl_element.visible = Some(false),
             _ => {
-                panic!("Deleted field value not recognized: {field}");
+                panic!("Deleted field value not recognized: {:?}", field);
             }
         },
-        "c" => {
-            opl_element.changeset = Some(value.parse::<i64>().unwrap());
+        b"c" => {
+            opl_element.changeset = Some(value_as!(i64));
         }
-        "t" => {
-            opl_element.timestamp = Some(value.to_string());
+        b"t" => {
+            opl_element.timestamp = Some(str_or_fail(value).to_string());
         }
-        "i" => {
-            opl_element.user_id = Some(value.parse::<i32>().unwrap());
+        b"i" => {
+            opl_element.user_id = Some(value_as!(i32));
         }
-        "u" => {
-            opl_element.username = Some(unescape_str(value));
+        b"u" => {
+            opl_element.username = Some(unescape_str(str_or_fail(value)));
         }
-        "T" => {
-            let tags: HashMap<String, String> = value
+        b"T" => {
+            let tags: HashMap<String, String> = str_or_fail(value)
                 .split(',')
                 .filter_map(|t| t.split_once('='))
                 .map(|(k, v)| (unescape_str(k), unescape_str(v)))
                 .collect();
             opl_element.tags = Some(tags);
         }
-        "x" => match opl_element.element_type {
+        b"x" => match opl_element.element_type {
             Some(OplElementType::Node { lat, .. }) => {
                 opl_element.element_type = Some(OplElementType::Node {
                     lat,
-                    lon: Some(value.parse::<f64>().unwrap()),
+                    lon: Some(value_as!(f64)),
                 });
             }
             None => {
                 opl_element.element_type = Some(OplElementType::Node {
                     lat: None,
-                    lon: Some(value.parse::<f64>().unwrap()),
+                    lon: Some(value_as!(f64)),
                 });
             }
             _ => {
                 panic!("Longitude set for a non-node element!");
             }
         },
-        "y" => match opl_element.element_type {
+        b"y" => match opl_element.element_type {
             Some(OplElementType::Node { lon, .. }) => {
                 opl_element.element_type = Some(OplElementType::Node {
-                    lat: Some(value.parse::<f64>().unwrap()),
+                    lat: Some(value_as!(f64)),
                     lon,
                 });
             }
             None => {
                 opl_element.element_type = Some(OplElementType::Node {
-                    lat: Some(value.parse::<f64>().unwrap()),
+                    lat: Some(value_as!(f64)),
                     lon: None,
                 });
             }
@@ -167,21 +180,22 @@ fn add_field(field: &str, opl_element: &mut OplElement) {
                 panic!("Latitude set for a non-node element!");
             }
         },
-        "N" => {
+        b"N" => {
             let nodes: Vec<i64> = value
-                .split(',')
+                .split(|&b| b == b',')
                 .map(|node_entry| {
-                    let parts: Vec<&str> = node_entry.split(|c| c == 'x' || c == 'y').collect();
-                    parts[0][1..].parse::<i64>().unwrap()
+                    let parts: Vec<&[u8]> = node_entry.split(|&c| c == b'x' || c == b'y').collect();
+                    str_or_fail(&parts[0][1..]).parse::<i64>().unwrap()
                 })
                 .collect();
 
             opl_element.element_type = Some(OplElementType::Way { nodes: Some(nodes) });
         }
-        "M" => {
+        b"M" => {
             let members: Vec<Member> = value
-                .split(',')
+                .split(|&b| b == b',')
                 .filter_map(|member| {
+                    let member = str_or_fail(member);
                     let (ref_part, role) = member.split_once('@').unwrap();
                     let (type_char, member_id) = ref_part.split_at(1);
                     let member_type = match type_char {
@@ -202,16 +216,33 @@ fn add_field(field: &str, opl_element: &mut OplElement) {
             });
         }
         _ => {
-            panic!("Unrecognized field: {field}");
+            panic!("Unrecognized field: {:?}", field);
         }
     }
 }
 
-fn convert_element(line: String) -> Element {
-    let mut opl_element = OplElement::default();
-    line.split_whitespace()
-        .for_each(|x| add_field(x, &mut opl_element));
-    Element::from(opl_element)
+fn convert_chunk(index: usize, chunk: Box<[Vec<u8>]>) -> Chunk {
+    let mut elements = Vec::with_capacity(chunk.len());
+    for line in chunk.iter() {
+        let mut opl_element = OplElement::default();
+        let mut field_start = 0;
+        for (i, &b) in line.iter().enumerate() {
+            if b == b' ' {
+                if field_start < i {
+                    add_byte_field(&line[field_start..i], &mut opl_element);
+                }
+                field_start = i + 1;
+            }
+        }
+        if field_start < line.len() {
+            add_byte_field(&line[field_start..], &mut opl_element);
+        }
+        elements.push(Element::from(opl_element));
+    }
+    Chunk {
+        index,
+        elements: elements.into_boxed_slice(),
+    }
 }
 
 pub struct OplReader {
@@ -234,13 +265,35 @@ impl Reader for OplReader {
             .expect("Couldn't send metdata to main thread!");
 
         let src = mem::replace(&mut self.src, Box::new(empty()));
-        let elements = src
-            .lines()
-            .take_while(|l| l.is_ok())
-            .map(|l| convert_element(l.unwrap()));
-        chunk_builder
-            .chunk_iterator(elements)
-            .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
+
+        let (chunk_sender, chunk_receiver) = channel();
+
+        std::thread::spawn({
+            move || {
+                src.split(b'\n')
+                    .map(|s| s.expect("Unable to read input file buffer"))
+                    .chunks(chunk_builder.max_size)
+                    .into_iter()
+                    .for_each(|chunk| {
+                        chunk_sender
+                            .send(chunk.collect::<Vec<Vec<u8>>>().into_boxed_slice())
+                            .expect("Unable to send chunk of vectors to channel");
+                    });
+            }
+        });
+
+        READER_THREAD_POOL.install(|| {
+            chunk_receiver
+                .into_iter()
+                .enumerate()
+                .par_bridge()
+                .map(|(index, chunk)| convert_chunk(index, chunk))
+                .for_each(|c| {
+                    sender
+                        .send(c)
+                        .expect("Unable to send chunk of elements to channel")
+                });
+        });
     }
 }
 
