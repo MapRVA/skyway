@@ -187,13 +187,14 @@ This enables you to stream data into and out of skyway, like this:</p>
 </code></pre>
 <h2 id="supported-formats"><a class="header" href="#supported-formats">Supported Formats</a></h2>
 <p>Here is a table showing the formats skyway supports reading and writing.
-The shortname is used to indicate the format when running skyway, e.g. <code>skyway --from xml ...</code></p>
+The shortname is used to indicate the format when running skyway, e.g. <code>skyway --from xml ...</code>.
+When paired together, "speedy" readers and writers will generally run faster by passing data between threads.</p>
 <p><strong>Key:</strong><br>
 ❌ – Not Supported<br>
 ✅ – Supported<br>
 ⚡ – Speedy!<br></p>
 <div class="table-wrapper"><table><thead><tr><th>Format</th><th>Shortname</th><th>Reader</th><th>Writer</th></tr></thead><tbody>
-<tr><td><a href="https://wiki.openstreetmap.org/wiki/OPL_format">OPL</a></td><td><code>opl</code></td><td>✅</td><td>⚡</td></tr>
+<tr><td><a href="https://wiki.openstreetmap.org/wiki/OPL_format">OPL</a></td><td><code>opl</code></td><td>⚡</td><td>⚡</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/OSM_JSON">OSM JSON</a></td><td><code>json</code></td><td>✅</td><td>⚡</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API">Overpass JSON</a></td><td>†</td><td>✅</td><td>⚡</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/OSM_XML">OSM XML</a></td><td><code>xml</code></td><td>✅</td><td>⚡</td></tr>
