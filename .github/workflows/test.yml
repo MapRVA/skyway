@@ -3,6 +3,10 @@ name: Build and Test
 on:
   pull_request:
   push:
+    paths:
+      - src/**
+      - Cargo.toml
+    branches: [trunk]
 
 env:
   # disable incremental compilation for faster from-scratch builds
