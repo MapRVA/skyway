@@ -71,11 +71,6 @@ fn setup_filter_chain(
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Converts OpenStreetMap data between various file formats")]
 struct Cli {
-    /// Path to filter file, may be used multiple times
-    #[cfg(feature = "filter")]
-    #[arg(long)]
-    filter: Option<Vec<String>>,
-
     /// Source file format
     #[arg(long)]
     from: Option<InputFileFormat>,
@@ -84,12 +79,17 @@ struct Cli {
     #[arg(long)]
     to: Option<OutputFileFormat>,
 
-    /// Path to input file
+    /// Path to input file (if not given, reads from stdin)
     #[arg(long)]
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     input: Option<PathBuf>,
 
-    /// Path to output file
+    /// Path to filter file, may be used multiple times
+    #[cfg(feature = "filter")]
+    #[arg(long)]
+    filter: Option<Vec<String>>,
+
+    /// Path to output file (if not given, writes to stdout)
     #[arg(long)]
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     output: Option<PathBuf>,
