@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 /// Element types without any additional metadata.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SimpleElementType {
     Node,
     Way,
@@ -11,7 +11,7 @@ pub enum SimpleElementType {
 }
 
 /// A member of a relation.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Member {
     pub t: Option<SimpleElementType>,
     pub id: i64,
@@ -19,7 +19,7 @@ pub struct Member {
 }
 
 /// The varying characteristics of each element type.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ElementType {
     Node { lat: f64, lon: f64 },
     Way { nodes: Vec<i64> },
@@ -27,7 +27,7 @@ pub enum ElementType {
 }
 
 /// An OpenStreetMap element.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Element {
     pub changeset: Option<i64>,
     pub user: Option<String>,
@@ -41,6 +41,7 @@ pub struct Element {
 }
 
 /// Builder type for ElementType, must be used with ElementBuilder.
+#[derive(Debug, PartialEq)]
 pub enum ElementTypeBuilder {
     NodeBuilder { lat: Option<f64>, lon: Option<f64> },
     WayBuilder { nodes: Vec<i64> },
@@ -48,7 +49,7 @@ pub enum ElementTypeBuilder {
 }
 
 /// Builder type for Element, used to construct Elements iteratively.
-#[derive(Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct ElementBuilder {
     pub changeset: Option<i64>,
     pub user: Option<String>,
@@ -91,7 +92,7 @@ impl ElementBuilder {
 }
 
 /// Document-level metadata.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Metadata {
     pub version: Option<String>,
     pub generator: Option<String>,
