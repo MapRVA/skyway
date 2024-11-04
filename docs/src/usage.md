@@ -25,7 +25,7 @@ When paired together, "speedy" readers and writers will generally run faster by 
 
 | Format | Shortname | Reader | Writer |
 | -------|-----------|--------|--------|
-| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ✅ | ⚡ |
+| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ⚡ | ⚡ |
 | [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | `json` | ✅ | ⚡ |
 | [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | † | ✅ | ⚡ |
 | [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ⚡ |
