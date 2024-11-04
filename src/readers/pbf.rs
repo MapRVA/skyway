@@ -131,6 +131,12 @@ pub struct PbfReader {
     pub src: Box<dyn Read + Send>,
 }
 
+impl PbfReader {
+    pub fn new(src: Box<dyn Read + Send>) -> Self {
+        PbfReader { src }
+    }
+}
+
 impl Reader for PbfReader {
     fn read(
         &mut self,

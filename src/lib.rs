@@ -19,6 +19,8 @@ pub enum SkywayError {
     UnknownOutputFormat(String),
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("File already exits")]
+    OutputFileExists,
 }
 
 pub trait FileFormatOptions: ValueEnum {

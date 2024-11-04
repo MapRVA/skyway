@@ -12,7 +12,7 @@ use skyway::filter::{create_filter, filter_elements, ElementFilter};
 use skyway::{
     chunks::{Chunk, ChunkBuilder},
     elements::Metadata,
-    readers::InputFileFormat,
+    readers::{open_or_stdin, InputFileFormat},
     writers::{write_file, OutputFileFormat},
     FileFormatOptions, SkywayError,
 };
@@ -94,6 +94,10 @@ struct Cli {
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     output: Option<PathBuf>,
 
+    /// If output file already exists, overwrite it
+    #[arg(long)]
+    overwrite: bool,
+
     /// Maximum number of elements to store in each chunk passed between threads
     #[arg(long)]
     chunksize: Option<usize>,
@@ -148,7 +152,8 @@ fn main() -> Result<(), SkywayError> {
         }
     });
 
-    let mut reader = from.generate_reader(cli.input);
+    let src = open_or_stdin(cli.input, cli.overwrite)?;
+    let mut reader = from.generate_reader(src);
 
     // spawn a thread that reads the file and spits OSM element
     // data into the channel, to be passed into the filter

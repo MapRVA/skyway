@@ -4,8 +4,8 @@ use serde_aux::field_attributes::{
     deserialize_bool_from_anything, deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
-use std::collections::HashMap;
 use std::sync::mpsc::Sender;
+use std::{collections::HashMap, io::Read};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -233,6 +233,19 @@ fn convert_element(xml_element: XmlElement) -> Element {
 
 pub struct XmlReader {
     pub src: String,
+}
+
+impl XmlReader {
+    pub fn new(mut src: Box<dyn Read + Send>) -> Self {
+        let mut buffer = String::new();
+        let src = match src.read_to_string(&mut buffer) {
+            Ok(_) => buffer,
+            Err(e) => {
+                panic!("Error reading input: {e:?}");
+            }
+        };
+        XmlReader { src }
+    }
 }
 
 impl Reader for XmlReader {

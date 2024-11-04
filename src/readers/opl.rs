@@ -1,7 +1,7 @@
 use core::str;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::io::{empty, BufRead};
+use std::io::{empty, BufRead, BufReader, Read};
 use std::mem;
 use std::sync::mpsc::{channel, Sender};
 
@@ -185,6 +185,14 @@ fn convert_chunk(index: usize, chunk: Box<[Vec<u8>]>) -> Chunk {
 
 pub struct OplReader {
     pub src: Box<dyn BufRead + Send>,
+}
+
+impl OplReader {
+    pub fn new(src: Box<dyn Read + Send>) -> Self {
+        OplReader {
+            src: Box::new(BufReader::new(src)),
+        }
+    }
 }
 
 impl Reader for OplReader {

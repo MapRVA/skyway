@@ -1,11 +1,15 @@
 //! Reads OSM data into skyway.
 
 use std::fs;
-use std::io::{stdin, BufReader, Read};
+use std::io::{stdin, Read};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
 use clap::ValueEnum;
+use json::JsonReader;
+use opl::OplReader;
+use pbf::PbfReader;
+use xml::XmlReader;
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -52,43 +56,39 @@ impl FileFormatOptions for InputFileFormat {
 }
 
 impl InputFileFormat {
-    pub fn generate_reader(self, path: Option<PathBuf>) -> Box<dyn Reader> {
-        #[allow(unreachable_patterns)]
+    pub fn generate_reader(self, src: Box<dyn Read + Send>) -> Box<dyn Reader> {
         match self {
             #[cfg(feature = "json")]
-            InputFileFormat::Json => {
-                let mut buffer = String::new();
-                let mut source = open_or_stdin(path);
-                let src = match source.read_to_string(&mut buffer) {
-                    Ok(_) => buffer,
-                    Err(e) => {
-                        panic!("Error reading input: {e:?}");
-                    }
-                };
-                Box::new(json::JsonReader { src })
-            }
+            InputFileFormat::Json => Box::new(JsonReader::new(src)),
             #[cfg(feature = "opl")]
-            InputFileFormat::Opl => Box::new(opl::OplReader {
-                src: Box::new(BufReader::new(open_or_stdin(path))),
-            }),
+            InputFileFormat::Opl => Box::new(OplReader::new(src)),
             #[cfg(feature = "pbf")]
-            InputFileFormat::Pbf => Box::new(pbf::PbfReader {
-                src: Box::new(BufReader::new(open_or_stdin(path))),
-            }),
+            InputFileFormat::Pbf => Box::new(PbfReader::new(src)),
             #[cfg(feature = "xml")]
-            InputFileFormat::Xml => {
-                let mut buffer = String::new();
-                let mut source = open_or_stdin(path);
-                let src = match source.read_to_string(&mut buffer) {
-                    Ok(_) => buffer,
-                    Err(e) => {
-                        panic!("Error reading input: {e:?}");
-                    }
-                };
-                Box::new(xml::XmlReader { src })
-            }
-            _ => panic!("Feature not enabled for input format {:?}", self),
+            InputFileFormat::Xml => Box::new(XmlReader::new(src)),
         }
+    }
+}
+
+pub fn open(path: PathBuf, overwrite: bool) -> Result<Box<dyn Read + Send>, SkywayError> {
+    if !overwrite {
+        if path.exists() {
+            return Err(SkywayError::OutputFileExists);
+        }
+    }
+    match fs::File::open(path) {
+        Ok(f) => Ok(Box::new(f) as Box<dyn Read + Send>),
+        Err(e) => panic!("Unable to open input file: {e:?}"),
+    }
+}
+
+pub fn open_or_stdin(
+    path: Option<PathBuf>,
+    overwrite: bool,
+) -> Result<Box<dyn Read + Send>, SkywayError> {
+    match path {
+        Some(p) => open(p, overwrite),
+        None => Ok(Box::new(stdin()) as Box<dyn Read + Send>),
     }
 }
 
@@ -103,14 +103,4 @@ pub trait Reader: Send {
         sender: Sender<Chunk>,
         metadata_sender: Sender<Metadata>,
     );
-}
-
-fn open_or_stdin(path: Option<PathBuf>) -> Box<dyn Read + Send> {
-    match path {
-        Some(p) => match fs::File::open(p) {
-            Ok(f) => Box::new(f) as Box<dyn Read + Send>,
-            Err(e) => panic!("Unable to open input file: {e:?}"),
-        },
-        None => Box::new(stdin()) as Box<dyn Read + Send>,
-    }
 }

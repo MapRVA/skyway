@@ -1,6 +1,7 @@
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str;
 use std::collections::HashMap;
+use std::io::Read;
 use std::sync::mpsc::Sender;
 
 use crate::{
@@ -160,6 +161,19 @@ where
 
 pub struct JsonReader {
     pub src: String,
+}
+
+impl JsonReader {
+    pub fn new(mut src: Box<dyn Read + Send>) -> Self {
+        let mut buffer = String::new();
+        let src = match src.read_to_string(&mut buffer) {
+            Ok(_) => buffer,
+            Err(e) => {
+                panic!("Error reading input: {e:?}");
+            }
+        };
+        JsonReader { src }
+    }
 }
 
 impl Reader for JsonReader {
