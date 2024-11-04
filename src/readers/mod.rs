@@ -31,12 +31,16 @@ mod xml;
 /// Enum that represents the different input file formats skyway supports.
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum InputFileFormat {
+    #[cfg(feature = "json")]
     #[value(name = "json")]
     Json,
+    #[cfg(feature = "opl")]
     #[value(name = "opl")]
     Opl,
+    #[cfg(feature = "pbf")]
     #[value(name = "pbf")]
     Pbf,
+    #[cfg(feature = "xml")]
     #[value(name = "xml", alias = "osm")]
     Xml,
 }

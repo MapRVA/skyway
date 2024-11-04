@@ -23,14 +23,19 @@ mod xml;
 /// Enum that represents the different output file formats skyway supports.
 #[derive(Clone, Debug, ValueEnum)]
 pub enum OutputFileFormat {
+    #[cfg(feature = "json")]
     #[value(name = "json")]
     Json,
+    // #[cfg(feature = "o5m")]
     // #[value(name = "o5m")]
     // O5m,
+    #[cfg(feature = "opl")]
     #[value(name = "opl")]
     Opl,
+    #[cfg(feature = "json")]
     #[value(name = "overpass")]
     Overpass,
+    #[cfg(feature = "xml")]
     #[value(name = "xml", alias = "osm")]
     Xml,
 }
