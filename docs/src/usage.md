@@ -15,7 +15,8 @@ cat input-file.pbf | skyway --from pbf --to json > output-file.json
 ## Supported Formats
 
 Here is a table showing the formats skyway supports reading and writing.
-The shortname is used to indicate the format when running skyway, e.g. `skyway --from xml ...`
+The shortname is used to indicate the format when running skyway, e.g. `skyway --from xml ...`.
+When paired together, "speedy" readers and writers will generally run faster by passing data between threads.
 
 **Key:**<br>
 ❌ – Not Supported<br>

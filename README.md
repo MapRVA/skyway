@@ -12,7 +12,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 ❌ – Not Supported<br>
 ➖ – Not Planned<br>
 ✅ – Supported<br>
-⚡ – Speedy!<br>
+⚡ – Speedy!<sup>†</sup><br>
 
 | Format | Reader | Writer |
 | -------|--------|--------|
@@ -25,6 +25,8 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 | [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | ✅ | ⚡ |
 | [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | ✅ | ⚡ |
 | [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | ⚡ | ❌ |
+
+<sup>†</sup>_When paired together, "speedy" readers and writers will generally run faster by passing data between threads._
 
 ## Contributing
 
