@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use quick_xml::de::from_str;
 use serde::{Deserialize, Deserializer};
 use serde_aux::field_attributes::{
