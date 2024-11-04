@@ -1,73 +1,17 @@
 use core::str;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::collections::HashMap;
 use std::io::{empty, BufRead};
 use std::mem;
 use std::sync::mpsc::{channel, Sender};
 
+use crate::elements::ElementTypeBuilder;
 use crate::{
     chunks::{Chunk, ChunkBuilder},
-    elements::{Element, ElementType, Member, Metadata, SimpleElementType},
+    elements::{ElementBuilder, Member, Metadata, SimpleElementType},
     readers::Reader,
     threadpools::READER_THREAD_POOL,
 };
-
-#[derive(Debug)]
-enum OplElementType {
-    Node { lat: Option<f64>, lon: Option<f64> },
-    Way { nodes: Option<Vec<i64>> },
-    Relation { members: Option<Vec<Member>> },
-}
-
-impl From<OplElementType> for ElementType {
-    fn from(value: OplElementType) -> Self {
-        match value {
-            OplElementType::Node { lat, lon } => ElementType::Node {
-                lat: lat.unwrap(),
-                lon: lon.unwrap(),
-            },
-            OplElementType::Way { nodes } => ElementType::Way {
-                nodes: nodes.unwrap(),
-            },
-            OplElementType::Relation { members } => ElementType::Relation {
-                members: members.unwrap(),
-            },
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-struct OplElement {
-    id: Option<i64>,
-    version: Option<i32>,
-    visible: Option<bool>,
-    changeset: Option<i64>,
-    timestamp: Option<String>,
-    user_id: Option<i32>,
-    username: Option<String>,
-    tags: Option<HashMap<String, String>>,
-    element_type: Option<OplElementType>,
-}
-
-impl From<OplElement> for Element {
-    fn from(value: OplElement) -> Self {
-        let id = value.id.unwrap();
-        let tags = value.tags.unwrap();
-        let element_type = ElementType::from(value.element_type.unwrap());
-        Element {
-            id,
-            tags,
-            element_type,
-            changeset: value.changeset,
-            visible: value.visible,
-            timestamp: value.timestamp,
-            uid: value.user_id,
-            user: value.username,
-            version: value.version,
-        }
-    }
-}
 
 fn unescape_str(input: &str) -> String {
     let mut output = String::new();
@@ -99,7 +43,7 @@ fn str_or_fail(value: &[u8]) -> &str {
     str::from_utf8(value).expect("Invalid UTF-8 in input file")
 }
 
-fn add_byte_field(field: &[u8], opl_element: &mut OplElement) {
+fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
     let (flag, value) = field.split_at(1);
     macro_rules! value_as {
         ($type:ty) => {
@@ -108,70 +52,66 @@ fn add_byte_field(field: &[u8], opl_element: &mut OplElement) {
     }
     match flag {
         b"n" => {
-            opl_element.id = Some(value_as!(i64));
+            element_builder.id = Some(value_as!(i64));
         }
         b"w" => {
-            opl_element.id = Some(value_as!(i64));
+            element_builder.id = Some(value_as!(i64));
         }
         b"r" => {
-            opl_element.id = Some(value_as!(i64));
+            element_builder.id = Some(value_as!(i64));
         }
         b"v" => {
-            opl_element.version = Some(value_as!(i32));
+            element_builder.version = Some(value_as!(i32));
         }
         b"d" => match value {
-            b"V" => opl_element.visible = Some(true),
-            b"D" => opl_element.visible = Some(false),
+            b"V" => element_builder.visible = Some(true),
+            b"D" => element_builder.visible = Some(false),
             _ => {
                 panic!("Deleted field value not recognized: {:?}", field);
             }
         },
         b"c" => {
-            opl_element.changeset = Some(value_as!(i64));
+            element_builder.changeset = Some(value_as!(i64));
         }
         b"t" => {
-            opl_element.timestamp = Some(str_or_fail(value).to_string());
+            element_builder.timestamp = Some(str_or_fail(value).to_string());
         }
         b"i" => {
-            opl_element.user_id = Some(value_as!(i32));
+            element_builder.uid = Some(value_as!(i32));
         }
         b"u" => {
-            opl_element.username = Some(unescape_str(str_or_fail(value)));
+            element_builder.user = Some(unescape_str(str_or_fail(value)));
         }
         b"T" => {
-            let tags: HashMap<String, String> = str_or_fail(value)
+            str_or_fail(value)
                 .split(',')
                 .filter_map(|t| t.split_once('='))
-                .map(|(k, v)| (unescape_str(k), unescape_str(v)))
-                .collect();
-            opl_element.tags = Some(tags);
-        }
-        b"x" => match opl_element.element_type {
-            Some(OplElementType::Node { lat, .. }) => {
-                opl_element.element_type = Some(OplElementType::Node {
-                    lat,
-                    lon: Some(value_as!(f64)),
+                .for_each(|(k, v)| {
+                    element_builder
+                        .tags
+                        .insert(unescape_str(k), unescape_str(v));
                 });
-            }
+        }
+        b"x" => match &mut element_builder.element_type {
             None => {
-                opl_element.element_type = Some(OplElementType::Node {
+                element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
                     lat: None,
                     lon: Some(value_as!(f64)),
                 });
+            }
+            Some(ElementTypeBuilder::NodeBuilder { lon, .. }) => {
+                *lon = Some(value_as!(f64));
             }
             _ => {
                 panic!("Longitude set for a non-node element!");
             }
         },
-        b"y" => match opl_element.element_type {
-            Some(OplElementType::Node { lon, .. }) => {
-                opl_element.element_type = Some(OplElementType::Node {
-                    lat: Some(value_as!(f64)),
-                    lon,
-                });
+        b"y" => match &mut element_builder.element_type {
+            Some(ElementTypeBuilder::NodeBuilder { lat, .. }) => {
+                *lat = Some(value_as!(f64));
             }
             None => {
-                opl_element.element_type = Some(OplElementType::Node {
+                element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
                     lat: Some(value_as!(f64)),
                     lon: None,
                 });
@@ -189,7 +129,7 @@ fn add_byte_field(field: &[u8], opl_element: &mut OplElement) {
                 })
                 .collect();
 
-            opl_element.element_type = Some(OplElementType::Way { nodes: Some(nodes) });
+            element_builder.element_type = Some(ElementTypeBuilder::WayBuilder { nodes });
         }
         b"M" => {
             let members: Vec<Member> = value
@@ -211,9 +151,7 @@ fn add_byte_field(field: &[u8], opl_element: &mut OplElement) {
                     })
                 })
                 .collect();
-            opl_element.element_type = Some(OplElementType::Relation {
-                members: Some(members),
-            });
+            element_builder.element_type = Some(ElementTypeBuilder::RelationBuilder { members })
         }
         _ => {
             panic!("Unrecognized field: {:?}", field);
@@ -224,20 +162,20 @@ fn add_byte_field(field: &[u8], opl_element: &mut OplElement) {
 fn convert_chunk(index: usize, chunk: Box<[Vec<u8>]>) -> Chunk {
     let mut elements = Vec::with_capacity(chunk.len());
     for line in chunk.iter() {
-        let mut opl_element = OplElement::default();
+        let mut element_builder = ElementBuilder::default();
         let mut field_start = 0;
         for (i, &b) in line.iter().enumerate() {
             if b == b' ' {
                 if field_start < i {
-                    add_byte_field(&line[field_start..i], &mut opl_element);
+                    add_byte_field(&line[field_start..i], &mut element_builder);
                 }
                 field_start = i + 1;
             }
         }
         if field_start < line.len() {
-            add_byte_field(&line[field_start..], &mut opl_element);
+            add_byte_field(&line[field_start..], &mut element_builder);
         }
-        elements.push(Element::from(opl_element));
+        elements.push(element_builder.build());
     }
     Chunk {
         index,
