@@ -63,7 +63,7 @@ fn push_escaped_string(base: &mut String, input: &str) {
 }
 
 fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
-    let mut output = String::new();
+    let mut output = String::with_capacity(chunk.elements.len() * 80);
     for element in chunk.elements {
         match element.element_type {
             ElementType::Node { .. } => {
