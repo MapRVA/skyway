@@ -2,11 +2,11 @@ use chrono::{DateTime, SecondsFormat};
 use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
 use rayon::prelude::*;
 use std::{
-    collections::HashMap,
     io::{empty, Read},
     mem,
     sync::mpsc::Sender,
 };
+use ustr::{Ustr, UstrMap};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -30,17 +30,17 @@ fn timestamp_conversion_wrapper(timestamp: Option<i64>) -> Option<String> {
     })
 }
 
-fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
-    let mut tag_map = HashMap::new();
+fn get_tags(tag_iter: osmpbf::elements::TagIter) -> UstrMap<String> {
+    let mut tag_map = UstrMap::default();
     for t in tag_iter {
-        tag_map.insert(t.0.to_owned(), t.1.to_owned());
+        tag_map.insert(Ustr::from(t.0), t.1.to_owned());
     }
     tag_map
 }
 
-fn get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> HashMap<String, String> {
-    let mut tag_map = HashMap::new();
-    let _ = tag_iter.map(|(k, v)| tag_map.insert(k.to_owned(), v.to_owned()));
+fn get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> UstrMap<String> {
+    let mut tag_map = UstrMap::default();
+    let _ = tag_iter.map(|(k, v)| tag_map.insert(Ustr::from(k), v.to_owned()));
     tag_map
 }
 
@@ -68,7 +68,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     lon: node.lon(),
                 },
                 changeset: node_info.changeset(),
-                user: node_info.user().and_then(|r| r.ok()).map(|s| s.to_string()),
+                user: node_info.user().and_then(|r| r.ok()).map(|s| Ustr::from(s)),
                 uid: node_info.uid(),
                 timestamp: timestamp_conversion_wrapper(node_info.milli_timestamp()),
                 visible: Some(node_info.visible()),
@@ -85,7 +85,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                         lon: dense_node.lon(),
                     },
                     changeset: Some(dense_node_info.changeset()),
-                    user: dense_node_info.user().map(|r| r.to_string()).ok(),
+                    user: dense_node_info.user().map(|r| Ustr::from(r)).ok(),
                     uid: Some(dense_node_info.uid()),
                     timestamp: convert_timestamp(dense_node_info.milli_timestamp()).ok(),
                     visible: Some(dense_node_info.visible()),
@@ -117,7 +117,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     nodes: way.refs().collect(),
                 },
                 changeset: way_info.changeset(),
-                user: way_info.user().and_then(|r| r.ok()).map(|s| s.to_string()),
+                user: way_info.user().and_then(|r| r.ok()).map(|s| Ustr::from(s)),
                 uid: way_info.uid(),
                 timestamp: timestamp_conversion_wrapper(way_info.milli_timestamp()),
                 visible: Some(way_info.visible()),
@@ -136,7 +136,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                 user: relation_info
                     .user()
                     .and_then(|r| r.ok())
-                    .map(|s| s.to_string()),
+                    .map(|s| Ustr::from(s)),
                 uid: relation_info.uid(),
                 timestamp: timestamp_conversion_wrapper(relation_info.milli_timestamp()),
                 visible: Some(relation_info.visible()),
