@@ -6,10 +6,6 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
 use clap::ValueEnum;
-use json::JsonReader;
-use opl::OplReader;
-use pbf::PbfReader;
-use xml::XmlReader;
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -59,13 +55,13 @@ impl InputFileFormat {
     pub fn generate_reader(self, src: Box<dyn Read + Send>) -> Box<dyn Reader> {
         match self {
             #[cfg(feature = "json")]
-            InputFileFormat::Json => Box::new(JsonReader::new(src)),
+            InputFileFormat::Json => Box::new(json::JsonReader::new(src)),
             #[cfg(feature = "opl")]
-            InputFileFormat::Opl => Box::new(OplReader::new(src)),
+            InputFileFormat::Opl => Box::new(opl::OplReader::new(src)),
             #[cfg(feature = "pbf")]
-            InputFileFormat::Pbf => Box::new(PbfReader::new(src)),
+            InputFileFormat::Pbf => Box::new(pbf::PbfReader::new(src)),
             #[cfg(feature = "xml")]
-            InputFileFormat::Xml => Box::new(XmlReader::new(src)),
+            InputFileFormat::Xml => Box::new(xml::XmlReader::new(src)),
         }
     }
 }
