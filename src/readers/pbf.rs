@@ -1,4 +1,5 @@
-use osmpbf::{BlobDecode, BlobReader};
+use chrono::{DateTime, SecondsFormat};
+use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
 use rayon::prelude::*;
 use std::{
     collections::HashMap,
@@ -12,7 +13,22 @@ use crate::{
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
     threadpools::READER_THREAD_POOL,
+    SkywayError,
 };
+
+/// Convert the OSM PBF timestamps to RFC 3339
+fn convert_timestamp(milli_timestamp: i64) -> Result<String, SkywayError> {
+    DateTime::from_timestamp_millis(milli_timestamp)
+        .map_or(Err(SkywayError::InvalidInputFile), |d| {
+            Ok(d.to_rfc3339_opts(SecondsFormat::Secs, true))
+        })
+}
+
+fn timestamp_conversion_wrapper(timestamp: Option<i64>) -> Option<String> {
+    timestamp.and_then(|t| {
+        Some(convert_timestamp(t).expect("Could not convert timestamp from PBF file."))
+    })
+}
 
 fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
@@ -52,9 +68,9 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     lon: node.lon(),
                 },
                 changeset: node_info.changeset(),
-                user: None, // TODO
+                user: node_info.user().and_then(|r| r.ok()).map(|s| s.to_string()),
                 uid: node_info.uid(),
-                timestamp: None, // TODO
+                timestamp: timestamp_conversion_wrapper(node_info.milli_timestamp()),
                 visible: Some(node_info.visible()),
                 version: node_info.version(),
             }
@@ -69,9 +85,9 @@ fn convert_element(element: osmpbf::Element) -> Element {
                         lon: dense_node.lon(),
                     },
                     changeset: Some(dense_node_info.changeset()),
-                    user: None, // TODO
+                    user: dense_node_info.user().map(|r| r.to_string()).ok(),
                     uid: Some(dense_node_info.uid()),
-                    timestamp: None, // TODO
+                    timestamp: convert_timestamp(dense_node_info.milli_timestamp()).ok(),
                     visible: Some(dense_node_info.visible()),
                     version: Some(dense_node_info.version()),
                 }
@@ -101,9 +117,9 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     nodes: way.refs().collect(),
                 },
                 changeset: way_info.changeset(),
-                user: None, // TODO
+                user: way_info.user().and_then(|r| r.ok()).map(|s| s.to_string()),
                 uid: way_info.uid(),
-                timestamp: None, // TODO
+                timestamp: timestamp_conversion_wrapper(way_info.milli_timestamp()),
                 visible: Some(way_info.visible()),
                 version: way_info.version(),
             }
@@ -117,13 +133,26 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     members: relation.members().map(convert_member).collect(),
                 },
                 changeset: relation_info.changeset(),
-                user: None, // TODO
+                user: relation_info
+                    .user()
+                    .and_then(|r| r.ok())
+                    .map(|s| s.to_string()),
                 uid: relation_info.uid(),
-                timestamp: None, // TODO
+                timestamp: timestamp_conversion_wrapper(relation_info.milli_timestamp()),
                 visible: Some(relation_info.visible()),
                 version: relation_info.version(),
             }
         }
+    }
+}
+
+fn build_metadata_from_block(header_block: Box<HeaderBlock>) -> Metadata {
+    Metadata {
+        version: None,
+        generator: header_block.writing_program().map(|s| s.to_owned()),
+        copyright: None,
+        license: None,
+        timestamp: timestamp_conversion_wrapper(header_block.osmosis_replication_timestamp()),
     }
 }
 
@@ -144,22 +173,18 @@ impl Reader for PbfReader {
         sender: Sender<Chunk>,
         metadata_sender: Sender<Metadata>,
     ) {
-        metadata_sender
-            .send(Metadata {
-                version: None,
-                generator: None,
-                copyright: None,
-                license: None,
-                timestamp: None, // TODO: see if this is available?
-            })
-            .expect("Couldn't send metdata to main thread!");
-
         let src = mem::replace(&mut self.src, Box::new(empty()));
         let reader = BlobReader::new(src);
         READER_THREAD_POOL.install(|| {
             reader
                 .filter_map(|blob| match blob.unwrap().decode() {
                     Ok(BlobDecode::OsmData(block)) => Some(block),
+                    Ok(BlobDecode::OsmHeader(block)) => {
+                        metadata_sender
+                            .send(build_metadata_from_block(block))
+                            .expect("Couldn't send metdata to main thread!");
+                        None
+                    }
                     Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
                     _ => None,
                 })
