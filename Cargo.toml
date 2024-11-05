@@ -39,6 +39,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 serde-aux = { version = "4.5.0", optional = true }
 serde_json = { version = "1.0", optional = true }
 thiserror = "1.0.63"
+ustr = "1.1.0"
 
 [features]
 # by default, all convert and filter features are enabled

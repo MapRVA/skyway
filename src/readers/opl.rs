@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use std::io::{empty, BufRead, BufReader, Read};
 use std::mem;
 use std::sync::mpsc::{channel, Sender};
+use ustr::Ustr;
 
 use crate::elements::ElementTypeBuilder;
 use crate::{
@@ -74,13 +75,13 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
             element_builder.changeset = Some(value_as!(i64));
         }
         b"t" => {
-            element_builder.timestamp = Some(str_or_fail(value).to_string());
+            element_builder.timestamp = Some(str_or_fail(value).to_owned());
         }
         b"i" => {
             element_builder.uid = Some(value_as!(i32));
         }
         b"u" => {
-            element_builder.user = Some(unescape_str(str_or_fail(value)));
+            element_builder.user = Some(Ustr::from(str_or_fail(value)));
         }
         b"T" => {
             str_or_fail(value)
@@ -89,7 +90,7 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
                 .for_each(|(k, v)| {
                     element_builder
                         .tags
-                        .insert(unescape_str(k), unescape_str(v));
+                        .insert(Ustr::from(&unescape_str(k)), unescape_str(v));
                 });
         }
         b"x" => match &mut element_builder.element_type {
