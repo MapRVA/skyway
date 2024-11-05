@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 pub mod chunks;
 pub mod elements;
+#[cfg(feature = "filter")]
 pub mod filter;
 pub mod readers;
 pub mod writers;
