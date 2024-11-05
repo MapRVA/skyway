@@ -94,9 +94,9 @@ struct Cli {
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     output: Option<PathBuf>,
 
-    /// If output file already exists, overwrite it
+    /// If output file already exists, don't overwrite it
     #[arg(long)]
-    overwrite: bool,
+    no_overwrite: bool,
 
     /// Maximum number of elements to store in each chunk passed between threads
     #[arg(long)]
@@ -152,7 +152,7 @@ fn main() -> Result<(), SkywayError> {
         }
     });
 
-    let src = open_or_stdin(cli.input, cli.overwrite)?;
+    let src = open_or_stdin(cli.input, cli.no_overwrite)?;
     let mut reader = from.generate_reader(src);
 
     // spawn a thread that reads the file and spits OSM element

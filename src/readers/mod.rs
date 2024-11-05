@@ -66,12 +66,11 @@ impl InputFileFormat {
     }
 }
 
-pub fn open(path: PathBuf, overwrite: bool) -> Result<Box<dyn Read + Send>, SkywayError> {
-    if !overwrite {
-        if path.exists() {
-            return Err(SkywayError::OutputFileExists);
-        }
+pub fn open(path: PathBuf, no_overwrite: bool) -> Result<Box<dyn Read + Send>, SkywayError> {
+    if no_overwrite && path.exists() {
+        return Err(SkywayError::OutputFileExists);
     }
+
     match fs::File::open(path) {
         Ok(f) => Ok(Box::new(f) as Box<dyn Read + Send>),
         Err(e) => panic!("Unable to open input file: {e:?}"),
@@ -80,10 +79,10 @@ pub fn open(path: PathBuf, overwrite: bool) -> Result<Box<dyn Read + Send>, Skyw
 
 pub fn open_or_stdin(
     path: Option<PathBuf>,
-    overwrite: bool,
+    no_overwrite: bool,
 ) -> Result<Box<dyn Read + Send>, SkywayError> {
     match path {
-        Some(p) => open(p, overwrite),
+        Some(p) => open(p, no_overwrite),
         None => Ok(Box::new(stdin()) as Box<dyn Read + Send>),
     }
 }
