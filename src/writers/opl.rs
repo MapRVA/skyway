@@ -126,9 +126,9 @@ fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
         match element.element_type {
             ElementType::Node { lat, lon } => {
                 output.push_str(" x");
-                output.push_str(&lexical::to_string(lon));
+                output.push_str(lon.as_str());
                 output.push_str(" y");
-                output.push_str(&lexical::to_string(lat));
+                output.push_str(lat.as_str());
             }
             ElementType::Way { nodes } => {
                 output.push_str(" N");

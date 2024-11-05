@@ -2,6 +2,8 @@
 
 use std::collections::HashMap;
 
+use crate::lazy_numerics::LazyOsmNumeric;
+
 /// Element types without any additional metadata.
 #[derive(Debug, PartialEq)]
 pub enum SimpleElementType {
@@ -21,9 +23,16 @@ pub struct Member {
 /// The varying characteristics of each element type.
 #[derive(Debug, PartialEq)]
 pub enum ElementType {
-    Node { lat: f64, lon: f64 },
-    Way { nodes: Vec<i64> },
-    Relation { members: Vec<Member> },
+    Node {
+        lat: LazyOsmNumeric<f64, 10>,
+        lon: LazyOsmNumeric<f64, 10>,
+    },
+    Way {
+        nodes: Vec<i64>,
+    },
+    Relation {
+        members: Vec<Member>,
+    },
 }
 
 /// An OpenStreetMap element.
@@ -43,9 +52,16 @@ pub struct Element {
 /// Builder type for ElementType, must be used with ElementBuilder.
 #[derive(Debug, PartialEq)]
 pub enum ElementTypeBuilder {
-    NodeBuilder { lat: Option<f64>, lon: Option<f64> },
-    WayBuilder { nodes: Vec<i64> },
-    RelationBuilder { members: Vec<Member> },
+    NodeBuilder {
+        lat: Option<LazyOsmNumeric<f64, 10>>,
+        lon: Option<LazyOsmNumeric<f64, 10>>,
+    },
+    WayBuilder {
+        nodes: Vec<i64>,
+    },
+    RelationBuilder {
+        members: Vec<Member>,
+    },
 }
 
 /// Builder type for Element, used to construct Elements iteratively.

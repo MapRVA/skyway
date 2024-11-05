@@ -6,6 +6,7 @@ use std::path::PathBuf;
 pub mod chunks;
 pub mod elements;
 pub mod filter;
+pub mod lazy_numerics;
 pub mod readers;
 pub mod writers;
 
@@ -21,6 +22,8 @@ pub enum SkywayError {
     IoError(#[from] std::io::Error),
     #[error("File already exits")]
     OutputFileExists,
+    #[error("Invalid input file")]
+    InvalidInputFile,
 }
 
 pub trait FileFormatOptions: ValueEnum {

@@ -96,11 +96,11 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
             None => {
                 element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
                     lat: None,
-                    lon: Some(value_as!(f64)),
+                    lon: Some(value.try_into().expect("couldn't convert")),
                 });
             }
             Some(ElementTypeBuilder::NodeBuilder { lon, .. }) => {
-                *lon = Some(value_as!(f64));
+                *lon = Some(value.try_into().expect("couldn't convert"));
             }
             _ => {
                 panic!("Longitude set for a non-node element!");
@@ -108,11 +108,11 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
         },
         b"y" => match &mut element_builder.element_type {
             Some(ElementTypeBuilder::NodeBuilder { lat, .. }) => {
-                *lat = Some(value_as!(f64));
+                *lat = Some(value.try_into().expect("couldn't convert"));
             }
             None => {
                 element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
-                    lat: Some(value_as!(f64)),
+                    lat: Some(value.try_into().expect("couldn't convert")),
                     lon: None,
                 });
             }
