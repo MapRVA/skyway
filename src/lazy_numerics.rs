@@ -49,13 +49,36 @@ impl<const NUM_EXPECTED_DIGITS: u8> TryInto<LazyOsmNumeric<f64, NUM_EXPECTED_DIG
     type Error = SkywayError;
 
     fn try_into(self) -> Result<LazyOsmNumeric<f64, NUM_EXPECTED_DIGITS>, Self::Error> {
-        match String::from_utf8(self.to_vec()) {
-            Ok(s) => Ok(LazyOsmNumeric {
-                original_string: s,
-                parsed_value: UnsafeCell::new(None),
-            }),
-            Err(_) => Err(SkywayError::InvalidInputFile),
+        let mut saw_digit = false;
+        let mut i = 0;
+
+        // handle optional minus sign
+        if i < self.len() && (self[i] == b'-') {
+            i += 1;
         }
+
+        // handle digits and one optional decimal point
+        let mut saw_decimal = false;
+        while i < self.len() {
+            match self[i] {
+                b'0'..=b'9' => saw_digit = true,
+                b'.' if !saw_decimal => saw_decimal = true,
+                _ => return Err(SkywayError::InvalidInputFile),
+            }
+            i += 1;
+        }
+
+        if !saw_digit {
+            return Err(SkywayError::InvalidInputFile);
+        }
+
+        // unsafe because we have manually checked each byte as valid UTF-8
+        let string = unsafe { String::from_utf8_unchecked(self.to_vec()) };
+
+        Ok(LazyOsmNumeric {
+            original_string: string,
+            parsed_value: UnsafeCell::new(None),
+        })
     }
 }
 
