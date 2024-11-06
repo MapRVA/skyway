@@ -46,7 +46,7 @@ ustr = { version = "1.1.0", features = ["serde"] }
 default = ["convert", "filter"]
 
 # convert features
-convert = ["json", "o5m", "opl", "osmx", "pbf", "xml"]
+convert = ["json", "opl", "pbf", "xml"]
 json = ["dep:json", "dep:lexical", "dep:serde", "dep:serde_json"]
 o5m = ["dep:bit-vec"]
 opl = ["dep:lexical"]
