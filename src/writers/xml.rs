@@ -155,7 +155,7 @@ fn append_serialized_element(base: &mut String, element: Element) {
 }
 
 fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
-    let mut output = String::new();
+    let mut output = String::with_capacity(chunk.elements.len() * 155);
     for element in chunk.elements {
         append_serialized_element(&mut output, element);
     }
