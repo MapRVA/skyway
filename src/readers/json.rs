@@ -1,8 +1,8 @@
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str;
-use std::collections::HashMap;
 use std::io::Read;
 use std::sync::mpsc::Sender;
+use ustr::{Ustr, UstrMap};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -70,14 +70,14 @@ enum ElementTypeDef {
 #[serde(remote = "Element")]
 struct ElementDef {
     changeset: Option<i64>,
-    user: Option<String>,
+    user: Option<Ustr>,
     version: Option<i32>,
     uid: Option<i32>,
     id: i64,
     timestamp: Option<String>,
     visible: Option<bool>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    tags: HashMap<String, String>,
+    tags: UstrMap<String>,
     #[serde(flatten, with = "ElementTypeDef")]
     element_type: ElementType,
 }

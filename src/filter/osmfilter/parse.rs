@@ -1,6 +1,7 @@
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
+use ustr::Ustr;
 
 use crate::filter::osmfilter::logic::{OsmFilter, SelectorStatement, Statement};
 
@@ -14,15 +15,17 @@ fn get_inner_string(pair: &Pair<Rule>) -> String {
     pair.as_span().as_str().to_owned()
 }
 
-fn collect_inner_strings(pair: Pair<Rule>) -> Vec<String> {
-    pair.into_inner().map(|x| get_inner_string(&x)).collect()
+fn collect_inner_strings(pair: Pair<Rule>) -> Vec<Ustr> {
+    pair.into_inner()
+        .map(|x| Ustr::from(&get_inner_string(&x)))
+        .collect()
 }
 
 fn parse_set_statement(pair: Pair<Rule>) -> Statement {
     let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
     match &inner[..] {
         [key, value] => Statement::SetStatement {
-            key: get_inner_string(key),
+            key: Ustr::from(&get_inner_string(key)),
             value: get_inner_string(value),
         },
         _ => panic!("Invalid set statement"),
@@ -33,8 +36,8 @@ fn parse_rename_statement(pair: Pair<Rule>) -> Statement {
     let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
     match &inner[..] {
         [key, value] => Statement::RenameStatement {
-            old_key: get_inner_string(key),
-            new_key: get_inner_string(value),
+            old_key: Ustr::from(&get_inner_string(key)),
+            new_key: Ustr::from(&get_inner_string(value)),
         },
         _ => panic!("Invalid rename statement"),
     }
@@ -52,7 +55,7 @@ fn parse_type_selector(pair: Pair<Rule>) -> SelectorStatement {
 fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
     let mut inner = pair.into_inner();
     SelectorStatement::Equals {
-        key: get_inner_string(&inner.next().unwrap()),
+        key: Ustr::from(&get_inner_string(&inner.next().unwrap())),
         value: get_inner_string(&inner.next().unwrap()),
     }
 }
@@ -60,7 +63,7 @@ fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
 fn parse_selector(pair: Pair<Rule>) -> SelectorStatement {
     match pair.as_rule() {
         Rule::has => SelectorStatement::Has {
-            key: get_inner_string(&pair.into_inner().next().unwrap()),
+            key: Ustr::from(&get_inner_string(&pair.into_inner().next().unwrap())),
         },
         Rule::equals => parse_equals_selector(pair),
         Rule::type_selector => parse_type_selector(pair),

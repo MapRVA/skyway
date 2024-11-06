@@ -4,8 +4,9 @@ use serde_aux::field_attributes::{
     deserialize_bool_from_anything, deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
+use std::io::Read;
 use std::sync::mpsc::Sender;
-use std::{collections::HashMap, io::Read};
+use ustr::{Ustr, UstrMap};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -61,7 +62,7 @@ struct MetadataDef {
 #[derive(Deserialize)]
 struct XmlTags {
     #[serde(rename = "@k")]
-    k: String,
+    k: Ustr,
     #[serde(rename = "@v")]
     v: String,
 }
@@ -71,7 +72,7 @@ pub struct XmlElementMeta {
     #[serde(rename = "@id", deserialize_with = "deserialize_number_from_string")]
     id: i64,
     #[serde(rename = "@user")]
-    user: Option<String>,
+    user: Option<Ustr>,
     #[serde(
         rename = "@uid",
         deserialize_with = "deserialize_option_number_from_string"
@@ -178,12 +179,12 @@ enum XmlElement {
     Relation(XmlRelation),
 }
 
-fn convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
-    let mut tags_hashmap = HashMap::new();
+fn convert_tags(xml_tags: Vec<XmlTags>) -> UstrMap<String> {
+    let mut tag_map = UstrMap::default();
     for tag in xml_tags {
-        tags_hashmap.insert(tag.k, tag.v);
+        tag_map.insert(tag.k, tag.v);
     }
-    tags_hashmap
+    tag_map
 }
 
 fn convert_element(xml_element: XmlElement) -> Element {

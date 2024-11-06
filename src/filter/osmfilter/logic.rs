@@ -1,3 +1,5 @@
+use ustr::Ustr;
+
 use crate::elements::{Element, ElementType};
 use crate::filter::ElementFilter;
 
@@ -9,10 +11,10 @@ pub enum SelectorStatement {
         relation: bool,
     },
     Has {
-        key: String,
+        key: Ustr,
     },
     Equals {
-        key: String,
+        key: Ustr,
         value: String,
     },
 }
@@ -28,8 +30,8 @@ fn test_selector(selector: &SelectorStatement, element: &Element) -> bool {
             ElementType::Way { .. } => way.to_owned(),
             ElementType::Relation { .. } => relation.to_owned(),
         },
-        SelectorStatement::Has { key } => element.tags.contains_key(key.as_str()),
-        SelectorStatement::Equals { key, value } => match element.tags.get(key.as_str()) {
+        SelectorStatement::Has { key } => element.tags.contains_key(key),
+        SelectorStatement::Equals { key, value } => match element.tags.get(key) {
             Some(v) => v == value,
             _ => false,
         },
@@ -42,18 +44,18 @@ pub enum Statement {
     CommitStatement,
     DropStatement,
     DeleteStatement {
-        keys: Vec<String>,
+        keys: Vec<Ustr>,
     },
     KeepStatement {
-        keys: Vec<String>,
+        keys: Vec<Ustr>,
     },
     SetStatement {
-        key: String,
+        key: Ustr,
         value: String,
     },
     RenameStatement {
-        old_key: String,
-        new_key: String,
+        old_key: Ustr,
+        new_key: Ustr,
     },
     SelectionBlock {
         selector: SelectorStatement,
@@ -82,12 +84,12 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
             StatementResult::Continue
         }
         Statement::SetStatement { key, value } => {
-            element.tags.insert(key.to_owned(), value.to_owned());
+            element.tags.insert(*key, value.to_owned());
             StatementResult::Continue
         }
         Statement::RenameStatement { old_key, new_key } => {
             if let Some(v) = element.tags.remove(old_key) {
-                element.tags.insert(new_key.to_owned(), v);
+                element.tags.insert(*new_key, v);
             }
             StatementResult::Continue
         }
