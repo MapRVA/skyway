@@ -23,7 +23,7 @@ env_logger = "0.11.5"
 indicatif = "0.17.8"
 itertools = "0.13.0"
 json = { version = "0.12.4", optional = true }
-lexical = { version = "6.1.1", optional = true }
+lexical = { version = "7.0.2", optional = true }
 log = "0.4.22"
 once_cell = "1.19.0"
 osmpbf = { version = "0.3.4", optional = true }
