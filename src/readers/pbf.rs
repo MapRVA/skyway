@@ -169,7 +169,7 @@ impl PbfReader {
 impl Reader for PbfReader {
     fn read(
         &mut self,
-        chunk_builder: ChunkBuilder,
+        _chunk_builder: ChunkBuilder,
         sender: Sender<Chunk>,
         metadata_sender: Sender<Metadata>,
     ) {
