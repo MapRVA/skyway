@@ -1,32 +1,36 @@
 //! Reads OSM data into skyway.
 
 use std::fs;
-use std::io::{stdin, Read};
+use std::io::{stdin, BufRead, BufReader, Read};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
+use std::thread;
 
 use clap::ValueEnum;
-
-use crate::{
-    chunks::{Chunk, ChunkBuilder},
-    elements::Metadata,
-    FileFormatOptions, SkywayError,
-};
-
-#[cfg(feature = "json")]
-mod json;
+use enum_dispatch::enum_dispatch;
 
 #[cfg(feature = "opl")]
-mod opl;
+use opl::OplReader;
+#[cfg(feature = "pbf")]
+use pbf::PbfReader;
+
+use crate::chunks::Chunk;
+use crate::{chunks::ChunkBuilder, elements::Metadata, FileFormatOptions, SkywayError};
+
+#[cfg(feature = "json")]
+pub mod json;
+
+#[cfg(feature = "opl")]
+pub mod opl;
 
 #[cfg(feature = "osmx")]
-mod osmx;
+pub mod osmx;
 
 #[cfg(feature = "pbf")]
-mod pbf;
+pub mod pbf;
 
 #[cfg(feature = "xml")]
-mod xml;
+pub mod xml;
 
 /// Enum that represents the different input file formats skyway supports.
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -45,57 +49,63 @@ pub enum InputFileFormat {
     Xml,
 }
 
-impl FileFormatOptions for InputFileFormat {
-    fn format_error(ext: &str) -> SkywayError {
-        SkywayError::UnknownInputFormat(ext.to_string())
-    }
+#[enum_dispatch]
+pub enum Readers {
+    #[cfg(feature = "opl")]
+    OplReader,
+    #[cfg(feature = "pbf")]
+    PbfReader,
 }
 
 impl InputFileFormat {
-    pub fn generate_reader(self, src: Box<dyn Read + Send>) -> Box<dyn Reader> {
+    pub fn generate_reader(self) -> Readers {
         match self {
             #[cfg(feature = "json")]
             InputFileFormat::Json => Box::new(json::JsonReader::new(src)),
             #[cfg(feature = "opl")]
-            InputFileFormat::Opl => Box::new(opl::OplReader::new(src)),
+            InputFileFormat::Opl => Readers::OplReader(OplReader::new()),
             #[cfg(feature = "pbf")]
-            InputFileFormat::Pbf => Box::new(pbf::PbfReader::new(src)),
+            InputFileFormat::Pbf => Readers::PbfReader(PbfReader::new()),
             #[cfg(feature = "xml")]
             InputFileFormat::Xml => Box::new(xml::XmlReader::new(src)),
         }
     }
 }
 
-pub fn open(path: PathBuf, no_overwrite: bool) -> Result<Box<dyn Read + Send>, SkywayError> {
-    if no_overwrite && path.exists() {
-        return Err(SkywayError::OutputFileExists);
+impl FileFormatOptions for InputFileFormat {
+    fn format_error(ext: &str) -> SkywayError {
+        SkywayError::UnknownInputFormat(ext.to_string())
     }
+}
 
+pub fn open(path: PathBuf) -> Box<dyn Read + Send> {
     match fs::File::open(path) {
-        Ok(f) => Ok(Box::new(f) as Box<dyn Read + Send>),
+        Ok(f) => Box::new(f) as Box<dyn Read + Send>,
         Err(e) => panic!("Unable to open input file: {e:?}"),
     }
 }
 
-pub fn open_or_stdin(
-    path: Option<PathBuf>,
-    no_overwrite: bool,
-) -> Result<Box<dyn Read + Send>, SkywayError> {
-    match path {
-        Some(p) => open(p, no_overwrite),
-        None => Ok(Box::new(stdin()) as Box<dyn Read + Send>),
-    }
+pub fn get_reader(src: Option<PathBuf>) -> Box<dyn BufRead + Send> {
+    Box::new(BufReader::new(match src {
+        Some(path) => open(path),
+        None => Box::new(stdin()),
+    }))
 }
 
-pub trait Reader: Send {
+#[enum_dispatch(Readers)]
+pub trait Reader: Send + 'static {
+    /// Create a new instance of this Reader
+
     /// Reads data into skyway.
     ///
     /// * `sender`: Sender for a channel of `Element`s.
     /// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
-    fn read(
-        &mut self,
-        chunk_builder: ChunkBuilder,
-        sender: Sender<Chunk>,
+    fn read_file(
+        self,
+        src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
+        chunk_builder: ChunkBuilder,
+        write_thread: thread::JoinHandle<()>,
+        final_iterator: impl Fn(Chunk) + Sync,
     );
 }

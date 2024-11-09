@@ -1,18 +1,13 @@
 use chrono::{DateTime, SecondsFormat};
-use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
+use osmpbf::{BlobDecode, BlobReader, HeaderBlock, PrimitiveBlock};
 use rayon::prelude::*;
-use std::{
-    io::{empty, Read},
-    mem,
-    sync::mpsc::Sender,
-};
+use std::{path::PathBuf, sync::mpsc::Sender, thread};
 use ustr::{Ustr, UstrMap};
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{Chunk, ChunkBuilder, OrderedOutput},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
-    threadpools::READER_THREAD_POOL,
     SkywayError,
 };
 
@@ -146,6 +141,18 @@ fn convert_element(element: osmpbf::Element) -> Element {
     }
 }
 
+fn convert_primitive_block(block: OrderedOutput<PrimitiveBlock>) -> Chunk {
+    let elements: Vec<Element> = block
+        .content
+        .elements()
+        .map(|element| convert_element(element))
+        .collect();
+    Chunk {
+        index: block.index,
+        elements: elements.into_boxed_slice(),
+    }
+}
+
 fn build_metadata_from_block(header_block: Box<HeaderBlock>) -> Metadata {
     Metadata {
         version: None,
@@ -156,49 +163,53 @@ fn build_metadata_from_block(header_block: Box<HeaderBlock>) -> Metadata {
     }
 }
 
-pub struct PbfReader {
-    pub src: Box<dyn Read + Send>,
-}
+pub struct PbfReader {}
 
 impl PbfReader {
-    pub fn new(src: Box<dyn Read + Send>) -> Self {
-        PbfReader { src }
+    pub fn new() -> Self {
+        PbfReader {}
     }
 }
 
 impl Reader for PbfReader {
-    fn read(
-        &mut self,
-        _chunk_builder: ChunkBuilder,
-        sender: Sender<Chunk>,
+    fn read_file(
+        self,
+        src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
+        _chunk_builder: ChunkBuilder,
+        write_thread: thread::JoinHandle<()>,
+        final_iterator: impl Fn(Chunk) + Sync,
     ) {
-        let src = mem::replace(&mut self.src, Box::new(empty()));
+        let src = super::get_reader(src);
         let reader = BlobReader::new(src);
-        READER_THREAD_POOL.install(|| {
-            reader
-                .filter_map(|blob| match blob.unwrap().decode() {
-                    Ok(BlobDecode::OsmData(block)) => Some(block),
-                    Ok(BlobDecode::OsmHeader(block)) => {
-                        metadata_sender
-                            .send(build_metadata_from_block(block))
-                            .expect("Couldn't send metdata to main thread!");
-                        None
-                    }
-                    Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
-                    _ => None,
-                })
-                .enumerate()
-                .par_bridge()
-                .map(|(block_index, block)| Chunk {
-                    index: block_index,
-                    elements: block
-                        .elements()
-                        .map(convert_element)
-                        .collect::<Vec<Element>>()
-                        .into_boxed_slice(),
-                })
-                .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
-        });
+        let osm_block_count = std::sync::atomic::AtomicUsize::new(0);
+
+        reader
+            .par_bridge()
+            .filter_map(|blob| match blob.unwrap().decode() {
+                Ok(BlobDecode::OsmData(block)) => {
+                    let index = osm_block_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    Some(OrderedOutput {
+                        index,
+                        content: block,
+                    })
+                }
+                Ok(BlobDecode::OsmHeader(block)) => {
+                    metadata_sender
+                        .send(build_metadata_from_block(block))
+                        .expect("Couldn't send metadata to main thread!");
+                    None
+                }
+                Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
+                _ => None,
+            })
+            .map(|block| convert_primitive_block(block))
+            .for_each(|chunk| final_iterator(chunk));
+
+        drop(final_iterator);
+
+        write_thread
+            .join()
+            .expect("Couldn't join on write thread!!");
     }
 }

@@ -1,17 +1,17 @@
 use core::str;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::io::{empty, BufRead, BufReader, Read};
-use std::mem;
+use std::io::BufRead;
+use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
+use std::thread;
 use ustr::Ustr;
 
-use crate::elements::ElementTypeBuilder;
+use crate::chunks::OrderedOutput;
 use crate::{
     chunks::{Chunk, ChunkBuilder},
-    elements::{ElementBuilder, Member, Metadata, SimpleElementType},
+    elements::{ElementBuilder, ElementTypeBuilder, Member, Metadata, SimpleElementType},
     readers::Reader,
-    threadpools::READER_THREAD_POOL,
 };
 
 fn unescape_str(input: &str) -> String {
@@ -160,9 +160,59 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
     }
 }
 
-fn convert_chunk(index: usize, chunk: Box<[Vec<u8>]>) -> Chunk {
-    let mut elements = Vec::with_capacity(chunk.len());
-    for line in chunk.iter() {
+// pub struct OplChunkIterator<R: BufRead> {
+//     reader: R,
+//     chunk_size: usize,
+//     current_index: usize,
+// }
+
+// impl<R: BufRead> OplChunkIterator<R> {
+//     fn new(reader: R, chunk_size: usize) -> Self {
+//         Self {
+//             reader,
+//             chunk_size,
+//             current_index: 0,
+//         }
+//     }
+// }
+
+// impl<R: BufRead> Iterator for OplChunkIterator<R> {
+//     type Item = OrderedOutput<Box<[Vec<u8>]>>;
+
+//     fn next(&mut self) -> Option<Self::Item> {
+//         let mut chunk = Vec::with_capacity(self.chunk_size);
+//         let mut buf = String::new();
+
+//         for _ in 0..self.chunk_size {
+//             match self.reader.read_line(&mut buf) {
+//                 Ok(0) => break, // EOF
+//                 Ok(_) => {
+//                     chunk.push(buf.as_bytes().to_vec());
+//                     buf.clear();
+//                 }
+//                 Err(_) => return None,
+//             }
+//         }
+
+//         if chunk.is_empty() {
+//             return None;
+//         }
+
+//         let index = self.current_index;
+//         self.current_index += 1;
+
+//         Some(OrderedOutput {
+//             index,
+//             content: chunk.into_boxed_slice(),
+//         })
+//     }
+// }
+
+pub struct OplReader {}
+
+fn convert_chunk(chunk: OrderedOutput<Box<[Vec<u8>]>>) -> Chunk {
+    let mut elements = Vec::with_capacity(chunk.content.len());
+    for line in chunk.content.iter() {
         let mut element_builder = ElementBuilder::default();
         let mut field_start = 0;
         for (i, &b) in line.iter().enumerate() {
@@ -179,68 +229,65 @@ fn convert_chunk(index: usize, chunk: Box<[Vec<u8>]>) -> Chunk {
         elements.push(element_builder.build());
     }
     Chunk {
-        index,
+        index: chunk.index,
         elements: elements.into_boxed_slice(),
     }
 }
 
-pub struct OplReader {
-    pub src: Box<dyn BufRead + Send>,
-}
-
 impl OplReader {
-    pub fn new(src: Box<dyn Read + Send>) -> Self {
-        OplReader {
-            src: Box::new(BufReader::new(src)),
-        }
+    pub fn new() -> Self {
+        OplReader {}
     }
 }
 
 impl Reader for OplReader {
-    fn read(
-        &mut self,
-        chunk_builder: ChunkBuilder,
-        sender: Sender<Chunk>,
+    fn read_file(
+        self,
+        src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
+        chunk_builder: ChunkBuilder,
+        write_thread: thread::JoinHandle<()>,
+        final_iterator: impl Fn(Chunk) + Sync,
     ) {
+        let (sender, receiver) = channel();
         // create an empty Metadata object
         let metadata = Metadata::default();
-
-        // send metadata to main thread
         metadata_sender
             .send(metadata)
-            .expect("Couldn't send metdata to main thread!");
+            .expect("Couldn't send metadata to main thread!");
 
-        let src = mem::replace(&mut self.src, Box::new(empty()));
-
-        let (chunk_sender, chunk_receiver) = channel();
-
-        std::thread::spawn({
-            move || {
-                src.split(b'\n')
-                    .map(|s| s.expect("Unable to read input file buffer"))
-                    .chunks(chunk_builder.max_size)
-                    .into_iter()
-                    .for_each(|chunk| {
-                        chunk_sender
-                            .send(chunk.collect::<Vec<Vec<u8>>>().into_boxed_slice())
-                            .expect("Unable to send chunk of vectors to channel");
-                    });
-            }
-        });
-
-        READER_THREAD_POOL.install(|| {
-            chunk_receiver
+        let src = super::get_reader(src);
+        let read_thread = thread::spawn(move || {
+            src.split(b'\n')
+                .map(|s| s.expect("Unable to read input file buffer"))
+                .chunks(chunk_builder.max_size)
                 .into_iter()
                 .enumerate()
-                .par_bridge()
-                .map(|(index, chunk)| convert_chunk(index, chunk))
-                .for_each(|c| {
+                .into_iter()
+                .map(|(index, chunk)| OrderedOutput {
+                    index,
+                    content: chunk.collect::<Vec<Vec<u8>>>().into_boxed_slice(),
+                })
+                .for_each(|chunk| {
                     sender
-                        .send(c)
-                        .expect("Unable to send chunk of elements to channel")
-                });
+                        .send(Box::new(chunk))
+                        .expect("Unable to send chunk of vectors to channel");
+                })
         });
+        receiver
+            .into_iter()
+            .map(|chunk| convert_chunk(*chunk))
+            .into_iter()
+            .par_bridge()
+            .for_each(|chunk| final_iterator(chunk));
+
+        drop(final_iterator);
+
+        write_thread
+            .join()
+            .expect("Couldn't join on write thread!!");
+
+        read_thread.join().expect("Couldn't join on read thread!!");
     }
 }
 

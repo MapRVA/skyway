@@ -1,19 +1,16 @@
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::{info, warn};
-use std::fs;
-use std::io::stdout;
+
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::thread;
 
 #[cfg(feature = "filter")]
 use skyway::filter::{create_filter, filter_elements, ElementFilter};
 use skyway::{
-    chunks::{Chunk, ChunkBuilder},
-    elements::Metadata,
-    readers::{open_or_stdin, InputFileFormat},
-    writers::{write_file, OutputFileFormat},
+    chunks::ChunkBuilder,
+    readers::{InputFileFormat, Reader},
+    writers::{OutputFileFormat, Writer},
     FileFormatOptions, SkywayError,
 };
 
@@ -125,13 +122,6 @@ fn main() -> Result<(), SkywayError> {
         }
     };
 
-    // will hold this document's metadata
-    #[allow(clippy::needless_late_init)]
-    let metadata: Metadata;
-
-    // channel for sending elements from the reader to either
-    // a) the filter or b) the writer (if not using a filter)
-    let (reader_sender, reader_receiver) = mpsc::channel();
     let (metadata_sender, metadata_receiver) = mpsc::channel();
 
     let multi = MultiProgress::new();
@@ -152,29 +142,15 @@ fn main() -> Result<(), SkywayError> {
         }
     });
 
-    let src = open_or_stdin(cli.input, cli.no_overwrite)?;
-    let mut reader = from.generate_reader(src);
-
-    // spawn a thread that reads the file and spits OSM element
-    // data into the channel, to be passed into the filter
-    // or data writer
-    let read_thread = thread::spawn(move || {
-        read_progress.set_message("Reading input...");
-
-        reader.read(ChunkBuilder::new(chunksize), reader_sender, metadata_sender);
-
-        // complete reader progress spinner
-        read_progress.finish_with_message("Reading input...done");
-    });
-
-    metadata = match metadata_receiver.iter().next() {
-        Some(m) => m,
-        None => {
-            panic!("No metadata received from reader!");
-        }
+    let src = match cli.input {
+        Some(path) => match cli.no_overwrite && path.exists() {
+            true => return Err(SkywayError::OutputFileExists),
+            false => Some(path),
+        },
+        None => None,
     };
 
-    let last_receiver: mpsc::Receiver<Chunk> = reader_receiver;
+    let reader = from.generate_reader();
 
     #[cfg(feature = "filter")]
     let (filter_threads, last_receiver) = match cli.filter {
@@ -188,30 +164,20 @@ fn main() -> Result<(), SkywayError> {
         None => (vec![], last_receiver),
     };
 
-    let write_progress = multi.add(ProgressBar::new_spinner());
-    write_progress.set_style(spinner_style.clone());
+    // let write_progress = multi.add(ProgressBar::new_spinner());
+    // write_progress.set_style(spinner_style.clone());
+    //
+    let writer = to.generate_writer();
 
-    let write_thread = thread::spawn(move || match cli.output {
-        None => write_file(last_receiver, metadata, to, stdout(), write_progress),
-        Some(a) => match fs::File::create(PathBuf::from(a)) {
-            Ok(b) => write_file(last_receiver, metadata, to, b, write_progress),
-            Err(e) => {
-                panic!("Unable to open output file: {e:?}");
-            }
-        },
-    });
+    let (final_iterator, write_thread) = writer.write_file(metadata_receiver, cli.output);
 
-    read_thread.join().expect("Couldn't join on read thread!!");
-
-    #[cfg(feature = "filter")]
-    for filter_thread in filter_threads {
-        let Some(ft) = filter_thread else { continue };
-        ft.join().expect("Couldn't join on filter thread!!");
-    }
-
-    write_thread
-        .join()
-        .expect("Couldn't join on write thread!!");
+    reader.read_file(
+        src,
+        metadata_sender,
+        ChunkBuilder::new(chunksize),
+        write_thread,
+        final_iterator,
+    );
 
     Ok(())
 }

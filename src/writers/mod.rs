@@ -1,8 +1,6 @@
 //! Writes OSM data out.
 
-use indicatif::ProgressBar;
-use std::io::Write;
-use std::sync::mpsc::Receiver;
+use std::{path::PathBuf, sync::mpsc::Receiver, thread};
 
 use clap::ValueEnum;
 
@@ -40,50 +38,43 @@ pub enum OutputFileFormat {
     Xml,
 }
 
+impl OutputFileFormat {
+    pub fn generate_writer(self) -> impl Writer {
+        #[allow(unreachable_patterns)]
+        match self {
+            #[cfg(feature = "json")]
+            OutputFileFormat::Json => json::write_json(receiver, metadata, destination, false),
+            //#[cfg(feature = "o5m")]
+            // OutputFileFormat::O5m => o5m::write_o5m(reciever, metadata, destination),
+            #[cfg(feature = "opl")]
+            OutputFileFormat::Opl => opl::OplWriter::new(),
+            #[cfg(feature = "json")]
+            OutputFileFormat::Overpass => json::write_json(receiver, metadata, destination, true),
+            #[cfg(feature = "xml")]
+            OutputFileFormat::Xml => xml::write_xml(receiver, metadata, destination),
+            _ => panic!("Feature not enabled for output format {:?}", self),
+        }
+    }
+}
+
 impl FileFormatOptions for OutputFileFormat {
     fn format_error(ext: &str) -> SkywayError {
         SkywayError::UnknownOutputFormat(ext.to_string())
     }
 }
 
-/// Writes data out.
-///
-/// * `receiver`: Receiver for a channel of `Element`s.
-/// * `metadata_sender`: Document-level metadata.
-/// * `to`: File format to write.
-/// * `destination`: Output data destination.
-/// * `progress`: The ProgressBar for this write operation.
-pub fn write_file<D: Write>(
-    receiver: Receiver<Chunk>,
-    metadata: Metadata,
-    to: OutputFileFormat,
-    destination: D,
-    progress: ProgressBar,
-) {
-    progress.set_message("Writing output...");
-    let progress_clone = progress.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        progress_clone.tick();
-        if progress_clone.is_finished() {
-            break;
-        }
-    });
-
-    #[allow(unreachable_patterns)]
-    match to {
-        #[cfg(feature = "json")]
-        OutputFileFormat::Json => json::write_json(receiver, metadata, destination, false),
-        //#[cfg(feature = "o5m")]
-        // OutputFileFormat::O5m => o5m::write_o5m(reciever, metadata, destination),
-        #[cfg(feature = "opl")]
-        OutputFileFormat::Opl => opl::write_opl(receiver, metadata, destination),
-        #[cfg(feature = "json")]
-        OutputFileFormat::Overpass => json::write_json(receiver, metadata, destination, true),
-        #[cfg(feature = "xml")]
-        OutputFileFormat::Xml => xml::write_xml(receiver, metadata, destination),
-        _ => panic!("Feature not enabled for output format {:?}", to),
-    }
-
-    progress.finish_with_message("Writing output...done");
+pub trait Writer {
+    type RawData;
+    /// Writes data out.
+    ///
+    /// * `receiver`: Receiver for a channel of `Element`s.
+    /// * `metadata_sender`: Document-level metadata.
+    /// * `to`: File format to write.
+    /// * `destination`: Output data destination.
+    /// * `progress`: The ProgressBar for this write operation.
+    fn write_file(
+        self,
+        metadata_receiver: Receiver<Metadata>,
+        destination: Option<PathBuf>,
+    ) -> (impl Fn(Chunk) + Sync, thread::JoinHandle<()>);
 }

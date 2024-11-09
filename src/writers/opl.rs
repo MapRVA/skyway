@@ -1,13 +1,16 @@
 use lexical;
-use rayon::prelude::*;
-use std::fmt::{Error, Write};
-use std::sync::mpsc::{channel, Receiver};
+use std::io::stdout;
+use std::path::PathBuf;
+use std::sync::mpsc::{Receiver, Sender};
+use std::{fmt::Write, sync::mpsc::channel};
+use std::{fs, thread};
 
 use crate::{
     chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
     elements::{ElementType, Metadata, SimpleElementType},
-    threadpools::WRITER_THREAD_POOL,
 };
+
+use super::Writer;
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write
@@ -62,7 +65,7 @@ fn push_escaped_string(base: &mut String, input: &str) {
     }
 }
 
-fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
+fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
     let mut output = String::with_capacity(chunk.elements.len() * 80);
     for element in chunk.elements {
         match element.element_type {
@@ -167,35 +170,64 @@ fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
         }
         output.push('\n');
     }
-    Ok(output)
+    OrderedOutput {
+        index: chunk.index,
+        content: output,
+    }
 }
 
-#[allow(unused_variables)]
-pub fn write_opl<D: std::io::Write>(receiver: Receiver<Chunk>, metadata: Metadata, dest: D) {
-    let mut writer = ToFmtWrite(dest);
-    let (output_sender, output_receiver) = channel();
+pub struct OplWriter {
+    sender: Sender<OrderedOutput<String>>,
+    receiver: Receiver<OrderedOutput<String>>,
+}
 
-    WRITER_THREAD_POOL.install(move || {
-        receiver
-            .into_iter()
-            .par_bridge()
-            .map(|chunk| {
-                let index = chunk.index;
-                let content = serialize_chunk(chunk).expect("Failed to serialize chunk");
-                OrderedOutput { index, content }
-            })
-            .for_each(|output| {
-                output_sender
-                    .send(output)
-                    .expect("Failed to send serialized chunk");
-            });
-    });
+impl OplWriter {
+    pub fn new() -> Self {
+        let (sender, receiver) = channel();
+        OplWriter { sender, receiver }
+    }
+}
 
-    let ordered_chunks = OrderedOutputIterator::new(output_receiver.into_iter());
+fn write_output(chunk_iterator: Receiver<OrderedOutput<String>>, dest_buffer: impl std::io::Write) {
+    let mut writer = ToFmtWrite(dest_buffer);
+    let ordered_chunks = OrderedOutputIterator::new(chunk_iterator.into_iter());
     for chunk_content in ordered_chunks {
         writer
             .write_str(&chunk_content)
             .expect("Failed to write chunk");
+    }
+}
+
+impl Writer for OplWriter {
+    type RawData = String;
+
+    fn write_file(
+        self,
+        metadata_receiver: Receiver<Metadata>,
+        dest: Option<PathBuf>,
+    ) -> (impl Fn(Chunk) + Sync, thread::JoinHandle<()>) {
+        let write_thread = std::thread::spawn({
+            move || {
+                let _metadata = metadata_receiver.into_iter().next();
+                match dest {
+                    None => write_output(self.receiver, stdout()),
+                    Some(a) => match fs::File::create(PathBuf::from(a)) {
+                        Ok(b) => write_output(self.receiver, b),
+                        Err(e) => {
+                            panic!("Unable to open output file: {e:?}");
+                        }
+                    },
+                }
+            }
+        });
+
+        let serialize_chunk_closure = move |chunk| {
+            self.sender
+                .send(serialize_chunk(chunk))
+                .expect("Failed to send serialized chunk");
+        };
+
+        (serialize_chunk_closure, write_thread)
     }
 }
 

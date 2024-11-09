@@ -10,8 +10,6 @@ pub mod filter;
 pub mod readers;
 pub mod writers;
 
-mod threadpools;
-
 #[derive(Error, Debug)]
 pub enum SkywayError {
     #[error("Cannot determine input file format: {0}")]
