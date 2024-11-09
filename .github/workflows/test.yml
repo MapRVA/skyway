@@ -37,6 +37,10 @@ jobs:
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - uses: actions/checkout@v4
+      - name: Cache cargo & target directories
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: "v2"
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
