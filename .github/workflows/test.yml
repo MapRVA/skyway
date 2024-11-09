@@ -9,10 +9,6 @@ on:
       - .github/workflows/test.yml
     branches: [trunk]
 
-env:
-  # disable incremental compilation for faster from-scratch builds
-  CARGO_INCREMENTAL: 0
-
 jobs:
   test:
     strategy:
