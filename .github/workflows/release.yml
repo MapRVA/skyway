@@ -49,3 +49,6 @@ jobs:
         with:
           executable-name: skyway
           target: ${{ matrix.platform.target }}
+          changes-file: null
+          extra-files: README.md
+          release-tag-prefix: do-not-create-releases
