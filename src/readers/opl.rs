@@ -5,7 +5,6 @@ use std::io::BufRead;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
-use ustr::Ustr;
 
 use crate::chunks::OrderedOutput;
 use crate::{
@@ -81,7 +80,7 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
             element_builder.uid = Some(value_as!(i32));
         }
         b"u" => {
-            element_builder.user = Some(Ustr::from(str_or_fail(value)));
+            element_builder.user = Some(str_or_fail(value).to_owned());
         }
         b"T" => {
             str_or_fail(value)
@@ -90,7 +89,7 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
                 .for_each(|(k, v)| {
                     element_builder
                         .tags
-                        .insert(Ustr::from(&unescape_str(k)), unescape_str(v));
+                        .insert(unescape_str(k), unescape_str(v));
                 });
         }
         b"x" => match &mut element_builder.element_type {

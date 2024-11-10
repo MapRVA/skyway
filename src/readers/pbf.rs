@@ -1,11 +1,10 @@
 use chrono::{DateTime, SecondsFormat};
-use osmpbf::{BlobDecode, BlobReader, HeaderBlock, PrimitiveBlock};
+use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
 use rayon::prelude::*;
-use std::{path::PathBuf, sync::mpsc::Sender, thread};
-use ustr::{Ustr, UstrMap};
+use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender, thread};
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder, OrderedOutput},
+    chunks::{Chunk, ChunkBuilder},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
     SkywayError,
@@ -25,17 +24,17 @@ fn timestamp_conversion_wrapper(timestamp: Option<i64>) -> Option<String> {
     })
 }
 
-fn get_tags(tag_iter: osmpbf::elements::TagIter) -> UstrMap<String> {
-    let mut tag_map = UstrMap::default();
+fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
+    let mut tag_map = HashMap::new();
     for t in tag_iter {
-        tag_map.insert(Ustr::from(t.0), t.1.to_owned());
+        tag_map.insert(t.0.to_owned(), t.1.to_owned());
     }
     tag_map
 }
 
-fn get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> UstrMap<String> {
-    let mut tag_map = UstrMap::default();
-    let _ = tag_iter.map(|(k, v)| tag_map.insert(Ustr::from(k), v.to_owned()));
+fn get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> HashMap<String, String> {
+    let mut tag_map = HashMap::new();
+    let _ = tag_iter.map(|(k, v)| tag_map.insert(k.to_owned(), v.to_owned()));
     tag_map
 }
 
@@ -63,7 +62,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     lon: node.lon(),
                 },
                 changeset: node_info.changeset(),
-                user: node_info.user().and_then(|r| r.ok()).map(|s| Ustr::from(s)),
+                user: node_info.user().and_then(|r| r.ok()).map(|s| s.to_owned()),
                 uid: node_info.uid(),
                 timestamp: timestamp_conversion_wrapper(node_info.milli_timestamp()),
                 visible: Some(node_info.visible()),
@@ -80,7 +79,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                         lon: dense_node.lon(),
                     },
                     changeset: Some(dense_node_info.changeset()),
-                    user: dense_node_info.user().map(|r| Ustr::from(r)).ok(),
+                    user: dense_node_info.user().map(|r| r.to_owned()).ok(),
                     uid: Some(dense_node_info.uid()),
                     timestamp: convert_timestamp(dense_node_info.milli_timestamp()).ok(),
                     visible: Some(dense_node_info.visible()),
@@ -112,7 +111,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     nodes: way.refs().collect(),
                 },
                 changeset: way_info.changeset(),
-                user: way_info.user().and_then(|r| r.ok()).map(|s| Ustr::from(s)),
+                user: way_info.user().and_then(|r| r.ok()).map(|s| s.to_owned()),
                 uid: way_info.uid(),
                 timestamp: timestamp_conversion_wrapper(way_info.milli_timestamp()),
                 visible: Some(way_info.visible()),
@@ -131,25 +130,13 @@ fn convert_element(element: osmpbf::Element) -> Element {
                 user: relation_info
                     .user()
                     .and_then(|r| r.ok())
-                    .map(|s| Ustr::from(s)),
+                    .map(|s| s.to_owned()),
                 uid: relation_info.uid(),
                 timestamp: timestamp_conversion_wrapper(relation_info.milli_timestamp()),
                 visible: Some(relation_info.visible()),
                 version: relation_info.version(),
             }
         }
-    }
-}
-
-fn convert_primitive_block(block: OrderedOutput<PrimitiveBlock>) -> Chunk {
-    let elements: Vec<Element> = block
-        .content
-        .elements()
-        .map(|element| convert_element(element))
-        .collect();
-    Chunk {
-        index: block.index,
-        elements: elements.into_boxed_slice(),
     }
 }
 
@@ -182,18 +169,10 @@ impl Reader for PbfReader {
     ) {
         let src = super::get_reader(src);
         let reader = BlobReader::new(src);
-        let osm_block_count = std::sync::atomic::AtomicUsize::new(0);
 
         reader
-            .par_bridge()
             .filter_map(|blob| match blob.unwrap().decode() {
-                Ok(BlobDecode::OsmData(block)) => {
-                    let index = osm_block_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    Some(OrderedOutput {
-                        index,
-                        content: block,
-                    })
-                }
+                Ok(BlobDecode::OsmData(block)) => Some(block),
                 Ok(BlobDecode::OsmHeader(block)) => {
                     metadata_sender
                         .send(build_metadata_from_block(block))
@@ -203,7 +182,16 @@ impl Reader for PbfReader {
                 Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
                 _ => None,
             })
-            .map(|block| convert_primitive_block(block))
+            .enumerate()
+            .par_bridge()
+            .map(|(block_index, block)| Chunk {
+                index: block_index,
+                elements: block
+                    .elements()
+                    .map(convert_element)
+                    .collect::<Vec<Element>>()
+                    .into_boxed_slice(),
+            })
             .for_each(|chunk| final_iterator(chunk));
 
         drop(final_iterator);
