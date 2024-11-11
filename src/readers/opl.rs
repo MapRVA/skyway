@@ -159,56 +159,6 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
     }
 }
 
-// pub struct OplChunkIterator<R: BufRead> {
-//     reader: R,
-//     chunk_size: usize,
-//     current_index: usize,
-// }
-
-// impl<R: BufRead> OplChunkIterator<R> {
-//     fn new(reader: R, chunk_size: usize) -> Self {
-//         Self {
-//             reader,
-//             chunk_size,
-//             current_index: 0,
-//         }
-//     }
-// }
-
-// impl<R: BufRead> Iterator for OplChunkIterator<R> {
-//     type Item = OrderedOutput<Box<[Vec<u8>]>>;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let mut chunk = Vec::with_capacity(self.chunk_size);
-//         let mut buf = String::new();
-
-//         for _ in 0..self.chunk_size {
-//             match self.reader.read_line(&mut buf) {
-//                 Ok(0) => break, // EOF
-//                 Ok(_) => {
-//                     chunk.push(buf.as_bytes().to_vec());
-//                     buf.clear();
-//                 }
-//                 Err(_) => return None,
-//             }
-//         }
-
-//         if chunk.is_empty() {
-//             return None;
-//         }
-
-//         let index = self.current_index;
-//         self.current_index += 1;
-
-//         Some(OrderedOutput {
-//             index,
-//             content: chunk.into_boxed_slice(),
-//         })
-//     }
-// }
-
-pub struct OplReader {}
-
 fn convert_chunk(chunk: OrderedOutput<Box<[Vec<u8>]>>) -> Chunk {
     let mut elements = Vec::with_capacity(chunk.content.len());
     for line in chunk.content.iter() {
@@ -232,6 +182,8 @@ fn convert_chunk(chunk: OrderedOutput<Box<[Vec<u8>]>>) -> Chunk {
         elements: elements.into_boxed_slice(),
     }
 }
+
+pub struct OplReader {}
 
 impl OplReader {
     pub fn new() -> Self {

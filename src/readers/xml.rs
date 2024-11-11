@@ -1,12 +1,14 @@
 use quick_xml::de::from_str;
+use rayon::prelude::*;
 use serde::{Deserialize, Deserializer};
 use serde_aux::field_attributes::{
     deserialize_bool_from_anything, deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
-use std::io::Read;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use ustr::{Ustr, UstrMap};
+use std::thread;
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -62,7 +64,7 @@ struct MetadataDef {
 #[derive(Deserialize)]
 struct XmlTags {
     #[serde(rename = "@k")]
-    k: Ustr,
+    k: String,
     #[serde(rename = "@v")]
     v: String,
 }
@@ -72,7 +74,7 @@ pub struct XmlElementMeta {
     #[serde(rename = "@id", deserialize_with = "deserialize_number_from_string")]
     id: i64,
     #[serde(rename = "@user")]
-    user: Option<Ustr>,
+    user: Option<String>,
     #[serde(
         rename = "@uid",
         deserialize_with = "deserialize_option_number_from_string"
@@ -179,8 +181,8 @@ enum XmlElement {
     Relation(XmlRelation),
 }
 
-fn convert_tags(xml_tags: Vec<XmlTags>) -> UstrMap<String> {
-    let mut tag_map = UstrMap::default();
+fn convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
+    let mut tag_map = HashMap::default();
     for tag in xml_tags {
         tag_map.insert(tag.k, tag.v);
     }
@@ -232,43 +234,43 @@ fn convert_element(xml_element: XmlElement) -> Element {
     }
 }
 
-pub struct XmlReader {
-    pub src: String,
-}
+pub struct XmlReader {}
 
 impl XmlReader {
-    pub fn new(mut src: Box<dyn Read + Send>) -> Self {
-        let mut buffer = String::new();
-        let src = match src.read_to_string(&mut buffer) {
-            Ok(_) => buffer,
-            Err(e) => {
-                panic!("Error reading input: {e:?}");
-            }
-        };
-        XmlReader { src }
+    pub fn new() -> Self {
+        XmlReader {}
     }
 }
 
 impl Reader for XmlReader {
-    fn read(
-        &mut self,
-        chunk_builder: ChunkBuilder,
-        sender: Sender<Chunk>,
+    fn read_file(
+        self,
+        src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
+        chunk_builder: ChunkBuilder,
+        write_thread: thread::JoinHandle<()>,
+        final_iterator: impl Fn(Chunk) + Sync,
     ) {
-        let osm_xml_object: OsmXmlDocument = match from_str(&self.src) {
+        // create an empty Metadata object
+        let metadata = Metadata::default();
+        metadata_sender
+            .send(metadata)
+            .expect("Couldn't send metadata to main thread!");
+
+        let mut buf = String::new();
+        super::get_reader(src)
+            .read_to_string(&mut buf)
+            .expect("Unable to read from input!"); // TODO: handle more gracefully
+
+        let osm_xml_object: OsmXmlDocument = match from_str(&buf) {
             Ok(v) => v,
             Err(e) => {
-                panic!("ERROR: Could not parse XML file: {e:?}");
+                panic!("ERROR: Could not parse XML file: {e:?}"); // TODO: handle more gracefully
             }
         };
 
-        // send OSM document metadata to main thread
-        metadata_sender
-            .send(osm_xml_object.metadata)
-            .expect("Couldn't send metdata to main thread!");
+        // TODO: instead of reading the entire file into memory and then processing, iterate out of the reader
 
-        // send each deserialized element to the next processing step
         let elements = osm_xml_object
             .node
             .into_iter()
@@ -287,6 +289,13 @@ impl Reader for XmlReader {
             );
         chunk_builder
             .chunk_iterator(elements)
-            .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
+            .par_bridge()
+            .for_each(|chunk| final_iterator(chunk));
+
+        drop(final_iterator);
+
+        write_thread
+            .join()
+            .expect("Couldn't join on write thread!!");
     }
 }

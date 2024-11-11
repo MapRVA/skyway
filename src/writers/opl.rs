@@ -1,7 +1,7 @@
 use lexical;
 use std::io::stdout;
 use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Receiver;
 use std::{fmt::Write, sync::mpsc::channel};
 use std::{fs, thread};
 
@@ -176,15 +176,11 @@ fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
     }
 }
 
-pub struct OplWriter {
-    sender: Sender<OrderedOutput<String>>,
-    receiver: Receiver<OrderedOutput<String>>,
-}
+pub struct OplWriter {}
 
 impl OplWriter {
     pub fn new() -> Self {
-        let (sender, receiver) = channel();
-        OplWriter { sender, receiver }
+        OplWriter {}
     }
 }
 
@@ -199,20 +195,19 @@ fn write_output(chunk_iterator: Receiver<OrderedOutput<String>>, dest_buffer: im
 }
 
 impl Writer for OplWriter {
-    type RawData = String;
-
     fn write_file(
-        self,
+        &self,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> (impl Fn(Chunk) + Sync, thread::JoinHandle<()>) {
+    ) -> (Box<dyn Fn(Chunk) + Sync>, thread::JoinHandle<()>) {
+        let (sender, receiver) = channel();
         let write_thread = std::thread::spawn({
             move || {
                 let _metadata = metadata_receiver.into_iter().next();
                 match dest {
-                    None => write_output(self.receiver, stdout()),
+                    None => write_output(receiver, stdout()),
                     Some(a) => match fs::File::create(PathBuf::from(a)) {
-                        Ok(b) => write_output(self.receiver, b),
+                        Ok(b) => write_output(receiver, b),
                         Err(e) => {
                             panic!("Unable to open output file: {e:?}");
                         }
@@ -222,12 +217,12 @@ impl Writer for OplWriter {
         });
 
         let serialize_chunk_closure = move |chunk| {
-            self.sender
+            sender
                 .send(serialize_chunk(chunk))
                 .expect("Failed to send serialized chunk");
         };
 
-        (serialize_chunk_closure, write_thread)
+        (Box::new(serialize_chunk_closure), write_thread)
     }
 }
 

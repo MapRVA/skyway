@@ -9,11 +9,6 @@ use std::thread;
 use clap::ValueEnum;
 use enum_dispatch::enum_dispatch;
 
-#[cfg(feature = "opl")]
-use opl::OplReader;
-#[cfg(feature = "pbf")]
-use pbf::PbfReader;
-
 use crate::chunks::Chunk;
 use crate::{chunks::ChunkBuilder, elements::Metadata, FileFormatOptions, SkywayError};
 
@@ -22,15 +17,21 @@ pub mod json;
 
 #[cfg(feature = "opl")]
 pub mod opl;
+#[cfg(feature = "opl")]
+use opl::OplReader;
 
 #[cfg(feature = "osmx")]
 pub mod osmx;
 
 #[cfg(feature = "pbf")]
 pub mod pbf;
+#[cfg(feature = "pbf")]
+use pbf::PbfReader;
 
 #[cfg(feature = "xml")]
 pub mod xml;
+#[cfg(feature = "xml")]
+use xml::XmlReader;
 
 /// Enum that represents the different input file formats skyway supports.
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -55,6 +56,8 @@ pub enum Readers {
     OplReader,
     #[cfg(feature = "pbf")]
     PbfReader,
+    #[cfg(feature = "xml")]
+    XmlReader,
 }
 
 impl InputFileFormat {
@@ -67,7 +70,7 @@ impl InputFileFormat {
             #[cfg(feature = "pbf")]
             InputFileFormat::Pbf => Readers::PbfReader(PbfReader::new()),
             #[cfg(feature = "xml")]
-            InputFileFormat::Xml => Box::new(xml::XmlReader::new(src)),
+            InputFileFormat::Xml => Readers::XmlReader(XmlReader::new()),
         }
     }
 }

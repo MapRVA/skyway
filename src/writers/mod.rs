@@ -14,9 +14,13 @@ mod o5m;
 
 #[cfg(feature = "opl")]
 mod opl;
+#[cfg(feature = "opl")]
+use opl::OplWriter;
 
 #[cfg(feature = "xml")]
 mod xml;
+#[cfg(feature = "xml")]
+use xml::XmlWriter;
 
 /// Enum that represents the different output file formats skyway supports.
 #[derive(Clone, Debug, ValueEnum)]
@@ -39,7 +43,7 @@ pub enum OutputFileFormat {
 }
 
 impl OutputFileFormat {
-    pub fn generate_writer(self) -> impl Writer {
+    pub fn generate_writer(self) -> Box<dyn Writer> {
         #[allow(unreachable_patterns)]
         match self {
             #[cfg(feature = "json")]
@@ -47,11 +51,11 @@ impl OutputFileFormat {
             //#[cfg(feature = "o5m")]
             // OutputFileFormat::O5m => o5m::write_o5m(reciever, metadata, destination),
             #[cfg(feature = "opl")]
-            OutputFileFormat::Opl => opl::OplWriter::new(),
+            OutputFileFormat::Opl => Box::new(OplWriter::new()),
             #[cfg(feature = "json")]
             OutputFileFormat::Overpass => json::write_json(receiver, metadata, destination, true),
             #[cfg(feature = "xml")]
-            OutputFileFormat::Xml => xml::write_xml(receiver, metadata, destination),
+            OutputFileFormat::Xml => Box::new(XmlWriter::new()),
             _ => panic!("Feature not enabled for output format {:?}", self),
         }
     }
@@ -64,7 +68,6 @@ impl FileFormatOptions for OutputFileFormat {
 }
 
 pub trait Writer {
-    type RawData;
     /// Writes data out.
     ///
     /// * `receiver`: Receiver for a channel of `Element`s.
@@ -73,8 +76,8 @@ pub trait Writer {
     /// * `destination`: Output data destination.
     /// * `progress`: The ProgressBar for this write operation.
     fn write_file(
-        self,
+        &self,
         metadata_receiver: Receiver<Metadata>,
         destination: Option<PathBuf>,
-    ) -> (impl Fn(Chunk) + Sync, thread::JoinHandle<()>);
+    ) -> (Box<dyn Fn(Chunk) + Sync>, thread::JoinHandle<()>);
 }

@@ -10,7 +10,7 @@ use skyway::filter::{create_filter, filter_elements, ElementFilter};
 use skyway::{
     chunks::ChunkBuilder,
     readers::{InputFileFormat, Reader},
-    writers::{OutputFileFormat, Writer},
+    writers::OutputFileFormat,
     FileFormatOptions, SkywayError,
 };
 
