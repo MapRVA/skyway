@@ -1,10 +1,13 @@
 use quick_xml::escape::escape;
-use std::fmt::Write;
-use std::fs::File;
-use std::io::stdout;
-use std::path::PathBuf;
-use std::sync::mpsc::{channel, Receiver};
-use std::thread;
+
+use std::{
+    fmt::Write,
+    fs::File,
+    io::stdout,
+    path::PathBuf,
+    sync::mpsc::{channel, Receiver},
+    thread,
+};
 
 use crate::{
     chunks::{Chunk, OrderedOutput, OrderedOutputIterator},

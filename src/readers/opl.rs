@@ -1,14 +1,16 @@
-use core::str;
 use itertools::Itertools;
 use rayon::prelude::*;
-use std::io::BufRead;
-use std::path::PathBuf;
-use std::sync::mpsc::{channel, Sender};
-use std::thread;
 
-use crate::chunks::OrderedOutput;
+use std::{
+    io::BufRead,
+    path::PathBuf,
+    str,
+    sync::mpsc::{channel, Sender},
+    thread,
+};
+
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{Chunk, ChunkBuilder, OrderedOutput},
     elements::{ElementBuilder, ElementTypeBuilder, Member, Metadata, SimpleElementType},
     readers::Reader,
 };

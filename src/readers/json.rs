@@ -1,8 +1,8 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str;
-use std::io::Read;
-use std::sync::mpsc::Sender;
-use ustr::{Ustr, UstrMap};
+
+use std::{collections::HashMap, io::Read, path::PathBuf, sync::mpsc::Sender, thread};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -70,14 +70,14 @@ enum ElementTypeDef {
 #[serde(remote = "Element")]
 struct ElementDef {
     changeset: Option<i64>,
-    user: Option<Ustr>,
+    user: Option<String>,
     version: Option<i32>,
     uid: Option<i32>,
     id: i64,
     timestamp: Option<String>,
     visible: Option<bool>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    tags: UstrMap<String>,
+    tags: HashMap<String, String>,
     #[serde(flatten, with = "ElementTypeDef")]
     element_type: ElementType,
 }
@@ -158,32 +158,29 @@ where
     let v = Vec::deserialize(deserializer)?;
     Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
-
-pub struct JsonReader {
-    pub src: String,
-}
+pub struct JsonReader {}
 
 impl JsonReader {
-    pub fn new(mut src: Box<dyn Read + Send>) -> Self {
-        let mut buffer = String::new();
-        let src = match src.read_to_string(&mut buffer) {
-            Ok(_) => buffer,
-            Err(e) => {
-                panic!("Error reading input: {e:?}");
-            }
-        };
-        JsonReader { src }
+    pub fn new() -> Self {
+        JsonReader {}
     }
 }
 
 impl Reader for JsonReader {
-    fn read(
-        &mut self,
-        chunk_builder: ChunkBuilder,
-        sender: Sender<Chunk>,
+    fn read_file(
+        self,
+        src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
+        chunk_builder: ChunkBuilder,
+        write_thread: thread::JoinHandle<()>,
+        final_iterator: impl Fn(Chunk) + Sync,
     ) {
-        let osm_json_object: OsmDocument = match from_str(&self.src) {
+        let mut buf = String::new();
+        super::get_reader(src)
+            .read_to_string(&mut buf)
+            .expect("Unable to read from input!"); // TODO: handle more gracefully
+
+        let osm_json_object: OsmDocument = match from_str(&buf) {
             Ok(v) => v,
             Err(e) => {
                 panic!("ERROR: Could not parse JSON file: {e:?}");
@@ -196,12 +193,21 @@ impl Reader for JsonReader {
         // send OSM document metadata to main thread
         metadata_sender
             .send(metadata)
-            .expect("Couldn't send metdata to main thread!");
+            .expect("Couldn't send metadata to main thread!");
+
+        // TODO: instead of reading the entire file into memory and then processing, iterate out of the reader
 
         // send each deserialized element to the next processing step
         let elements = osm_json_object.elements.into_iter();
         chunk_builder
             .chunk_iterator(elements)
-            .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
+            .par_bridge()
+            .for_each(|chunk| final_iterator(chunk));
+
+        drop(final_iterator);
+
+        write_thread
+            .join()
+            .expect("Couldn't join on write thread!!");
     }
 }

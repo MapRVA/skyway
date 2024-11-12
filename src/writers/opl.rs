@@ -1,9 +1,8 @@
 use lexical;
-use std::io::stdout;
-use std::path::PathBuf;
-use std::sync::mpsc::Receiver;
-use std::{fmt::Write, sync::mpsc::channel};
-use std::{fs, thread};
+
+use std::{
+    fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::channel, sync::mpsc::Receiver, thread,
+};
 
 use crate::{
     chunks::{Chunk, OrderedOutput, OrderedOutputIterator},

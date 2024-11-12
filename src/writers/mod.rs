@@ -1,13 +1,15 @@
 //! Writes OSM data out.
 
-use std::{path::PathBuf, sync::mpsc::Receiver, thread};
-
 use clap::ValueEnum;
+
+use std::{path::PathBuf, sync::mpsc::Receiver, thread};
 
 use crate::{chunks::Chunk, elements::Metadata, FileFormatOptions, SkywayError};
 
 #[cfg(feature = "json")]
 mod json;
+#[cfg(feature = "json")]
+use json::JsonWriter;
 
 #[cfg(feature = "o5m")]
 mod o5m;
@@ -47,13 +49,13 @@ impl OutputFileFormat {
         #[allow(unreachable_patterns)]
         match self {
             #[cfg(feature = "json")]
-            OutputFileFormat::Json => json::write_json(receiver, metadata, destination, false),
+            OutputFileFormat::Json => Box::new(JsonWriter::new(false)),
             //#[cfg(feature = "o5m")]
             // OutputFileFormat::O5m => o5m::write_o5m(reciever, metadata, destination),
             #[cfg(feature = "opl")]
             OutputFileFormat::Opl => Box::new(OplWriter::new()),
             #[cfg(feature = "json")]
-            OutputFileFormat::Overpass => json::write_json(receiver, metadata, destination, true),
+            OutputFileFormat::Overpass => Box::new(JsonWriter::new(true)),
             #[cfg(feature = "xml")]
             OutputFileFormat::Xml => Box::new(XmlWriter::new()),
             _ => panic!("Feature not enabled for output format {:?}", self),

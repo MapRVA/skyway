@@ -5,10 +5,8 @@ use serde_aux::field_attributes::{
     deserialize_bool_from_anything, deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::mpsc::Sender;
-use std::thread;
+
+use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender, thread};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},

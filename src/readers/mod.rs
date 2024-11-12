@@ -1,19 +1,26 @@
 //! Reads OSM data into skyway.
 
-use std::fs;
-use std::io::{stdin, BufRead, BufReader, Read};
-use std::path::PathBuf;
-use std::sync::mpsc::Sender;
-use std::thread;
-
 use clap::ValueEnum;
 use enum_dispatch::enum_dispatch;
 
-use crate::chunks::Chunk;
-use crate::{chunks::ChunkBuilder, elements::Metadata, FileFormatOptions, SkywayError};
+use std::{
+    fs,
+    io::{stdin, BufRead, BufReader, Read},
+    path::PathBuf,
+    sync::mpsc::Sender,
+    thread,
+};
+
+use crate::{
+    chunks::{Chunk, ChunkBuilder},
+    elements::Metadata,
+    FileFormatOptions, SkywayError,
+};
 
 #[cfg(feature = "json")]
 pub mod json;
+#[cfg(feature = "json")]
+use json::JsonReader;
 
 #[cfg(feature = "opl")]
 pub mod opl;
@@ -52,6 +59,8 @@ pub enum InputFileFormat {
 
 #[enum_dispatch]
 pub enum Readers {
+    #[cfg(feature = "json")]
+    JsonReader,
     #[cfg(feature = "opl")]
     OplReader,
     #[cfg(feature = "pbf")]
@@ -64,7 +73,7 @@ impl InputFileFormat {
     pub fn generate_reader(self) -> Readers {
         match self {
             #[cfg(feature = "json")]
-            InputFileFormat::Json => Box::new(json::JsonReader::new(src)),
+            InputFileFormat::Json => Readers::JsonReader(JsonReader::new()),
             #[cfg(feature = "opl")]
             InputFileFormat::Opl => Readers::OplReader(OplReader::new()),
             #[cfg(feature = "pbf")]
