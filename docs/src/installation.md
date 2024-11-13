@@ -26,5 +26,6 @@ Make sure your cargo bin directory is in your $PATH.
 
 skyway's `Cargo.toml` file defines [features](https://doc.rust-lang.org/cargo/reference/features.html) which allow you to selectively compile certain file or filter formats.
 By default, all features are enabled.
-As well as providing a feature name for each individual file and filter format, all file conversion support and all filters can be enabled/disabled collectively using the `"convert"` and `"filter"` features, respectively.
+As well as providing a feature name for each individual file and filter format, conversion and filtering support can be enabled/disabled using the `"convert"` and `"filter"` features, respectively.
+Enabling the `"json"` feature, for example, will automatically enable `"convert"`, but you can enable `"convert"` by itself to access generic conversion functionality.
 Disabling all features leaves a relatively small library of OpenStreetMap element types.
