@@ -1,5 +1,3 @@
-use ustr::Ustr;
-
 use crate::elements::{Element, ElementType};
 use crate::filter::ElementFilter;
 
@@ -11,10 +9,10 @@ pub enum SelectorStatement {
         relation: bool,
     },
     Has {
-        key: Ustr,
+        key: String,
     },
     Equals {
-        key: Ustr,
+        key: String,
         value: String,
     },
 }
@@ -44,18 +42,18 @@ pub enum Statement {
     CommitStatement,
     DropStatement,
     DeleteStatement {
-        keys: Vec<Ustr>,
+        keys: Vec<String>,
     },
     KeepStatement {
-        keys: Vec<Ustr>,
+        keys: Vec<String>,
     },
     SetStatement {
-        key: Ustr,
+        key: String,
         value: String,
     },
     RenameStatement {
-        old_key: Ustr,
-        new_key: Ustr,
+        old_key: String,
+        new_key: String,
     },
     SelectionBlock {
         selector: SelectorStatement,
@@ -84,12 +82,12 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
             StatementResult::Continue
         }
         Statement::SetStatement { key, value } => {
-            element.tags.insert(*key, value.to_owned());
+            element.tags.insert(key.to_owned(), value.to_owned());
             StatementResult::Continue
         }
         Statement::RenameStatement { old_key, new_key } => {
             if let Some(v) = element.tags.remove(old_key) {
-                element.tags.insert(*new_key, v);
+                element.tags.insert(new_key.to_owned(), v);
             }
             StatementResult::Continue
         }

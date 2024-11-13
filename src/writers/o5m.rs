@@ -1,6 +1,6 @@
 use bit_vec::BitVec;
-use std::io::Write;
-use std::sync::mpsc::Receiver;
+
+use std::{io::Write, sync::mpsc::Receiver};
 
 use crate::elements::{Element, ElementType, Metadata};
 

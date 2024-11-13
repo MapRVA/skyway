@@ -44,7 +44,7 @@ ustr = { version = "1.1.0", features = ["serde"] }
 
 [features]
 # by default, all convert and filter features are enabled
-default = ["convert"]
+default = ["convert", "filter"]
 
 # convert features
 convert = ["opl", "pbf", "xml", "json"]

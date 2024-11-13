@@ -163,7 +163,7 @@ struct XmlRelation {
 #[serde(rename = "osm")]
 struct OsmXmlDocument {
     #[serde(flatten, with = "MetadataDef")]
-    metadata: Metadata,
+    _metadata: Metadata,
     // bounds: Bounds,
     #[serde(default)]
     node: Vec<XmlNode>,
@@ -246,6 +246,7 @@ impl Reader for XmlReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
+        filter: impl Fn(Chunk) -> Chunk + Sync,
         write_thread: thread::JoinHandle<()>,
         final_iterator: impl Fn(Chunk) + Sync,
     ) {
@@ -288,6 +289,7 @@ impl Reader for XmlReader {
         chunk_builder
             .chunk_iterator(elements)
             .par_bridge()
+            .map(|chunk| filter(chunk))
             .for_each(|chunk| final_iterator(chunk));
 
         drop(final_iterator);

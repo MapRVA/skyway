@@ -3,64 +3,14 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use log::{info, warn};
 
 use std::path::PathBuf;
-use std::sync::mpsc;
 
-#[cfg(feature = "filter")]
-use skyway::filter::{create_filter, filter_elements, ElementFilter};
 use skyway::{
-    chunks::ChunkBuilder,
-    readers::{InputFileFormat, Reader},
-    writers::OutputFileFormat,
-    FileFormatOptions, SkywayError,
+    readers::InputFileFormat, writers::OutputFileFormat, ConversionBuilder, FileFormatOptions,
+    SkywayError,
 };
 
 #[cfg(feature = "filter")]
-fn setup_filter_chain(
-    filter_paths: Vec<String>,
-    chunksize: usize,
-    mut last_receiver: mpsc::Receiver<Chunk>,
-    multi: &MultiProgress,
-    spinner_style: &ProgressStyle,
-) -> (Vec<Option<thread::JoinHandle<()>>>, mpsc::Receiver<Chunk>) {
-    // stack of filter threads that we'll need to hold open until each
-    // is done
-    let mut filter_threads = Vec::new();
-
-    // create variables that will hold the Sender and Receiver for the
-    // current (last created) filter
-    let mut this_sender: mpsc::Sender<Chunk>;
-    let mut next_receiver: mpsc::Receiver<Chunk>;
-
-    let mut filters: Vec<Box<dyn ElementFilter>> = Vec::new();
-
-    for filter_path in filter_paths {
-        filters.push(create_filter(
-            fs::read_to_string(&filter_path)
-                .unwrap_or_else(|e| {
-                    panic!("Unable to read filter file {}: {}", filter_path, e);
-                })
-                .as_str(),
-        ));
-    }
-
-    for filter in filters {
-        let filter_progress = multi.add(ProgressBar::new_spinner());
-        filter_progress.set_style(spinner_style.clone());
-
-        (this_sender, next_receiver) = mpsc::channel();
-        filter_threads.push(Some(thread::spawn(move || {
-            filter_elements(
-                filter,
-                ChunkBuilder::new(chunksize),
-                last_receiver,
-                this_sender,
-                filter_progress,
-            );
-        })));
-        last_receiver = next_receiver;
-    }
-    (filter_threads, last_receiver)
-}
+use skyway::filter::filter_from_path;
 
 #[derive(Parser)]
 #[command(name = "skyway")]
@@ -84,7 +34,7 @@ struct Cli {
     /// Path to filter file, may be used multiple times
     #[cfg(feature = "filter")]
     #[arg(long)]
-    filter: Option<Vec<String>>,
+    filter: Option<Vec<PathBuf>>,
 
     /// Path to output file (if not given, writes to stdout)
     #[arg(long)]
@@ -97,7 +47,7 @@ struct Cli {
 
     /// Maximum number of elements to store in each chunk passed between threads
     #[arg(long)]
-    chunksize: Option<usize>,
+    chunk_size: Option<usize>,
 }
 
 fn main() -> Result<(), SkywayError> {
@@ -111,7 +61,7 @@ fn main() -> Result<(), SkywayError> {
     let to = OutputFileFormat::parse(cli.to, &cli.output)?;
     info!("Output format determined: {:?}", to);
 
-    let chunksize: usize = match cli.chunksize {
+    let chunk_size: usize = match cli.chunk_size {
         None => 8000,
         Some(c) => {
             #[cfg(feature = "pbf")]
@@ -121,8 +71,6 @@ fn main() -> Result<(), SkywayError> {
             c
         }
     };
-
-    let (metadata_sender, metadata_receiver) = mpsc::channel();
 
     let multi = MultiProgress::new();
     let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
@@ -150,34 +98,25 @@ fn main() -> Result<(), SkywayError> {
         None => None,
     };
 
+    // create a Reader and Writer for this conversion
     let reader = from.generate_reader();
-
-    #[cfg(feature = "filter")]
-    let (filter_threads, last_receiver) = match cli.filter {
-        Some(filter_paths) => setup_filter_chain(
-            filter_paths,
-            chunksize,
-            last_receiver,
-            &multi,
-            &spinner_style,
-        ),
-        None => (vec![], last_receiver),
-    };
-
-    // let write_progress = multi.add(ProgressBar::new_spinner());
-    // write_progress.set_style(spinner_style.clone());
-    //
     let writer = to.generate_writer();
 
-    let (final_iterator, write_thread) = writer.write_file(metadata_receiver, cli.output);
+    // create a ConversionBuilder that will handle the conversion
+    let mut conversion_builder = ConversionBuilder::new(reader)
+        .with_source(src)
+        .with_chunk_size(chunk_size);
 
-    reader.read_file(
-        src,
-        metadata_sender,
-        ChunkBuilder::new(chunksize),
-        write_thread,
-        final_iterator,
-    );
+    #[cfg(feature = "filter")]
+    if let Some(filters) = cli.filter {
+        for filter in filters {
+            let element_filter = filter_from_path(&filter)?;
+            conversion_builder = conversion_builder.add_filter(element_filter)
+        }
+    }
+
+    // run the conversion with our chosen writer and destination
+    conversion_builder.run_conversion(writer, cli.output);
 
     Ok(())
 }

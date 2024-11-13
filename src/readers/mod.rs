@@ -117,6 +117,7 @@ pub trait Reader: Send + 'static {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
+        filter: impl Fn(Chunk) -> Chunk + Sync,
         write_thread: thread::JoinHandle<()>,
         final_iterator: impl Fn(Chunk) + Sync,
     );

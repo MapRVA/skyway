@@ -165,6 +165,7 @@ impl Reader for PbfReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         _chunk_builder: ChunkBuilder,
+        filter: impl Fn(Chunk) -> Chunk + Sync,
         write_thread: thread::JoinHandle<()>,
         final_iterator: impl Fn(Chunk) + Sync,
     ) {
@@ -193,6 +194,7 @@ impl Reader for PbfReader {
                     .collect::<Vec<Element>>()
                     .into_boxed_slice(),
             })
+            .map(|chunk| filter(chunk))
             .for_each(|chunk| final_iterator(chunk));
 
         drop(final_iterator);

@@ -2,77 +2,71 @@
 
 #[cfg(feature = "cel")]
 mod cel;
-#[cfg(feature = "osmfilter")]
-mod osmfilter;
-
 #[cfg(feature = "cel")]
 use cel::compile_cel_filter;
-use indicatif::ProgressBar;
+
+#[cfg(feature = "osmfilter")]
+mod osmfilter;
 #[cfg(feature = "osmfilter")]
 use osmfilter::parse::parse_filter;
-use std::sync::mpsc::{Receiver, Sender};
 
-use crate::{
-    chunks::{Chunk, ChunkBuilder},
-    elements::Element,
-};
+use std::{fmt::Error, fs::read_to_string, path::Path};
+
+use crate::{chunks::Chunk, elements::Element, SkywayError};
 
 /// Represents a filter that can be evaluated on an `Element`, transforming it.
-pub trait ElementFilter: Send {
+pub trait ElementFilter: Send + Sync {
     fn evaluate(&self, element: &mut Element) -> bool;
+
+    fn evaluate_option(&self, mut element: Element) -> Option<Element> {
+        match self.evaluate(&mut element) {
+            true => Some(element),
+            false => None,
+        }
+    }
 }
 
-pub fn create_filter(filter_contents: &str) -> Box<dyn ElementFilter> {
+pub fn filter_from_path(value: &Path) -> Result<Box<dyn ElementFilter>, SkywayError> {
+    match read_to_string(value) {
+        Ok(contents) => match create_filter(&contents) {
+            Ok(f) => Ok(f),
+            Err(_) => Err(SkywayError::UnparsableFilter(
+                value.to_str().unwrap().to_owned(), // TODO: clean this up
+            )),
+        },
+        Err(_) => Err(SkywayError::InvalidFilterFile(
+            value.to_str().unwrap().to_owned(), // TODO: clean this up
+        )),
+    }
+}
+
+pub fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error> {
     #[cfg(feature = "osmfilter")]
     if let Some(f) = parse_filter(filter_contents) {
-        return Box::new(f);
+        return Ok(Box::new(f));
     }
 
     #[cfg(feature = "cel")]
     if let Some(f) = compile_cel_filter(filter_contents) {
-        return Box::new(f);
+        return Ok(Box::new(f));
     }
 
-    panic!("Unable to parse filter: {filter_contents:?}");
+    Err(Error)
 }
 
-/// Filters OSM data.
-///
-/// * `filter_contents`: A textual representation of the filter, usually read in from a file.
-/// * `receiver`: Receiver for a channel of `Element`s.
-/// * `sender`: Sender for a channel of `Element`s.
-/// * `progress`: The ProgressBar for this read operation.
-pub fn filter_elements(
-    filter: Box<dyn ElementFilter>,
-    chunk_builder: ChunkBuilder,
-    receiver: Receiver<Chunk>,
-    sender: Sender<Chunk>,
-    progress: ProgressBar,
-) {
-    progress.set_message("Filtering elements...");
-    let progress_clone = progress.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        progress_clone.tick();
-        if progress_clone.is_finished() {
-            break;
-        }
-    });
-
-    receiver
-        .iter()
-        .map(|chunk| {
-            let mut keep_elements = Vec::with_capacity(chunk_builder.max_size);
-            for mut element in chunk.elements {
-                if filter.evaluate(&mut element) {
-                    keep_elements.push(element);
-                }
-            }
-            Chunk {
+pub fn build_filter(filters: Vec<Box<dyn ElementFilter>>) -> Box<dyn Fn(Chunk) -> Chunk + Sync> {
+    Box::new(move |mut chunk: Chunk| {
+        for filter in &filters {
+            chunk = Chunk {
                 index: chunk.index,
-                elements: keep_elements.into_boxed_slice(),
+                elements: chunk
+                    .elements
+                    .into_vec()
+                    .into_iter()
+                    .filter_map(|element| filter.evaluate_option(element))
+                    .collect(),
             }
-        })
-        .for_each(|c| sender.send(c).expect("Unable to send element to channel"));
-    progress.finish_with_message("Filtering elements...done");
+        }
+        chunk
+    })
 }
