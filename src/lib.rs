@@ -1,9 +1,11 @@
 use chunks::ChunkBuilder;
 use clap::ValueEnum;
-use log::warn;
 use readers::{Reader, Readers};
 use thiserror::Error;
 use writers::Writer;
+
+#[cfg(feature = "pbf")]
+use log::warn;
 
 use std::{path::PathBuf, sync::mpsc::channel};
 
@@ -115,6 +117,7 @@ impl ConversionBuilder {
         // set chunk_size, defaulting to 8000,
         // warning if user used custom value with PBF reader
         let chunk_size = if let Some(cs) = self.chunk_size {
+            #[cfg(feature = "pbf")]
             if matches!(self.reader, Readers::PbfReader(_)) {
                 warn!("Custom chunk size set, but the PBF does not support custom chunk sizes.");
             }
