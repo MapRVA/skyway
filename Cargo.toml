@@ -19,7 +19,7 @@ bit-vec = { version = "0.8.0", optional = true }
 cel-interpreter = { version = "0.8.1", optional = true }
 chrono = { version = "0.4.38", optional = true }
 clap = { version = "4.5.10", features = ["derive"] }
-enum_dispatch = "0.3.13"
+enum_dispatch = { version = "0.3.13", optional = true }
 env_logger = "0.11.5"
 indicatif = "0.17.8"
 itertools = "0.13.0"
@@ -42,21 +42,25 @@ thiserror = "1.0.63"
 
 [features]
 # by default, all convert and filter features are enabled
-default = ["convert", "filter"]
+default = ["json", "opl", "pbf", "xml", "cel", "osmfilter"]
 
-# convert features
-convert = ["opl", "pbf", "xml", "json"]
-json = ["dep:json", "dep:lexical", "dep:serde", "dep:serde_json"]
-o5m = ["dep:bit-vec"]
-opl = ["dep:lexical"]
-osmx = ["dep:osmx"]
-pbf = ["dep:osmpbf", "dep:chrono"]
-xml = ["dep:serde", "dep:serde-aux", "dep:quick-xml"]
+# general conversion support
+convert = ["dep:enum_dispatch"]
 
-# filter features
-filter = ["cel", "osmfilter"]
-cel = ["dep:cel-interpreter"]
-osmfilter = ["dep:pest", "dep:pest_derive"]
+# conversion filetypes
+json = ["convert", "dep:json", "dep:lexical", "dep:serde", "dep:serde_json"]
+o5m = ["convert", "dep:bit-vec"]
+opl = ["convert", "dep:lexical"]
+osmx = ["convert", "dep:osmx"]
+pbf = ["convert", "dep:osmpbf", "dep:chrono"]
+xml = ["convert", "dep:serde", "dep:serde-aux", "dep:quick-xml"]
+
+# general filter support
+filter = []
+
+# filter types
+cel = ["filter", "dep:cel-interpreter"]
+osmfilter = ["filter", "dep:pest", "dep:pest_derive"]
 
 [profile.release]
 lto = "fat"
