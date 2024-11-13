@@ -1,5 +1,6 @@
 use chunks::ChunkBuilder;
 use clap::ValueEnum;
+use log::warn;
 use readers::{Reader, Readers};
 use thiserror::Error;
 use writers::Writer;
@@ -80,7 +81,7 @@ pub struct ConversionBuilder {
     reader: Readers,
     src: Option<PathBuf>,
     filters: Vec<Box<dyn ElementFilter>>,
-    chunk_size: usize,
+    chunk_size: Option<usize>,
 }
 
 impl ConversionBuilder {
@@ -89,7 +90,7 @@ impl ConversionBuilder {
             reader,
             src: None,
             filters: Vec::new(),
-            chunk_size: 8000,
+            chunk_size: None,
         }
     }
 
@@ -99,7 +100,7 @@ impl ConversionBuilder {
     }
 
     pub fn with_chunk_size(mut self, chunk_size: usize) -> Self {
-        self.chunk_size = chunk_size;
+        self.chunk_size = Some(chunk_size);
         self
     }
 
@@ -111,7 +112,18 @@ impl ConversionBuilder {
     pub fn run_conversion(self, writer: Box<dyn Writer>, dest: Option<PathBuf>) {
         let (metadata_sender, metadata_receiver) = channel();
 
-        let chunk_builder = ChunkBuilder::new(self.chunk_size);
+        // set chunk_size, defaulting to 8000,
+        // warning if user used custom value with PBF reader
+        let chunk_size = if let Some(cs) = self.chunk_size {
+            if matches!(self.reader, Readers::PbfReader(_)) {
+                warn!("Custom chunk size set, but the PBF does not support custom chunk sizes.");
+            }
+            cs
+        } else {
+            8000
+        };
+
+        let chunk_builder = ChunkBuilder::new(chunk_size);
 
         let (final_iterator, write_thread) = writer.write_file(metadata_receiver, dest);
 

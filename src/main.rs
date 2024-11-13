@@ -1,8 +1,8 @@
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use log::{info, warn};
+use log::info;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, process};
 
 use skyway::{
     readers::InputFileFormat, writers::OutputFileFormat, ConversionBuilder, FileFormatOptions,
@@ -11,6 +11,28 @@ use skyway::{
 
 #[cfg(feature = "filter")]
 use skyway::filter::filter_from_path;
+
+fn start_progress(message: &str) -> ProgressBar {
+    let multi = MultiProgress::new();
+    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
+        .unwrap()
+        .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ");
+
+    let progress = multi.add(ProgressBar::new_spinner());
+    progress.set_style(spinner_style.clone());
+
+    progress.set_message(message.to_owned());
+
+    let progress_clone = progress.clone();
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        progress_clone.tick();
+        if progress_clone.is_finished() {
+            break;
+        }
+    });
+    progress
+}
 
 #[derive(Parser)]
 #[command(name = "skyway")]
@@ -50,8 +72,10 @@ struct Cli {
     chunk_size: Option<usize>,
 }
 
-fn main() -> Result<(), SkywayError> {
-    env_logger::init();
+fn run() -> Result<(), SkywayError> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn"))
+        .target(env_logger::Target::Stderr)
+        .init();
 
     let cli = Cli::parse();
 
@@ -60,35 +84,6 @@ fn main() -> Result<(), SkywayError> {
 
     let to = OutputFileFormat::parse(cli.to, &cli.output)?;
     info!("Output format determined: {:?}", to);
-
-    let chunk_size: usize = match cli.chunk_size {
-        None => 8000,
-        Some(c) => {
-            #[cfg(feature = "pbf")]
-            if InputFileFormat::Pbf == from {
-                warn!("For now, skyway's PBF reader ignores the chunksize argument.")
-            }
-            c
-        }
-    };
-
-    let multi = MultiProgress::new();
-    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
-        .unwrap()
-        .tick_chars("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ ");
-
-    let read_progress = multi.add(ProgressBar::new_spinner());
-    read_progress.set_style(spinner_style.clone());
-
-    //  for reader progress
-    let progress_clone = read_progress.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        progress_clone.tick();
-        if progress_clone.is_finished() {
-            break;
-        }
-    });
 
     let src = match cli.input {
         Some(path) => match cli.no_overwrite && path.exists() {
@@ -103,10 +98,13 @@ fn main() -> Result<(), SkywayError> {
     let writer = to.generate_writer();
 
     // create a ConversionBuilder that will handle the conversion
-    let mut conversion_builder = ConversionBuilder::new(reader)
-        .with_source(src)
-        .with_chunk_size(chunk_size);
+    let mut conversion_builder = ConversionBuilder::new(reader).with_source(src);
 
+    if let Some(chunk_size) = cli.chunk_size {
+        conversion_builder = conversion_builder.with_chunk_size(chunk_size)
+    }
+
+    // if filters were passed, add them to our ConversionBuilder
     #[cfg(feature = "filter")]
     if let Some(filters) = cli.filter {
         for filter in filters {
@@ -115,8 +113,19 @@ fn main() -> Result<(), SkywayError> {
         }
     }
 
+    let progress = start_progress("Running conversion...");
+
     // run the conversion with our chosen writer and destination
     conversion_builder.run_conversion(writer, cli.output);
 
+    progress.finish_with_message("Running conversion...done");
+
     Ok(())
+}
+
+fn main() {
+    if let Err(err) = run() {
+        eprintln!("Error: {err}");
+        process::exit(1);
+    }
 }
