@@ -1,14 +1,21 @@
 use json::stringify;
 use lexical;
-use rayon::prelude::*;
-use std::fmt::{Error, Write};
-use std::sync::mpsc::{channel, Receiver};
+
+use std::{
+    fmt::Write,
+    fs::File,
+    io::stdout,
+    path::PathBuf,
+    sync::mpsc::{channel, Receiver},
+    thread,
+};
 
 use crate::{
     chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
     elements::{Element, ElementType, Metadata, SimpleElementType},
-    threadpools::WRITER_THREAD_POOL,
 };
+
+use super::Writer;
 
 // wrapper struct that implements std::fmt::Write for any type
 // that implements std::io::Write
@@ -190,7 +197,7 @@ fn append_serialized_element(base: &mut String, element: Element) {
     base.push('}');
 }
 
-fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
+fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
     let mut output = String::new();
     let mut first_element_appended = false;
     for element in chunk.elements {
@@ -200,40 +207,26 @@ fn serialize_chunk(chunk: Chunk) -> Result<String, Error> {
         first_element_appended = true;
         append_serialized_element(&mut output, element);
     }
-    Ok(output)
+    OrderedOutput {
+        index: chunk.index,
+        content: output,
+    }
 }
 
-pub fn write_json<D: std::io::Write>(
-    receiver: Receiver<Chunk>,
-    metadata: Metadata,
-    dest: D,
+fn write_output(
+    metadata_receiver: Receiver<Metadata>,
+    data_receiver: Receiver<OrderedOutput<String>>,
+    dest: impl std::io::Write,
     overpass: bool,
 ) {
+    let metadata = metadata_receiver.into_iter().next();
     let mut writer = ToFmtWrite(dest);
-
-    let (output_sender, output_receiver) = channel();
-    WRITER_THREAD_POOL.install(move || {
-        receiver
-            .into_iter()
-            .par_bridge()
-            .map(|chunk| {
-                let index = chunk.index;
-                let content = serialize_chunk(chunk).expect("Failed to serialize chunk");
-                OrderedOutput { index, content }
-            })
-            .for_each(|output| {
-                output_sender
-                    .send(output)
-                    .expect("Failed to send serialized chunk");
-            });
-    });
-
-    let header = create_header(metadata, overpass);
+    let header = create_header(metadata.unwrap(), overpass); // TODO: better error message if this unexpectedly panics
     writer
         .write_str(&header)
         .expect("Couldn't write opening metadata to output.");
 
-    let ordered_chunks = OrderedOutputIterator::new(output_receiver.into_iter());
+    let ordered_chunks = OrderedOutputIterator::new(data_receiver.into_iter());
     for chunk_content in ordered_chunks {
         writer
             .write_str(&chunk_content)
@@ -243,4 +236,46 @@ pub fn write_json<D: std::io::Write>(
     writer
         .write_str("]}")
         .expect("Couldn't write final closing curly brace to output.");
+}
+
+pub struct JsonWriter {
+    pub overpass: bool,
+}
+
+impl JsonWriter {
+    pub fn new(overpass: bool) -> Self {
+        JsonWriter { overpass }
+    }
+}
+
+impl Writer for JsonWriter {
+    fn write_file(
+        &self,
+        metadata_receiver: Receiver<Metadata>,
+        dest: Option<PathBuf>,
+    ) -> (Box<dyn Fn(Chunk) + Sync>, thread::JoinHandle<()>) {
+        let (sender, receiver) = channel();
+        let overpass = self.overpass.clone();
+        let write_thread = std::thread::spawn({
+            move || {
+                match dest {
+                    None => write_output(metadata_receiver, receiver, stdout(), overpass),
+                    Some(a) => match File::create(PathBuf::from(a)) {
+                        Ok(b) => write_output(metadata_receiver, receiver, b, overpass),
+                        Err(e) => {
+                            panic!("Unable to open output file: {e:?}");
+                        }
+                    },
+                };
+            }
+        });
+
+        let serialize_chunk_closure = move |chunk| {
+            sender
+                .send(serialize_chunk(chunk))
+                .expect("Failed to send serialized chunk");
+        };
+
+        (Box::new(serialize_chunk_closure), write_thread)
+    }
 }

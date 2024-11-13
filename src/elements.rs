@@ -1,6 +1,6 @@
 //! A data structure for OpenStreetMap element data.
 
-use ustr::{Ustr, UstrMap};
+use std::collections::HashMap;
 
 /// Element types without any additional metadata.
 #[derive(Debug, PartialEq)]
@@ -30,13 +30,13 @@ pub enum ElementType {
 #[derive(Debug, PartialEq)]
 pub struct Element {
     pub changeset: Option<i64>,
-    pub user: Option<Ustr>,
+    pub user: Option<String>,
     pub version: Option<i32>,
     pub uid: Option<i32>,
     pub id: i64,
     pub timestamp: Option<String>,
     pub visible: Option<bool>,
-    pub tags: UstrMap<String>,
+    pub tags: HashMap<String, String>,
     pub element_type: ElementType,
 }
 
@@ -52,13 +52,13 @@ pub enum ElementTypeBuilder {
 #[derive(Debug, Default, PartialEq)]
 pub struct ElementBuilder {
     pub changeset: Option<i64>,
-    pub user: Option<Ustr>,
+    pub user: Option<String>,
     pub version: Option<i32>,
     pub uid: Option<i32>,
     pub id: Option<i64>,
     pub timestamp: Option<String>,
     pub visible: Option<bool>,
-    pub tags: UstrMap<String>,
+    pub tags: HashMap<String, String>,
     pub element_type: Option<ElementTypeBuilder>,
 }
 

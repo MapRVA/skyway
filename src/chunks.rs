@@ -1,5 +1,4 @@
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::{cmp::Reverse, collections::BinaryHeap};
 
 use crate::elements::Element;
 
@@ -70,32 +69,32 @@ impl ChunkBuilder {
     }
 }
 
-pub struct OrderedOutput<T> {
+pub struct OrderedOutput<T: Sized + Send> {
     pub index: usize,
     pub content: T,
 }
 
-impl<T> Eq for OrderedOutput<T> {}
+impl<T: Sized + Send> Eq for OrderedOutput<T> {}
 
-impl<T> PartialEq for OrderedOutput<T> {
+impl<T: Sized + Send> PartialEq for OrderedOutput<T> {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index
     }
 }
 
-impl<T> Ord for OrderedOutput<T> {
+impl<T: Sized + Send> Ord for OrderedOutput<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         Reverse(self.index).cmp(&Reverse(other.index))
     }
 }
 
-impl<T> PartialOrd for OrderedOutput<T> {
+impl<T: Sized + Send> PartialOrd for OrderedOutput<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-pub struct OrderedOutputIterator<I, T>
+pub struct OrderedOutputIterator<I, T: Sized + Send>
 where
     I: Iterator<Item = OrderedOutput<T>>,
 {
@@ -104,7 +103,7 @@ where
     next_index: usize,
 }
 
-impl<I, T> OrderedOutputIterator<I, T>
+impl<I, T: Sized + Send> OrderedOutputIterator<I, T>
 where
     I: Iterator<Item = OrderedOutput<T>>,
 {
@@ -117,7 +116,7 @@ where
     }
 }
 
-impl<I, T> Iterator for OrderedOutputIterator<I, T>
+impl<I, T: Sized + Send> Iterator for OrderedOutputIterator<I, T>
 where
     I: Iterator<Item = OrderedOutput<T>>,
 {
