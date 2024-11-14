@@ -40,7 +40,7 @@ pub fn filter_from_path(value: &Path) -> Result<Box<dyn ElementFilter>, SkywayEr
     }
 }
 
-pub fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error> {
+fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error> {
     #[cfg(feature = "skyfilter")]
     if let Some(f) = parse_filter(filter_contents) {
         return Ok(Box::new(f));
