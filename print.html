@@ -1,5 +1,5 @@
 <!DOCTYPE HTML>
-<html lang="en" class="light" dir="ltr">
+<html lang="en" class="light sidebar-visible" dir="ltr">
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
@@ -8,7 +8,7 @@
 
 
         <!-- Custom HTML head -->
-        
+
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
@@ -31,15 +31,17 @@
 
         <!-- Custom theme stylesheets -->
 
-    </head>
-    <body class="sidebar-visible no-js">
-    <div id="body-container">
+
         <!-- Provide site root to javascript -->
         <script>
             var path_to_root = "";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
-
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -61,19 +63,16 @@
             var theme;
             try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
             if (theme === null || theme === undefined) { theme = default_theme; }
-            var html = document.querySelector('html');
+            const html = document.documentElement;
             html.classList.remove('light')
             html.classList.add(theme);
-            var body = document.querySelector('body');
-            body.classList.remove('no-js')
-            body.classList.add('js');
+            html.classList.add("js");
         </script>
 
         <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
-            var body = document.querySelector('body');
             var sidebar = null;
             var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
@@ -83,45 +82,25 @@
                 sidebar = 'hidden';
             }
             sidebar_toggle.checked = sidebar === 'visible';
-            body.classList.remove('sidebar-visible');
-            body.classList.add("sidebar-" + sidebar);
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Getting Started</li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">1.</strong> Installation</a></li><li class="chapter-item expanded "><a href="usage.html"><strong aria-hidden="true">2.</strong> Using skyway</a></li><li class="chapter-item expanded affix "><li class="part-title">Filtering</li><li class="chapter-item expanded "><a href="filtering.html"><strong aria-hidden="true">3.</strong> Using Filters</a></li><li class="chapter-item expanded "><a href="cel-filters.html"><strong aria-hidden="true">4.</strong> CEL Filters</a></li><li class="chapter-item expanded "><a href="osmfilter.html"><strong aria-hidden="true">5.</strong> OSMFilter</a></li></ol>
-            </div>
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <!-- Track and set sidebar scroll position -->
-        <script>
-            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
-            sidebarScrollbox.addEventListener('click', function(e) {
-                if (e.target.tagName === 'A') {
-                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
-                }
-            }, { passive: true });
-            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
-            sessionStorage.removeItem('sidebar-scroll');
-            if (sidebarScrollTop) {
-                // preserve sidebar scroll position when navigating via links within sidebar
-                sidebarScrollbox.scrollTop = sidebarScrollTop;
-            } else {
-                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
-                var activeSection = document.querySelector('#sidebar .active');
-                if (activeSection) {
-                    activeSection.scrollIntoView({ block: 'center' });
-                }
-            }
-        </script>
-
         <div id="page-wrapper" class="page-wrapper">
 
             <div class="page">
-                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar-hover-placeholder"></div>
                 <div id="menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
                         <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
@@ -212,7 +191,8 @@ Features for dependencies can be enabled in the dependency declaration in Cargo.
 <p>―<a href="https://doc.rust-lang.org/cargo/reference/features.html">The Cargo Book</a></p>
 <p>skyway's <code>Cargo.toml</code> file defines <a href="https://doc.rust-lang.org/cargo/reference/features.html">features</a> which allow you to selectively compile certain file or filter formats.
 By default, all features are enabled.
-As well as providing a feature name for each individual file and filter format, all file conversion support and all filters can be enabled/disabled collectively using the <code>"convert"</code> and <code>"filter"</code> features, respectively.
+As well as providing a feature name for each individual file and filter format, conversion and filtering support can be enabled/disabled using the <code>"convert"</code> and <code>"filter"</code> features, respectively.
+Enabling the <code>"json"</code> feature, for example, will automatically enable <code>"convert"</code>, but you can enable <code>"convert"</code> by itself to access generic conversion functionality.
 Disabling all features leaves a relatively small library of OpenStreetMap element types.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
 <p>Here is an example of how to use skyway.
@@ -246,12 +226,12 @@ If you do not provide a filter to skyway, it will convert the original input as 
 <h2 id="running-skyway-with-a-filter"><a class="header" href="#running-skyway-with-a-filter">Running skyway with a Filter</a></h2>
 <p>To add a filter to skyway, add the <code>--filter [FILTER FILE]</code> option.
 You may pass multiple filters to evaluate in sequence by passing multiple <code>--filter</code> flags.
-The file extension does not matter; skyway will detect if the file is in CEL or OSMFilter and parse it accordingly.</p>
+The file extension does not matter; skyway will detect if the file is in CEL or SkyFilter and parse it accordingly.</p>
 <h2 id="how-filters-work"><a class="header" href="#how-filters-work">How Filters Work</a></h2>
 <p>In skyway, the input reader and output writer are run in different threads, with the former passing element objects to the latter as they become available.
 This multithreaded approach makes it easy to add one or more middlemen, who can receive elements from the reader, transform them, and then pass them along down the chain.
 skyway provides a "filtering" system to make it easier to add these processing steps in a modular way.
-Using any number of CEL or OSMFilter expressions, you can create complex processing pipelines.</p>
+Using any number of CEL or SkyFilter expressions, you can create complex processing pipelines.</p>
 <p>This system was inspired by <a href="https://pandoc.org/">Pandoc</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="cel-filters"><a class="header" href="#cel-filters">CEL Filters</a></h1>
 <p>skyway supports the <a href="https://cel.dev/">Common Expression Language</a> (CEL) for filtering elements.
@@ -270,20 +250,20 @@ Please <a href="https://github.com/MapRVA/skyway/issues">file an issue</a> if yo
 <tr><td><code>visible</code></td><td><code>bool</code></td></tr>
 <tr><td><code>type</code></td><td><code>string</code> ("node", "way", or "relation")</td></tr>
 </tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="osmfilter"><a class="header" href="#osmfilter">OSMFilter</a></h1>
-<p>OSMFilter is a bespoke filtering language designed for skyway, allowing you to transform element data as they pass through skyway.</p>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="skyfilter"><a class="header" href="#skyfilter">SkyFilter</a></h1>
+<p>SkyFilter is a bespoke filtering language designed for skyway, allowing you to transform element data as they pass through skyway.</p>
 <div class="warning">
 This feature is intended to be the biggest value-add of skyway, but I haven't yet settled on a syntax that feels right.
 I would <strong>massively appreciate</strong> your feedback!
 How would your ideal filter language work?
 </div>
 <h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
-<p>An OSMFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, <strong>followed by at least two newlines</strong>.
+<p>An SkyFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, <strong>followed by at least two newlines</strong>.
 skyway will warn you if there is a version mismatch.
 After the header, you can use any combination of <strong>selectors</strong> and <strong>modifiers</strong> to manipulate the elements.
 Every selector must be followed by a <strong>tab-indented</strong> block of one or more modifiers or nested selectors.
 Comments start with <code>#</code> and extend through the end of a line.</p>
-<pre><code class="language-osmfilter">OSMFilter v0.2.0
+<pre><code class="language-skyfilter">SkyFilter v0.2.0
 
 TYPE way                                 # selects ways
 	HAS "footway"                    # selects elements with a "footway" tag (any value)
@@ -295,7 +275,7 @@ TYPE relation                            # selects relations
 COMMIT                                   # commit the element
 </code></pre>
 <h2 id="statements"><a class="header" href="#statements">Statements</a></h2>
-<p>Below you can find descriptions of each statement supported by OSMFilter.</p>
+<p>Below you can find descriptions of each statement supported by SkyFilter.</p>
 <h3 id="selectors"><a class="header" href="#selectors">Selectors</a></h3>
 <p>A selector must be followed by one or more tab-indented statements (either a modifier or selection block).
 You can nest selection blocks.</p>
