@@ -1,10 +1,14 @@
 //! Writes OSM data out.
 
+#[cfg(feature = "cli")]
 use clap::ValueEnum;
 
 use std::{path::PathBuf, sync::mpsc::Receiver, thread};
 
-use crate::{chunks::Chunk, elements::Metadata, FileFormatOptions, SkywayError};
+use crate::{chunks::Chunk, elements::Metadata, SkywayError};
+
+#[cfg(feature = "cli")]
+use crate::FileFormatOptions;
 
 #[cfg(feature = "json")]
 mod json;
@@ -25,6 +29,7 @@ mod xml;
 use xml::XmlWriter;
 
 /// Enum that represents the different output file formats skyway supports.
+#[cfg(feature = "cli")]
 #[derive(Clone, Debug, ValueEnum)]
 pub enum OutputFileFormat {
     #[cfg(feature = "json")]
@@ -44,6 +49,7 @@ pub enum OutputFileFormat {
     Xml,
 }
 
+#[cfg(feature = "cli")]
 impl OutputFileFormat {
     pub fn generate_writer(self) -> Box<dyn Writer> {
         #[allow(unreachable_patterns)]
@@ -63,6 +69,7 @@ impl OutputFileFormat {
     }
 }
 
+#[cfg(feature = "cli")]
 impl FileFormatOptions for OutputFileFormat {
     fn format_error(ext: &str) -> SkywayError {
         SkywayError::UnknownOutputFormat(ext.to_string())

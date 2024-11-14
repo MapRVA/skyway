@@ -1,7 +1,9 @@
 //! Reads OSM data into skyway.
 
-use clap::ValueEnum;
 use enum_dispatch::enum_dispatch;
+
+#[cfg(feature = "cli")]
+use clap::ValueEnum;
 
 use std::{
     fs,
@@ -14,8 +16,11 @@ use std::{
 use crate::{
     chunks::{Chunk, ChunkBuilder},
     elements::Metadata,
-    FileFormatOptions, SkywayError,
+    SkywayError,
 };
+
+#[cfg(feature = "cli")]
+use crate::FileFormatOptions;
 
 #[cfg(feature = "json")]
 pub mod json;
@@ -41,6 +46,7 @@ pub mod xml;
 use xml::XmlReader;
 
 /// Enum that represents the different input file formats skyway supports.
+#[cfg(feature = "cli")]
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum InputFileFormat {
     #[cfg(feature = "json")]
@@ -69,6 +75,7 @@ pub enum Readers {
     XmlReader,
 }
 
+#[cfg(feature = "cli")]
 impl InputFileFormat {
     pub fn generate_reader(self) -> Readers {
         match self {
@@ -84,6 +91,7 @@ impl InputFileFormat {
     }
 }
 
+#[cfg(feature = "cli")]
 impl FileFormatOptions for InputFileFormat {
     fn format_error(ext: &str) -> SkywayError {
         SkywayError::UnknownInputFormat(ext.to_string())

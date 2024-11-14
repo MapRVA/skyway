@@ -1,8 +1,10 @@
 use chunks::ChunkBuilder;
-use clap::ValueEnum;
 use readers::{Reader, Readers};
 use thiserror::Error;
 use writers::Writer;
+
+#[cfg(feature = "cli")]
+use clap::ValueEnum;
 
 #[cfg(feature = "pbf")]
 use log::warn;
@@ -44,6 +46,7 @@ pub enum SkywayError {
     UnparsableFilter(String),
 }
 
+#[cfg(feature = "cli")]
 pub trait FileFormatOptions: ValueEnum {
     fn format_error(ext: &str) -> SkywayError;
     fn parse(cli_format: Option<Self>, file_path: &Option<PathBuf>) -> Result<Self, SkywayError> {
