@@ -85,6 +85,7 @@ pub trait FileFormatOptions: ValueEnum {
 pub struct ConversionBuilder {
     reader: Readers,
     src: Option<PathBuf>,
+    #[cfg(feature = "filter")]
     filters: Vec<Box<dyn ElementFilter>>,
     chunk_size: Option<usize>,
 }
@@ -94,6 +95,7 @@ impl ConversionBuilder {
         ConversionBuilder {
             reader,
             src: None,
+            #[cfg(feature = "filter")]
             filters: Vec::new(),
             chunk_size: None,
         }
@@ -109,6 +111,7 @@ impl ConversionBuilder {
         self
     }
 
+    #[cfg(feature = "filter")]
     pub fn add_filter(mut self, filter: Box<dyn ElementFilter>) -> Self {
         self.filters.push(filter);
         self
