@@ -20,7 +20,7 @@ bit-vec = { version = "0.8.0", optional = true }
 cel-interpreter = { version = "0.8.1", optional = true }
 chrono = { version = "0.4.38", optional = true }
 clap = { version = "4.5.10", features = ["derive"], optional = true }
-enum_dispatch = { version = "0.3.13", optional = true }
+enum_dispatch = "0.3.13"
 env_logger = { version = "0.11.5", optional = true }
 indicatif = { version = "0.17.8", optional = true }
 itertools = "0.13.0"
@@ -45,19 +45,16 @@ thiserror = "1.0.63"
 # by default, all convert and filter features are enabled
 default = ["cli", "json", "opl", "pbf", "xml", "cel", "skyfilter"]
 
-# general conversion support
-convert = ["dep:enum_dispatch"]
-
 # conversion filetypes
-json = ["convert", "dep:json", "dep:lexical", "dep:serde", "dep:serde_json"]
-o5m = ["convert", "dep:bit-vec"]
-opl = ["convert", "dep:lexical"]
-osmx = ["convert", "dep:osmx"]
-pbf = ["convert", "dep:osmpbf", "dep:chrono"]
-xml = ["convert", "dep:serde", "dep:serde-aux", "dep:quick-xml"]
+json = ["dep:json", "dep:lexical", "dep:serde", "dep:serde_json"]
+o5m = ["dep:bit-vec"]
+opl = ["dep:lexical"]
+osmx = ["dep:osmx"]
+pbf = ["dep:osmpbf", "dep:chrono"]
+xml = ["dep:serde", "dep:serde-aux", "dep:quick-xml"]
 
 # general filter support
-filter = ["convert"]
+filter = []
 
 # filter types
 cel = ["filter", "dep:cel-interpreter"]
