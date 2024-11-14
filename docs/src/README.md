@@ -12,7 +12,7 @@ Your feedback and contributions are welcome. Thanks!
 
 - Support a wide range of OpenStreetMap file formats
 - Provide a user-friendly tag filtering system, capable of scaling to planet-scale data
-- ~Be fast~ *(currently focusing on adding features, performance will come later!)*
+- Perform conversions quickly, parallelizing computation where possible
 
 ## Alternatives
 
