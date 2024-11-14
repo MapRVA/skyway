@@ -5,10 +5,10 @@ mod cel;
 #[cfg(feature = "cel")]
 use cel::compile_cel_filter;
 
-#[cfg(feature = "osmfilter")]
-mod osmfilter;
-#[cfg(feature = "osmfilter")]
-use osmfilter::parse::parse_filter;
+#[cfg(feature = "skyfilter")]
+mod skyfilter;
+#[cfg(feature = "skyfilter")]
+use skyfilter::parse::parse_filter;
 
 use std::{fmt::Error, fs::read_to_string, path::Path};
 
@@ -41,7 +41,7 @@ pub fn filter_from_path(value: &Path) -> Result<Box<dyn ElementFilter>, SkywayEr
 }
 
 pub fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error> {
-    #[cfg(feature = "osmfilter")]
+    #[cfg(feature = "skyfilter")]
     if let Some(f) = parse_filter(filter_contents) {
         return Ok(Box::new(f));
     }

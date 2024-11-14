@@ -1,6 +1,6 @@
-# OSMFilter
+# SkyFilter
 
-OSMFilter is a bespoke filtering language designed for skyway, allowing you to transform element data as they pass through skyway.
+SkyFilter is a bespoke filtering language designed for skyway, allowing you to transform element data as they pass through skyway.
 
 <div class="warning">
 This feature is intended to be the biggest value-add of skyway, but I haven't yet settled on a syntax that feels right.
@@ -10,13 +10,13 @@ How would your ideal filter language work?
 
 ## Specification
 
-An OSMFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, **followed by at least two newlines**.
+An SkyFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, **followed by at least two newlines**.
 skyway will warn you if there is a version mismatch.
 After the header, you can use any combination of **selectors** and **modifiers** to manipulate the elements.
 Every selector must be followed by a **tab-indented** block of one or more modifiers or nested selectors.
 Comments start with `#` and extend through the end of a line.
-```osmfilter
-OSMFilter v0.2.0
+```skyfilter
+SkyFilter v0.2.0
 
 TYPE way                                 # selects ways
 	HAS "footway"                    # selects elements with a "footway" tag (any value)
@@ -30,7 +30,7 @@ COMMIT                                   # commit the element
 
 ## Statements
 
-Below you can find descriptions of each statement supported by OSMFilter.
+Below you can find descriptions of each statement supported by SkyFilter.
 
 ### Selectors
 

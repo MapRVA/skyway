@@ -11,4 +11,4 @@
 
 - [Using Filters](./filtering.md)
 - [CEL Filters](./cel-filters.md)
-- [OSMFilter](./osmfilter.md)
+- [SkyFilter](./skyfilter.md)

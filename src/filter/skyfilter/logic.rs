@@ -109,11 +109,11 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
 }
 
 #[derive(Debug)]
-pub struct OsmFilter {
+pub struct SkyFilter {
     pub statements: Vec<Statement>,
 }
 
-impl ElementFilter for OsmFilter {
+impl ElementFilter for SkyFilter {
     fn evaluate(&self, element: &mut Element) -> bool {
         for statement in &self.statements {
             match evaluate_statement(statement, element) {

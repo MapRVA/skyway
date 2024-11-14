@@ -2,13 +2,13 @@ use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
 
-use crate::filter::osmfilter::logic::{OsmFilter, SelectorStatement, Statement};
+use crate::filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser)]
-#[grammar = "filter/osmfilter/osmfilter.pest"]
-struct OSMFilterParser;
+#[grammar = "filter/skyfilter/skyfilter.pest"]
+struct SkyFilterParser;
 
 fn get_inner_string(pair: &Pair<Rule>) -> String {
     pair.as_span().as_str().to_owned()
@@ -95,21 +95,21 @@ fn interpret_statement(pair: Pair<Rule>) -> Statement {
     }
 }
 
-fn _interpret_body(body: Pair<Rule>) -> OsmFilter {
+fn _interpret_body(body: Pair<Rule>) -> SkyFilter {
     match body.as_rule() {
         Rule::body => {
             let mut statements = Vec::new();
             for pair in body.into_inner() {
                 statements.push(interpret_statement(pair));
             }
-            OsmFilter { statements }
+            SkyFilter { statements }
         }
         _ => unreachable!(),
     }
 }
 
-pub fn parse_filter(filter_content: &str) -> Option<OsmFilter> {
-    let mut file = match OSMFilterParser::parse(Rule::file, filter_content) {
+pub fn parse_filter(filter_content: &str) -> Option<SkyFilter> {
+    let mut file = match SkyFilterParser::parse(Rule::file, filter_content) {
         Ok(v) => v,
         Err(_) => {
             return None;

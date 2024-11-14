@@ -42,7 +42,7 @@ thiserror = "1.0.63"
 
 [features]
 # by default, all convert and filter features are enabled
-default = ["json", "opl", "pbf", "xml", "cel", "osmfilter"]
+default = ["json", "opl", "pbf", "xml", "cel", "skyfilter"]
 
 # general conversion support
 convert = ["dep:enum_dispatch"]
@@ -60,7 +60,7 @@ filter = []
 
 # filter types
 cel = ["filter", "dep:cel-interpreter"]
-osmfilter = ["filter", "dep:pest", "dep:pest_derive"]
+skyfilter = ["filter", "dep:pest", "dep:pest_derive"]
 
 [profile.release]
 lto = "fat"
