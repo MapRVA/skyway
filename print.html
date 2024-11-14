@@ -167,7 +167,7 @@ Your feedback and contributions are welcome. Thanks!
 <ul>
 <li>Support a wide range of OpenStreetMap file formats</li>
 <li>Provide a user-friendly tag filtering system, capable of scaling to planet-scale data</li>
-<li><del>Be fast</del> <em>(currently focusing on adding features, performance will come later!)</em></li>
+<li>Perform conversions quickly, parallelizing computation where possible</li>
 </ul>
 <h2 id="alternatives"><a class="header" href="#alternatives">Alternatives</a></h2>
 <p>Before adopting skyway for your project, please also consider <a href="https://osmcode.org/osmium-tool/">Osmium Tool</a>, a well-trusted and performant application that accomplishes many of the same things.</p>
@@ -191,9 +191,9 @@ Features for dependencies can be enabled in the dependency declaration in Cargo.
 <p>―<a href="https://doc.rust-lang.org/cargo/reference/features.html">The Cargo Book</a></p>
 <p>skyway's <code>Cargo.toml</code> file defines <a href="https://doc.rust-lang.org/cargo/reference/features.html">features</a> which allow you to selectively compile certain file or filter formats.
 By default, all features are enabled.
-As well as providing a feature name for each individual file and filter format, conversion and filtering support can be enabled/disabled using the <code>"convert"</code> and <code>"filter"</code> features, respectively.
-Enabling the <code>"json"</code> feature, for example, will automatically enable <code>"convert"</code>, but you can enable <code>"convert"</code> by itself to access generic conversion functionality.
-Disabling all features leaves a relatively small library of OpenStreetMap element types.</p>
+As well as providing a feature name for each individual file and filter format, filtering support can be enabled/disabled using the <code>"filter"</code> feature.
+Enabling the <code>"cel"</code> feature, for example, will automatically enable <code>"filter"</code>, but you can enable <code>"filter"</code> by itself to access generic filtering functionality.
+Disabling all features leaves a relatively small library of OpenStreetMap conversion tools.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="usage"><a class="header" href="#usage">Usage</a></h1>
 <p>Here is an example of how to use skyway.
 For more information, you can run <code>skyway --help</code>.</p>
@@ -263,7 +263,7 @@ skyway will warn you if there is a version mismatch.
 After the header, you can use any combination of <strong>selectors</strong> and <strong>modifiers</strong> to manipulate the elements.
 Every selector must be followed by a <strong>tab-indented</strong> block of one or more modifiers or nested selectors.
 Comments start with <code>#</code> and extend through the end of a line.</p>
-<pre><code class="language-skyfilter">SkyFilter v0.2.0
+<pre><code class="language-skyfilter">SkyFilter v0.4.0
 
 TYPE way                                 # selects ways
 	HAS "footway"                    # selects elements with a "footway" tag (any value)
