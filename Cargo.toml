@@ -57,7 +57,7 @@ pbf = ["convert", "dep:osmpbf", "dep:chrono"]
 xml = ["convert", "dep:serde", "dep:serde-aux", "dep:quick-xml"]
 
 # general filter support
-filter = []
+filter = ["convert"]
 
 # filter types
 cel = ["filter", "dep:cel-interpreter"]
