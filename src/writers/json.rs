@@ -1,5 +1,6 @@
 use json::stringify;
 use lexical;
+use rayon::prelude::*;
 
 use std::{
     fmt::Write,
@@ -7,12 +8,12 @@ use std::{
     io::stdout,
     path::PathBuf,
     sync::mpsc::{channel, Receiver},
-    thread,
 };
 
 use crate::{
     chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
     elements::{Element, ElementType, Metadata, SimpleElementType},
+    SkywayError,
 };
 
 use super::Writer;
@@ -249,11 +250,15 @@ impl JsonWriter {
 }
 
 impl Writer for JsonWriter {
-    fn write_file(
+    fn write<I>(
         &self,
+        par_iter: I,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> (Box<dyn Fn(Chunk) + Sync>, thread::JoinHandle<()>) {
+    ) -> Result<(), SkywayError>
+    where
+        I: IntoParallelIterator<Item = Chunk>,
+    {
         let (sender, receiver) = channel();
         let overpass = self.overpass.clone();
         let write_thread = std::thread::spawn({
@@ -270,12 +275,18 @@ impl Writer for JsonWriter {
             }
         });
 
-        let serialize_chunk_closure = move |chunk| {
+        par_iter.into_par_iter().for_each(|chunk| {
             sender
                 .send(serialize_chunk(chunk))
                 .expect("Failed to send serialized chunk");
-        };
+        });
 
-        (Box::new(serialize_chunk_closure), write_thread)
+        drop(sender);
+
+        write_thread.join().map_err(|e| {
+            SkywayError::UnexpectedError(format!("Could not join writer thread: {:?}", e))
+        })?;
+
+        Ok(())
     }
 }

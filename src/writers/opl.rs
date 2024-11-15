@@ -1,12 +1,12 @@
 use lexical;
+use rayon::prelude::*;
 
-use std::{
-    fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::channel, sync::mpsc::Receiver, thread,
-};
+use std::{fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::channel, sync::mpsc::Receiver};
 
 use crate::{
     chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
     elements::{ElementType, Metadata, SimpleElementType},
+    SkywayError,
 };
 
 use super::Writer;
@@ -177,12 +177,6 @@ fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
 
 pub struct OplWriter {}
 
-impl OplWriter {
-    pub fn new() -> Self {
-        OplWriter {}
-    }
-}
-
 fn write_output(chunk_iterator: Receiver<OrderedOutput<String>>, dest_buffer: impl std::io::Write) {
     let mut writer = ToFmtWrite(dest_buffer);
     let ordered_chunks = OrderedOutputIterator::new(chunk_iterator.into_iter());
@@ -194,11 +188,16 @@ fn write_output(chunk_iterator: Receiver<OrderedOutput<String>>, dest_buffer: im
 }
 
 impl Writer for OplWriter {
-    fn write_file(
+    fn write<I>(
         &self,
+        par_iter: I,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> (Box<dyn Fn(Chunk) + Sync>, thread::JoinHandle<()>) {
+    ) -> Result<(), SkywayError>
+    where
+        I: IntoParallelIterator<Item = Chunk>,
+    {
+        println!("opened the writer");
         let (sender, receiver) = channel();
         let write_thread = std::thread::spawn({
             move || {
@@ -215,13 +214,19 @@ impl Writer for OplWriter {
             }
         });
 
-        let serialize_chunk_closure = move |chunk| {
+        par_iter.into_par_iter().for_each(|chunk| {
             sender
                 .send(serialize_chunk(chunk))
                 .expect("Failed to send serialized chunk");
-        };
+        });
 
-        (Box::new(serialize_chunk_closure), write_thread)
+        drop(sender);
+
+        write_thread.join().map_err(|e| {
+            SkywayError::UnexpectedError(format!("Could not join writer thread: {:?}", e))
+        })?;
+
+        Ok(())
     }
 }
 

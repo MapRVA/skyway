@@ -199,11 +199,9 @@ impl Reader for OplReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-        filter: impl Fn(Chunk) -> Chunk + Sync,
-        write_thread: thread::JoinHandle<()>,
-        final_iterator: impl Fn(Chunk) + Sync,
-    ) {
+    ) -> impl ParallelIterator<Item = Chunk> {
         let (sender, receiver) = channel();
+
         // create an empty Metadata object
         let metadata = Metadata::default();
         metadata_sender
@@ -211,7 +209,7 @@ impl Reader for OplReader {
             .expect("Couldn't send metadata to main thread!");
 
         let src = super::get_reader(src);
-        let read_thread = thread::spawn(move || {
+        thread::spawn(move || {
             src.split(b'\n')
                 .map(|s| s.expect("Unable to read input file buffer"))
                 .chunks(chunk_builder.max_size)
@@ -228,21 +226,11 @@ impl Reader for OplReader {
                         .expect("Unable to send chunk of vectors to channel");
                 })
         });
+
         receiver
             .into_iter()
-            .map(|chunk| convert_chunk(*chunk))
-            .into_iter()
             .par_bridge()
-            .map(|chunk| filter(chunk))
-            .for_each(|chunk| final_iterator(chunk));
-
-        drop(final_iterator);
-
-        write_thread
-            .join()
-            .expect("Couldn't join on write thread!!");
-
-        read_thread.join().expect("Couldn't join on read thread!!");
+            .map(|chunk| convert_chunk(*chunk))
     }
 }
 

@@ -1,6 +1,6 @@
 //! Reads OSM data into skyway.
 
-use enum_dispatch::enum_dispatch;
+use rayon::prelude::*;
 
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
@@ -9,41 +9,47 @@ use std::{
     fs,
     io::{stdin, BufRead, BufReader, Read},
     path::PathBuf,
-    sync::mpsc::Sender,
-    thread,
+    sync::mpsc::{channel, Sender},
 };
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
     elements::Metadata,
+    writers::*,
     SkywayError,
 };
+
+#[cfg(feature = "filter")]
+use crate::filter::ElementFilter;
+
+#[cfg(not(feature = "filter"))]
+use std::convert::identity;
 
 #[cfg(feature = "cli")]
 use crate::FileFormatOptions;
 
 #[cfg(feature = "json")]
-pub mod json;
+mod json;
 #[cfg(feature = "json")]
-use json::JsonReader;
+pub use json::JsonReader;
 
 #[cfg(feature = "opl")]
-pub mod opl;
+mod opl;
 #[cfg(feature = "opl")]
-use opl::OplReader;
+pub use opl::OplReader;
 
 #[cfg(feature = "osmx")]
-pub mod osmx;
+mod osmx;
 
 #[cfg(feature = "pbf")]
-pub mod pbf;
+mod pbf;
 #[cfg(feature = "pbf")]
-use pbf::PbfReader;
+pub use pbf::PbfReader;
 
 #[cfg(feature = "xml")]
-pub mod xml;
+mod xml;
 #[cfg(feature = "xml")]
-use xml::XmlReader;
+pub use xml::XmlReader;
 
 /// Enum that represents the different input file formats skyway supports.
 #[cfg(feature = "cli")]
@@ -61,34 +67,6 @@ pub enum InputFileFormat {
     #[cfg(feature = "xml")]
     #[value(name = "xml", alias = "osm")]
     Xml,
-}
-
-#[enum_dispatch]
-pub enum Readers {
-    #[cfg(feature = "json")]
-    JsonReader,
-    #[cfg(feature = "opl")]
-    OplReader,
-    #[cfg(feature = "pbf")]
-    PbfReader,
-    #[cfg(feature = "xml")]
-    XmlReader,
-}
-
-#[cfg(feature = "cli")]
-impl InputFileFormat {
-    pub fn generate_reader(self) -> Readers {
-        match self {
-            #[cfg(feature = "json")]
-            InputFileFormat::Json => Readers::JsonReader(JsonReader::new()),
-            #[cfg(feature = "opl")]
-            InputFileFormat::Opl => Readers::OplReader(OplReader::new()),
-            #[cfg(feature = "pbf")]
-            InputFileFormat::Pbf => Readers::PbfReader(PbfReader::new()),
-            #[cfg(feature = "xml")]
-            InputFileFormat::Xml => Readers::XmlReader(XmlReader::new()),
-        }
-    }
 }
 
 #[cfg(feature = "cli")]
@@ -112,8 +90,7 @@ pub fn get_reader(src: Option<PathBuf>) -> Box<dyn BufRead + Send> {
     }))
 }
 
-#[enum_dispatch(Readers)]
-pub trait Reader: Send + 'static {
+pub trait Reader: Sized {
     /// Create a new instance of this Reader
 
     /// Reads data into skyway.
@@ -125,8 +102,47 @@ pub trait Reader: Send + 'static {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-        filter: impl Fn(Chunk) -> Chunk + Sync,
-        write_thread: thread::JoinHandle<()>,
-        final_iterator: impl Fn(Chunk) + Sync,
-    );
+    ) -> impl ParallelIterator<Item = Chunk>;
+
+    fn run_conversion(
+        self,
+        source: Option<PathBuf>,
+        chunk_size: usize,
+        #[cfg(feature = "filter")] filters: Vec<Box<dyn ElementFilter>>,
+        output_format: OutputFileFormat,
+        dest: Option<PathBuf>,
+    ) -> Result<(), SkywayError> {
+        let (metadata_sender, metadata_receiver) = channel();
+        let chunk_builder = ChunkBuilder::new(chunk_size);
+
+        let chunk_iterator = self.read_file(source, metadata_sender, chunk_builder);
+        // TODO: run filters, if applicable
+        //
+        // #[cfg(feature = "filter")]
+        // let filter = build_filter(self.filters);
+        //
+        // #[cfg(not(feature = "filter"))]
+        // let filter = identity;
+
+        #[allow(unreachable_patterns)]
+        match output_format {
+            #[cfg(feature = "json")]
+            OutputFileFormat::Json => {
+                JsonWriter { overpass: false }.write(chunk_iterator, metadata_receiver, dest)
+            }
+            //#[cfg(feature = "o5m")]
+            // O5mWriter { }.write(chunk_iterator, metadata_receiver, dest)
+            #[cfg(feature = "opl")]
+            OutputFileFormat::Opl => OplWriter {}.write(chunk_iterator, metadata_receiver, dest),
+            #[cfg(feature = "json")]
+            OutputFileFormat::Overpass => {
+                JsonWriter { overpass: true }.write(chunk_iterator, metadata_receiver, dest)
+            }
+            #[cfg(feature = "xml")]
+            OutputFileFormat::Xml => XmlWriter {}.write(chunk_iterator, metadata_receiver, dest),
+            _ => Err(SkywayError::UnexpectedError(
+                "A file conversion was attempted with an unknown output format.".to_owned(),
+            )),
+        }
+    }
 }

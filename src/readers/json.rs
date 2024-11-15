@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str;
 
-use std::{collections::HashMap, io::Read, path::PathBuf, sync::mpsc::Sender, thread};
+use std::{collections::HashMap, io::Read, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder},
@@ -172,10 +172,7 @@ impl Reader for JsonReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-        filter: impl Fn(Chunk) -> Chunk + Sync,
-        write_thread: thread::JoinHandle<()>,
-        final_iterator: impl Fn(Chunk) + Sync,
-    ) {
+    ) -> impl ParallelIterator<Item = Chunk> {
         let mut buf = String::new();
         super::get_reader(src)
             .read_to_string(&mut buf)
@@ -200,16 +197,7 @@ impl Reader for JsonReader {
 
         // send each deserialized element to the next processing step
         let elements = osm_json_object.elements.into_iter();
-        chunk_builder
-            .chunk_iterator(elements)
-            .par_bridge()
-            .map(|chunk| filter(chunk))
-            .for_each(|chunk| final_iterator(chunk));
 
-        drop(final_iterator);
-
-        write_thread
-            .join()
-            .expect("Couldn't join on write thread!!");
+        chunk_builder.chunk_iterator(elements).par_bridge()
     }
 }
