@@ -1,6 +1,4 @@
-use readers::*;
 use thiserror::Error;
-use writers::OutputFileFormat;
 
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
@@ -15,11 +13,14 @@ pub mod elements;
 pub mod readers;
 pub mod writers;
 
+use readers::*;
+use writers::OutputFileFormat;
+
 // selective imports that deal with filters
 #[cfg(feature = "filter")]
 pub mod filter;
 #[cfg(feature = "filter")]
-use filter::{build_filter, ElementFilter};
+use filter::ElementFilter;
 
 // All errors skyway can return
 // this is a work in progress

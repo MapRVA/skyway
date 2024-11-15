@@ -58,6 +58,23 @@ impl FileFormatOptions for OutputFileFormat {
     }
 }
 
+/// Enum that represents the different output file formats skyway supports.
+#[cfg(not(feature = "cli"))]
+#[derive(Clone, Debug)]
+pub enum OutputFileFormat {
+    #[cfg(feature = "json")]
+    Json,
+    // #[cfg(feature = "o5m")]
+    // #[value(name = "o5m")]
+    // O5m,
+    #[cfg(feature = "opl")]
+    Opl,
+    #[cfg(feature = "json")]
+    Overpass,
+    #[cfg(feature = "xml")]
+    Xml,
+}
+
 /// `Writer` implements the output of OpenStreetMap data in a specific format.
 pub trait Writer {
     /// Write data out from a `ParallelIterator` of `Chunk`s.

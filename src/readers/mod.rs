@@ -20,7 +20,7 @@ use crate::{
 };
 
 #[cfg(feature = "filter")]
-use crate::filter::ElementFilter;
+use crate::filter::{build_filter, ElementFilter};
 
 #[cfg(not(feature = "filter"))]
 use std::convert::identity;
@@ -76,6 +76,20 @@ impl FileFormatOptions for InputFileFormat {
     }
 }
 
+/// Enum that represents the different input file formats skyway supports.
+#[cfg(not(feature = "cli"))]
+#[derive(Clone, Debug, PartialEq)]
+pub enum InputFileFormat {
+    #[cfg(feature = "json")]
+    Json,
+    #[cfg(feature = "opl")]
+    Opl,
+    #[cfg(feature = "pbf")]
+    Pbf,
+    #[cfg(feature = "xml")]
+    Xml,
+}
+
 pub fn open(path: PathBuf) -> Box<dyn Read + Send> {
     match fs::File::open(path) {
         Ok(f) => Box::new(f) as Box<dyn Read + Send>,
@@ -115,14 +129,15 @@ pub trait Reader: Sized {
         let (metadata_sender, metadata_receiver) = channel();
         let chunk_builder = ChunkBuilder::new(chunk_size);
 
+        #[cfg(feature = "filter")]
+        let combined_filter = build_filter(filters);
+        #[cfg(feature = "filter")]
+        let chunk_iterator = self
+            .read_file(source, metadata_sender, chunk_builder)
+            .map(|chunk| combined_filter(chunk));
+
+        #[cfg(not(feature = "filter"))]
         let chunk_iterator = self.read_file(source, metadata_sender, chunk_builder);
-        // TODO: run filters, if applicable
-        //
-        // #[cfg(feature = "filter")]
-        // let filter = build_filter(self.filters);
-        //
-        // #[cfg(not(feature = "filter"))]
-        // let filter = identity;
 
         #[allow(unreachable_patterns)]
         match output_format {
