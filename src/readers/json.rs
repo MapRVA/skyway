@@ -5,7 +5,7 @@ use serde_json::from_str;
 use std::{collections::HashMap, io::Read, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{ChunkBuilder, ElementChunk},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
 };
@@ -172,7 +172,7 @@ impl Reader for JsonReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = Chunk> {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         let mut buf = String::new();
         super::get_reader(src)
             .read_to_string(&mut buf)

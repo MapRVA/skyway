@@ -9,7 +9,7 @@ use serde_aux::field_attributes::{
 use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{ChunkBuilder, ElementChunk},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
 };
@@ -246,7 +246,7 @@ impl Reader for XmlReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = Chunk> {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         // create an empty Metadata object
         let metadata = Metadata::default();
         metadata_sender

@@ -12,7 +12,7 @@ use skyfilter::parse::parse_filter;
 
 use std::{fmt::Error, fs::read_to_string, path::Path};
 
-use crate::{chunks::Chunk, elements::Element, SkywayError};
+use crate::{chunks::ElementChunk, elements::Element, SkywayError};
 
 /// Represents a filter that can be evaluated on an `Element`, transforming it.
 pub trait ElementFilter: Send + Sync {
@@ -54,13 +54,15 @@ fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error>
     Err(Error)
 }
 
-pub fn build_filter(filters: Vec<Box<dyn ElementFilter>>) -> Box<dyn Fn(Chunk) -> Chunk + Sync> {
-    Box::new(move |mut chunk: Chunk| {
+pub fn build_filter(
+    filters: Vec<Box<dyn ElementFilter>>,
+) -> Box<dyn Fn(ElementChunk) -> ElementChunk + Sync> {
+    Box::new(move |mut chunk: ElementChunk| {
         for filter in &filters {
-            chunk = Chunk {
+            chunk = ElementChunk {
                 index: chunk.index,
-                elements: chunk
-                    .elements
+                content: chunk
+                    .content
                     .into_vec()
                     .into_iter()
                     .filter_map(|element| filter.evaluate_option(element))

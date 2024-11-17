@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder, OrderedOutput},
+    chunks::{Chunk, ChunkBuilder, ElementChunk},
     elements::{ElementBuilder, ElementTypeBuilder, Member, Metadata, SimpleElementType},
     readers::Reader,
 };
@@ -161,7 +161,7 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
     }
 }
 
-fn convert_chunk(chunk: OrderedOutput<Box<[Vec<u8>]>>) -> Chunk {
+fn convert_chunk(chunk: Chunk<Box<[Vec<u8>]>>) -> ElementChunk {
     let mut elements = Vec::with_capacity(chunk.content.len());
     for line in chunk.content.iter() {
         let mut element_builder = ElementBuilder::default();
@@ -181,7 +181,7 @@ fn convert_chunk(chunk: OrderedOutput<Box<[Vec<u8>]>>) -> Chunk {
     }
     Chunk {
         index: chunk.index,
-        elements: elements.into_boxed_slice(),
+        content: elements.into_boxed_slice(),
     }
 }
 
@@ -199,7 +199,7 @@ impl Reader for OplReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = Chunk> {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         let (sender, receiver) = channel();
 
         // create an empty Metadata object
@@ -216,7 +216,7 @@ impl Reader for OplReader {
                 .into_iter()
                 .enumerate()
                 .into_iter()
-                .map(|(index, chunk)| OrderedOutput {
+                .map(|(index, chunk)| Chunk {
                     index,
                     content: chunk.collect::<Vec<Vec<u8>>>().into_boxed_slice(),
                 })

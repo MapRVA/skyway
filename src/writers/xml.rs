@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
+    chunks::{Chunk, ElementChunk, OrderedChunkIterator},
     elements::{Element, ElementType, Metadata, SimpleElementType},
     SkywayError,
 };
@@ -162,12 +162,12 @@ fn append_serialized_element(base: &mut String, element: Element) {
     }
 }
 
-fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
-    let mut output = String::with_capacity(chunk.elements.len() * 155);
-    for element in chunk.elements {
+fn serialize_chunk(chunk: ElementChunk) -> Chunk<String> {
+    let mut output = String::with_capacity(chunk.content.len() * 155);
+    for element in chunk.content {
         append_serialized_element(&mut output, element);
     }
-    OrderedOutput {
+    Chunk {
         index: chunk.index,
         content: output,
     }
@@ -175,7 +175,7 @@ fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
 
 fn write_output(
     metadata_receiver: Receiver<Metadata>,
-    data_receiver: Receiver<OrderedOutput<String>>,
+    data_receiver: Receiver<Chunk<String>>,
     dest: impl std::io::Write,
 ) {
     let metadata = metadata_receiver.into_iter().next();
@@ -185,7 +185,7 @@ fn write_output(
         .write_str(&header)
         .expect("Unable to write header to XML file!");
 
-    let ordered_chunks = OrderedOutputIterator::new(data_receiver.into_iter());
+    let ordered_chunks = OrderedChunkIterator::new(data_receiver.into_iter());
     for chunk_content in ordered_chunks {
         writer
             .write_str(&chunk_content)
@@ -213,7 +213,7 @@ impl Writer for XmlWriter {
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
-        I: IntoParallelIterator<Item = Chunk>,
+        I: IntoParallelIterator<Item = ElementChunk>,
     {
         let (sender, receiver) = channel();
         let write_thread = std::thread::spawn({

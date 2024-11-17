@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{ChunkBuilder, ElementChunk},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
     SkywayError,
@@ -165,7 +165,7 @@ impl Reader for PbfReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         _chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = Chunk> {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         let src = super::get_reader(src);
         let reader = BlobReader::new(src);
 
@@ -183,9 +183,9 @@ impl Reader for PbfReader {
             })
             .enumerate()
             .par_bridge()
-            .map(|(block_index, block)| Chunk {
+            .map(|(block_index, block)| ElementChunk {
                 index: block_index,
-                elements: block
+                content: block
                     .elements()
                     .map(convert_element)
                     .collect::<Vec<Element>>()

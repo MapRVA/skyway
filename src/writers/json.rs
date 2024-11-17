@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
+    chunks::{Chunk, ElementChunk, OrderedChunkIterator},
     elements::{Element, ElementType, Metadata, SimpleElementType},
     SkywayError,
 };
@@ -198,17 +198,17 @@ fn append_serialized_element(base: &mut String, element: Element) {
     base.push('}');
 }
 
-fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
+fn serialize_chunk(chunk: ElementChunk) -> Chunk<String> {
     let mut output = String::new();
     let mut first_element_appended = false;
-    for element in chunk.elements {
+    for element in chunk.content {
         if first_element_appended {
             output.push(',');
         }
         first_element_appended = true;
         append_serialized_element(&mut output, element);
     }
-    OrderedOutput {
+    Chunk {
         index: chunk.index,
         content: output,
     }
@@ -216,7 +216,7 @@ fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
 
 fn write_output(
     metadata_receiver: Receiver<Metadata>,
-    data_receiver: Receiver<OrderedOutput<String>>,
+    data_receiver: Receiver<Chunk<String>>,
     dest: impl std::io::Write,
     overpass: bool,
 ) {
@@ -227,7 +227,7 @@ fn write_output(
         .write_str(&header)
         .expect("Couldn't write opening metadata to output.");
 
-    let ordered_chunks = OrderedOutputIterator::new(data_receiver.into_iter());
+    let ordered_chunks = OrderedChunkIterator::new(data_receiver.into_iter());
     for chunk_content in ordered_chunks {
         writer
             .write_str(&chunk_content)
@@ -257,7 +257,7 @@ impl Writer for JsonWriter {
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
-        I: IntoParallelIterator<Item = Chunk>,
+        I: IntoParallelIterator<Item = ElementChunk>,
     {
         let (sender, receiver) = channel();
         let overpass = self.overpass.clone();

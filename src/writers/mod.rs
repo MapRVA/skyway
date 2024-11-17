@@ -7,7 +7,7 @@ use clap::ValueEnum;
 
 use std::{path::PathBuf, sync::mpsc::Receiver};
 
-use crate::{chunks::Chunk, elements::Metadata, SkywayError};
+use crate::{chunks::ElementChunk, elements::Metadata, SkywayError};
 
 #[cfg(feature = "cli")]
 use crate::FileFormatOptions;
@@ -89,5 +89,5 @@ pub trait Writer {
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
-        I: IntoParallelIterator<Item = Chunk>;
+        I: IntoParallelIterator<Item = ElementChunk>;
 }

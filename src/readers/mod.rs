@@ -13,7 +13,7 @@ use std::{
 };
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{ChunkBuilder, ElementChunk},
     elements::Metadata,
     writers::*,
     SkywayError,
@@ -116,7 +116,7 @@ pub trait Reader: Sized {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = Chunk>;
+    ) -> impl ParallelIterator<Item = ElementChunk>;
 
     fn run_conversion(
         self,

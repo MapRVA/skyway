@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use std::{fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::channel, sync::mpsc::Receiver};
 
 use crate::{
-    chunks::{Chunk, OrderedOutput, OrderedOutputIterator},
+    chunks::{Chunk, ElementChunk, OrderedChunkIterator},
     elements::{ElementType, Metadata, SimpleElementType},
     SkywayError,
 };
@@ -64,9 +64,9 @@ fn push_escaped_string(base: &mut String, input: &str) {
     }
 }
 
-fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
-    let mut output = String::with_capacity(chunk.elements.len() * 80);
-    for element in chunk.elements {
+fn serialize_chunk(chunk: ElementChunk) -> Chunk<String> {
+    let mut output = String::with_capacity(chunk.content.len() * 80);
+    for element in chunk.content {
         match element.element_type {
             ElementType::Node { .. } => {
                 output.push('n');
@@ -169,7 +169,7 @@ fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
         }
         output.push('\n');
     }
-    OrderedOutput {
+    Chunk {
         index: chunk.index,
         content: output,
     }
@@ -177,9 +177,9 @@ fn serialize_chunk(chunk: Chunk) -> OrderedOutput<String> {
 
 pub struct OplWriter {}
 
-fn write_output(chunk_iterator: Receiver<OrderedOutput<String>>, dest_buffer: impl std::io::Write) {
+fn write_output(chunk_iterator: Receiver<Chunk<String>>, dest_buffer: impl std::io::Write) {
     let mut writer = ToFmtWrite(dest_buffer);
-    let ordered_chunks = OrderedOutputIterator::new(chunk_iterator.into_iter());
+    let ordered_chunks = OrderedChunkIterator::new(chunk_iterator.into_iter());
     for chunk_content in ordered_chunks {
         writer
             .write_str(&chunk_content)
@@ -195,7 +195,7 @@ impl Writer for OplWriter {
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
-        I: IntoParallelIterator<Item = Chunk>,
+        I: IntoParallelIterator<Item = ElementChunk>,
     {
         println!("opened the writer");
         let (sender, receiver) = channel();

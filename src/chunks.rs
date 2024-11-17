@@ -2,10 +2,12 @@ use std::{cmp::Reverse, collections::BinaryHeap};
 
 use crate::elements::Element;
 
-pub struct Chunk {
+pub struct Chunk<T> {
     pub index: usize,
-    pub elements: Box<[Element]>,
+    pub content: T,
 }
+
+pub type ElementChunk = Chunk<Box<[Element]>>;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ChunkBuilder {
@@ -13,7 +15,7 @@ pub struct ChunkBuilder {
     current_index: usize,
 }
 
-pub struct ChunkIterator<I>
+pub struct ElementsIntoChunkIterator<I>
 where
     I: Iterator<Item = Element>,
 {
@@ -21,11 +23,11 @@ where
     source: I,
 }
 
-impl<I> Iterator for ChunkIterator<I>
+impl<I> Iterator for ElementsIntoChunkIterator<I>
 where
     I: Iterator<Item = Element>,
 {
-    type Item = Chunk;
+    type Item = ElementChunk;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut elements = Vec::with_capacity(self.builder.max_size);
@@ -49,66 +51,61 @@ impl ChunkBuilder {
         }
     }
 
-    pub fn build_next_chunk(&mut self, elements: Box<[Element]>) -> Chunk {
+    pub fn build_next_chunk(&mut self, elements: Box<[Element]>) -> ElementChunk {
         let chunk = Chunk {
             index: self.current_index,
-            elements,
+            content: elements,
         };
         self.current_index += 1;
         chunk
     }
 
-    pub fn chunk_iterator<I>(&self, iter: I) -> ChunkIterator<I>
+    pub fn chunk_iterator<I>(&self, iter: I) -> ElementsIntoChunkIterator<I>
     where
         I: Iterator<Item = Element>,
     {
-        ChunkIterator {
+        ElementsIntoChunkIterator {
             builder: *self,
             source: iter,
         }
     }
 }
 
-pub struct OrderedOutput<T: Sized + Send> {
-    pub index: usize,
-    pub content: T,
-}
+impl<T: Sized + Send> Eq for Chunk<T> {}
 
-impl<T: Sized + Send> Eq for OrderedOutput<T> {}
-
-impl<T: Sized + Send> PartialEq for OrderedOutput<T> {
+impl<T: Sized + Send> PartialEq for Chunk<T> {
     fn eq(&self, other: &Self) -> bool {
         self.index == other.index
     }
 }
 
-impl<T: Sized + Send> Ord for OrderedOutput<T> {
+impl<T: Sized + Send> Ord for Chunk<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         Reverse(self.index).cmp(&Reverse(other.index))
     }
 }
 
-impl<T: Sized + Send> PartialOrd for OrderedOutput<T> {
+impl<T: Sized + Send> PartialOrd for Chunk<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-pub struct OrderedOutputIterator<I, T: Sized + Send>
+pub struct OrderedChunkIterator<I, T: Sized + Send>
 where
-    I: Iterator<Item = OrderedOutput<T>>,
+    I: Iterator<Item = Chunk<T>>,
 {
     source: I,
-    buffer: BinaryHeap<OrderedOutput<T>>,
+    buffer: BinaryHeap<Chunk<T>>,
     next_index: usize,
 }
 
-impl<I, T: Sized + Send> OrderedOutputIterator<I, T>
+impl<I, T: Sized + Send> OrderedChunkIterator<I, T>
 where
-    I: Iterator<Item = OrderedOutput<T>>,
+    I: Iterator<Item = Chunk<T>>,
 {
     pub fn new(source: I) -> Self {
-        OrderedOutputIterator {
+        OrderedChunkIterator {
             source,
             buffer: BinaryHeap::new(),
             next_index: 0,
@@ -116,9 +113,9 @@ where
     }
 }
 
-impl<I, T: Sized + Send> Iterator for OrderedOutputIterator<I, T>
+impl<I, T: Sized + Send> Iterator for OrderedChunkIterator<I, T>
 where
-    I: Iterator<Item = OrderedOutput<T>>,
+    I: Iterator<Item = Chunk<T>>,
 {
     type Item = T;
 
