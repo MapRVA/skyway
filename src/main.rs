@@ -93,12 +93,8 @@ fn run() -> Result<(), SkywayError> {
         None => None,
     };
 
-    // create a Reader and Writer for this conversion
-    let reader = from.generate_reader();
-    let writer = to.generate_writer();
-
     // create a ConversionBuilder that will handle the conversion
-    let mut conversion_builder = ConversionBuilder::new(reader).with_source(src);
+    let mut conversion_builder = ConversionBuilder::new(from).with_source(src);
 
     if let Some(chunk_size) = cli.chunk_size {
         conversion_builder = conversion_builder.with_chunk_size(chunk_size)
@@ -116,7 +112,7 @@ fn run() -> Result<(), SkywayError> {
     let progress = start_progress("Running conversion...");
 
     // run the conversion with our chosen writer and destination
-    conversion_builder.run_conversion(writer, cli.output);
+    conversion_builder.run_conversion(to, cli.output)?;
 
     progress.finish_with_message("Running conversion...done");
 

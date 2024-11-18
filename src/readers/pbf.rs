@@ -2,10 +2,10 @@ use chrono::{DateTime, SecondsFormat};
 use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
 use rayon::prelude::*;
 
-use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender, thread};
+use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
-    chunks::{Chunk, ChunkBuilder},
+    chunks::{ChunkBuilder, ElementChunk},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
     SkywayError,
@@ -165,15 +165,12 @@ impl Reader for PbfReader {
         src: Option<PathBuf>,
         metadata_sender: Sender<Metadata>,
         _chunk_builder: ChunkBuilder,
-        filter: impl Fn(Chunk) -> Chunk + Sync,
-        write_thread: thread::JoinHandle<()>,
-        final_iterator: impl Fn(Chunk) + Sync,
-    ) {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         let src = super::get_reader(src);
         let reader = BlobReader::new(src);
 
         reader
-            .filter_map(|blob| match blob.unwrap().decode() {
+            .filter_map(move |blob| match blob.unwrap().decode() {
                 Ok(BlobDecode::OsmData(block)) => Some(block),
                 Ok(BlobDecode::OsmHeader(block)) => {
                     metadata_sender
@@ -186,21 +183,13 @@ impl Reader for PbfReader {
             })
             .enumerate()
             .par_bridge()
-            .map(|(block_index, block)| Chunk {
+            .map(|(block_index, block)| ElementChunk {
                 index: block_index,
-                elements: block
+                content: block
                     .elements()
                     .map(convert_element)
                     .collect::<Vec<Element>>()
                     .into_boxed_slice(),
             })
-            .map(|chunk| filter(chunk))
-            .for_each(|chunk| final_iterator(chunk));
-
-        drop(final_iterator);
-
-        write_thread
-            .join()
-            .expect("Couldn't join on write thread!!");
     }
 }

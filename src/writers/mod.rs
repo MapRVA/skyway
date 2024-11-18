@@ -1,11 +1,13 @@
 //! Writes OSM data out.
 
+use rayon::prelude::*;
+
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
 
-use std::{path::PathBuf, sync::mpsc::Receiver, thread};
+use std::{path::PathBuf, sync::mpsc::Receiver};
 
-use crate::{chunks::Chunk, elements::Metadata, SkywayError};
+use crate::{chunks::ElementChunk, elements::Metadata, SkywayError};
 
 #[cfg(feature = "cli")]
 use crate::FileFormatOptions;
@@ -13,7 +15,7 @@ use crate::FileFormatOptions;
 #[cfg(feature = "json")]
 mod json;
 #[cfg(feature = "json")]
-use json::JsonWriter;
+pub use json::JsonWriter;
 
 #[cfg(feature = "o5m")]
 mod o5m;
@@ -21,12 +23,12 @@ mod o5m;
 #[cfg(feature = "opl")]
 mod opl;
 #[cfg(feature = "opl")]
-use opl::OplWriter;
+pub use opl::OplWriter;
 
 #[cfg(feature = "xml")]
 mod xml;
 #[cfg(feature = "xml")]
-use xml::XmlWriter;
+pub use xml::XmlWriter;
 
 /// Enum that represents the different output file formats skyway supports.
 #[cfg(feature = "cli")]
@@ -50,43 +52,42 @@ pub enum OutputFileFormat {
 }
 
 #[cfg(feature = "cli")]
-impl OutputFileFormat {
-    pub fn generate_writer(self) -> Box<dyn Writer> {
-        #[allow(unreachable_patterns)]
-        match self {
-            #[cfg(feature = "json")]
-            OutputFileFormat::Json => Box::new(JsonWriter::new(false)),
-            //#[cfg(feature = "o5m")]
-            // OutputFileFormat::O5m => o5m::write_o5m(reciever, metadata, destination),
-            #[cfg(feature = "opl")]
-            OutputFileFormat::Opl => Box::new(OplWriter::new()),
-            #[cfg(feature = "json")]
-            OutputFileFormat::Overpass => Box::new(JsonWriter::new(true)),
-            #[cfg(feature = "xml")]
-            OutputFileFormat::Xml => Box::new(XmlWriter::new()),
-            _ => panic!("Feature not enabled for output format {:?}", self),
-        }
-    }
-}
-
-#[cfg(feature = "cli")]
 impl FileFormatOptions for OutputFileFormat {
     fn format_error(ext: &str) -> SkywayError {
         SkywayError::UnknownOutputFormat(ext.to_string())
     }
 }
 
+/// Enum that represents the different output file formats skyway supports.
+#[cfg(not(feature = "cli"))]
+#[derive(Clone, Debug)]
+pub enum OutputFileFormat {
+    #[cfg(feature = "json")]
+    Json,
+    // #[cfg(feature = "o5m")]
+    // #[value(name = "o5m")]
+    // O5m,
+    #[cfg(feature = "opl")]
+    Opl,
+    #[cfg(feature = "json")]
+    Overpass,
+    #[cfg(feature = "xml")]
+    Xml,
+}
+
+/// `Writer` implements the output of OpenStreetMap data in a specific format.
 pub trait Writer {
-    /// Writes data out.
+    /// Write data out from a `ParallelIterator` of `Chunk`s.
     ///
-    /// * `receiver`: Receiver for a channel of `Element`s.
-    /// * `metadata_sender`: Document-level metadata.
-    /// * `to`: File format to write.
-    /// * `destination`: Output data destination.
-    /// * `progress`: The ProgressBar for this write operation.
-    fn write_file(
+    /// * `par_iter`: Object implementing `IntoParallelIterator<Item = Chunk>`.
+    /// * `metadata_receiver`: Receiver for a channel of (1) `Metadata`.\
+    /// * `dest`: Path to output file. If None, data will be written to stdout.
+    fn write<I>(
         &self,
+        par_iter: I,
         metadata_receiver: Receiver<Metadata>,
-        destination: Option<PathBuf>,
-    ) -> (Box<dyn Fn(Chunk) + Sync>, thread::JoinHandle<()>);
+        dest: Option<PathBuf>,
+    ) -> Result<(), SkywayError>
+    where
+        I: IntoParallelIterator<Item = ElementChunk>;
 }

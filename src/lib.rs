@@ -1,7 +1,4 @@
-use chunks::ChunkBuilder;
-use readers::{Reader, Readers};
 use thiserror::Error;
-use writers::Writer;
 
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
@@ -9,22 +6,21 @@ use clap::ValueEnum;
 #[cfg(feature = "pbf")]
 use log::warn;
 
-use std::{path::PathBuf, sync::mpsc::channel};
+use std::path::PathBuf;
 
 pub mod chunks;
 pub mod elements;
 pub mod readers;
 pub mod writers;
 
+use readers::*;
+use writers::OutputFileFormat;
+
 // selective imports that deal with filters
 #[cfg(feature = "filter")]
-use filter::{build_filter, ElementFilter};
-
-#[cfg(feature = "filter")]
 pub mod filter;
-
-#[cfg(not(feature = "filter"))]
-use std::convert::identity;
+#[cfg(feature = "filter")]
+use filter::ElementFilter;
 
 // All errors skyway can return
 // this is a work in progress
@@ -44,6 +40,8 @@ pub enum SkywayError {
     InvalidFilterFile(String),
     #[error("Cannot parse filter file: {0}")]
     UnparsableFilter(String),
+    #[error("Unexpected error (this is a bug): {0}")]
+    UnexpectedError(String),
 }
 
 #[cfg(feature = "cli")]
@@ -83,26 +81,26 @@ pub trait FileFormatOptions: ValueEnum {
 // build a file conversion
 // this is the main API for skyway
 pub struct ConversionBuilder {
-    reader: Readers,
-    src: Option<PathBuf>,
+    input_format: InputFileFormat,
+    source: Option<PathBuf>,
     #[cfg(feature = "filter")]
     filters: Vec<Box<dyn ElementFilter>>,
     chunk_size: Option<usize>,
 }
 
 impl ConversionBuilder {
-    pub fn new(reader: Readers) -> Self {
+    pub fn new(input_format: InputFileFormat) -> Self {
         ConversionBuilder {
-            reader,
-            src: None,
+            input_format,
+            source: None,
             #[cfg(feature = "filter")]
             filters: Vec::new(),
             chunk_size: None,
         }
     }
 
-    pub fn with_source(mut self, src: Option<PathBuf>) -> Self {
-        self.src = src;
+    pub fn with_source(mut self, source: Option<PathBuf>) -> Self {
+        self.source = source;
         self
     }
 
@@ -117,14 +115,16 @@ impl ConversionBuilder {
         self
     }
 
-    pub fn run_conversion(self, writer: Box<dyn Writer>, dest: Option<PathBuf>) {
-        let (metadata_sender, metadata_receiver) = channel();
-
+    pub fn run_conversion(
+        self,
+        output_format: OutputFileFormat,
+        dest: Option<PathBuf>,
+    ) -> Result<(), SkywayError> {
         // set chunk_size, defaulting to 8000,
         // warning if user used custom value with PBF reader
         let chunk_size = if let Some(cs) = self.chunk_size {
             #[cfg(feature = "pbf")]
-            if matches!(self.reader, Readers::PbfReader(_)) {
+            if matches!(self.input_format, InputFileFormat::Pbf) {
                 warn!("Custom chunk size set, but the PBF does not support custom chunk sizes.");
             }
             cs
@@ -132,23 +132,43 @@ impl ConversionBuilder {
             8000
         };
 
-        let chunk_builder = ChunkBuilder::new(chunk_size);
-
-        let (final_iterator, write_thread) = writer.write_file(metadata_receiver, dest);
-
-        #[cfg(feature = "filter")]
-        let filter = build_filter(self.filters);
-
-        #[cfg(not(feature = "filter"))]
-        let filter = identity;
-
-        self.reader.read_file(
-            self.src,
-            metadata_sender,
-            chunk_builder,
-            filter,
-            write_thread,
-            final_iterator,
-        );
+        match self.input_format {
+            #[cfg(feature = "json")]
+            InputFileFormat::Json => JsonReader {}.run_conversion(
+                self.source,
+                chunk_size,
+                #[cfg(feature = "filter")]
+                self.filters,
+                output_format,
+                dest,
+            ),
+            #[cfg(feature = "opl")]
+            InputFileFormat::Opl => OplReader {}.run_conversion(
+                self.source,
+                chunk_size,
+                #[cfg(feature = "filter")]
+                self.filters,
+                output_format,
+                dest,
+            ),
+            #[cfg(feature = "pbf")]
+            InputFileFormat::Pbf => PbfReader {}.run_conversion(
+                self.source,
+                chunk_size,
+                #[cfg(feature = "filter")]
+                self.filters,
+                output_format,
+                dest,
+            ),
+            #[cfg(feature = "xml")]
+            InputFileFormat::Xml => XmlReader {}.run_conversion(
+                self.source,
+                chunk_size,
+                #[cfg(feature = "filter")]
+                self.filters,
+                output_format,
+                dest,
+            ),
+        }
     }
 }
