@@ -2,8 +2,10 @@
 authors = ["Jacob Hall <email@jacobhall.net>"]
 description = "A command-line OpenStreetMap file converter"
 edition = "2021"
+homepage = "https://maprva.github.io/skyway/"
 license = "GPL-3.0-or-later"
 name = "skyway"
+repository = "https://github.com/MapRVA/skyway"
 version = "0.4.1"
 
 [lib]
