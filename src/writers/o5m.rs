@@ -1,4 +1,5 @@
 use bit_vec::BitVec;
+use chrono::DateTime;
 
 use std::{io::Write, sync::mpsc::Receiver};
 
@@ -24,12 +25,54 @@ fn convert_tag(key: &str, value: &str) -> Vec<u8> {
     output
 }
 
-fn convert_f64(input: f64) -> Vec<u8> {
-    unimplemented!()
+struct SignedInteger(Vec<u8>);
+
+impl From<i64> for SignedInteger {
+    fn from(value: i64) -> Self {
+        if value.is_positive() {
+            SignedInteger(convert_number(&value.to_be_bytes(), SignBit::Positive))
+        } else {
+            SignedInteger(convert_number(
+                &(-value - 1).to_be_bytes(),
+                SignBit::Negative,
+            ))
+        }
+    }
 }
 
-fn convert_number(bytes: &[u8]) -> Vec<u8> {
+struct UnsignedInteger(Vec<u8>);
+
+impl From<i32> for UnsignedInteger {
+    fn from(value: i32) -> Self {
+        UnsignedInteger(convert_number(&value.to_be_bytes(), SignBit::None))
+    }
+}
+
+impl From<i64> for UnsignedInteger {
+    fn from(value: i64) -> Self {
+        UnsignedInteger(convert_number(&value.to_be_bytes(), SignBit::None))
+    }
+}
+
+struct Coord(Vec<u8>);
+
+enum SignBit {
+    Positive,
+    Negative,
+    None,
+}
+
+fn convert_number(bytes: &[u8], sign_bit: SignBit) -> Vec<u8> {
     let mut bit_vec = BitVec::from_bytes(bytes);
+
+    // if a sign bit was passed, add it to the end of the BitVec
+    // (least significant bit of least significant byte)
+    match sign_bit {
+        SignBit::Positive => bit_vec.push(false),
+        SignBit::Negative => bit_vec.push(true),
+        SignBit::None => (),
+    }
+
     let mut output: Vec<u8> = Vec::new();
     let mut split_index;
     let mut this_bit;
@@ -63,18 +106,12 @@ fn convert_number(bytes: &[u8]) -> Vec<u8> {
     output
 }
 
-// convert a signed 64-bit integer (i64) into the bit-packed
-// specification for o5m, returned as a Vec of bytes (u8)
-fn convert_i64_as_unsigned(input: i64) -> Vec<u8> {
-    convert_number(&input.to_be_bytes())
-}
-
 // convert a user id (i32) and username (String) into the
 // bit-packed specification for o5m, returned as a Vec of bytes (u8)
 fn convert_user(uid: i32, username: String) -> Vec<u8> {
     let mut output = Vec::new();
     output.push(0x00);
-    output.extend(convert_number(&uid.to_be_bytes()));
+    output.extend(convert_number(&uid.to_be_bytes(), SignBit::None));
     output.push(0x00);
     output.extend(username.as_bytes());
     output.push(0x00);
@@ -82,7 +119,63 @@ fn convert_user(uid: i32, username: String) -> Vec<u8> {
 }
 
 fn convert_index(index: usize) -> Vec<u8> {
-    convert_number(&index.to_be_bytes())
+    convert_number(&index.to_be_bytes(), SignBit::None)
+}
+
+struct DeltaCoder {
+    last_changeset: i64,
+    last_id: i64,
+    last_lat: f64,
+    last_lon: f64,
+    last_timestamp: i64,
+    last_version: i32,
+}
+
+impl DeltaCoder {
+    fn new() -> Self {
+        DeltaCoder {
+            last_changeset: 0.into(),
+            last_id: 0.into(),
+            last_lat: 0.into(),
+            last_lon: 0.into(),
+            last_timestamp: 0.into(),
+            last_version: 0.into(),
+        }
+    }
+
+    fn hit_changeset(&mut self, value: i64) -> SignedInteger {
+        let delta = value - self.last_changeset;
+        self.last_changeset = value;
+        delta.into()
+    }
+
+    fn hit_id(&mut self, value: i64) -> SignedInteger {
+        let delta = value - self.last_id;
+        self.last_id = value;
+        delta.into()
+    }
+
+    fn hit_lat(&mut self, value: f64) -> Coord {
+        unimplemented!()
+    }
+
+    fn hit_lon(&mut self, value: f64) -> Coord {
+        unimplemented!()
+    }
+
+    fn hit_timestamp(&mut self, value: &str) -> SignedInteger {
+        let datetime = DateTime::parse_from_rfc3339(value).unwrap();
+        let seconds = datetime.timestamp();
+        let delta = seconds - self.last_timestamp;
+        self.last_timestamp = seconds;
+        delta.into()
+    }
+
+    fn hit_version(&mut self, value: i32) -> UnsignedInteger {
+        let delta = value - self.last_version;
+        self.last_version = value;
+        delta.into()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -121,7 +214,11 @@ impl StringTable {
     }
 }
 
-fn convert_element(element: Element) -> Vec<u8> {
+fn convert_element(
+    element: Element,
+    delta_coder: &mut DeltaCoder,
+    string_table: &mut StringTable,
+) -> Vec<u8> {
     let mut output: Vec<u8> = Vec::new();
 
     // special code for element type
@@ -132,19 +229,37 @@ fn convert_element(element: Element) -> Vec<u8> {
     }
 
     // write element id to output
-    output.extend(convert_i64_as_unsigned(element.id));
+    output.extend(UnsignedInteger::from(element.id).0);
 
     // TODO: output version info instead of 0x00, if it is available
+    //       - version (unsigned)
+    //       - timestamp (seconds since 1970, signed, delta-coded)
+    //       - author information, only if timestamp is not zero:
+    //            - changeset (signed, delta-coded)
+    //            - uid, user (string pair)
+    //
+    // For now, let's pretend there's no version information, ever:
     output.push(0x00);
 
-    // TODO: if NODE, lon then lat
-    // TODO: if WAY, length of references (unsigned), then node references
-    // TODO: if RELATION, length of references (unsigned), then member references
+    match element.element_type {
+        ElementType::Node { lat, lon } => {
+            output.extend(delta_coder.hit_lon(lon).0);
+            output.extend(delta_coder.hit_lat(lat).0);
+        }
+        ElementType::Way { .. } => {
+            output.push(0x00); // TODO: length of the references section (unsigned)
+            output.push(0x00); // TODO: node references section (if length > 0)
+        }
+        ElementType::Relation { .. } => {
+            output.push(0x00); // TODO: length of the references section (unsigned)
+            output.push(0x00); // TODO: references section (if length > 0)
+        }
+    }
 
     // TODO: push tags to output
-    // for tag in element.tags {
-    //     output.extend(convert_tag(&tag.0, &tag.1));
-    // }
+    for tag in element.tags {
+        output.extend(convert_tag(&tag.0, &tag.1)); // TODO: make this better
+    }
 
     output
 }
@@ -213,14 +328,23 @@ pub fn write_o5m<D: Write>(receiver: Receiver<Element>, metadata: Metadata, mut 
     // TODO: write bounding box to dest?
     // TODO: write header to dest?
 
+    let mut delta_coder = DeltaCoder::new();
+    let mut string_table = StringTable::new();
+
     for element in waiting_elements {
-        dest.write(&convert_element(element))
-            .expect("Error while writing o5m output.");
+        dest.write(&convert_element(
+            element,
+            &mut delta_coder,
+            &mut string_table,
+        ))
+        .expect("Error while writing o5m output.");
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::writers::o5m::{SignedInteger, UnsignedInteger};
+
     use super::*;
 
     #[test]
@@ -241,29 +365,116 @@ mod tests {
         let expected2 = vec![0x00, 0x61, 0x74, 0x6d, 0x00, 0x6e, 0x6f, 0x00];
         assert_eq!(convert_tag(input2.0, input2.1), expected2);
     }
+
     #[test]
-    fn test_convert_id() {
+    fn test_unsigned_integer_from_i64() {
         let input1: i64 = 5;
         let expected1 = vec![0x05];
-        assert_eq!(convert_i64_as_unsigned(input1), expected1);
+        assert_eq!(UnsignedInteger::from(input1).0, expected1);
 
         let input2: i64 = 127;
         let expected2 = vec![0x7f];
-        assert_eq!(convert_i64_as_unsigned(input2), expected2);
+        assert_eq!(UnsignedInteger::from(input2).0, expected2);
 
         let input3: i64 = 323;
         let expected3 = vec![0xc3, 0x02];
-        assert_eq!(convert_i64_as_unsigned(input3), expected3);
+        assert_eq!(UnsignedInteger::from(input3).0, expected3);
 
         let input4: i64 = 16384;
         let expected4 = vec![0x80, 0x80, 0x01];
-        assert_eq!(convert_i64_as_unsigned(input4), expected4);
+        assert_eq!(UnsignedInteger::from(input4).0, expected4);
     }
+
     #[test]
     fn test_convert_user() {
         let input1: (i32, String) = (1020, String::from("John"));
         let expected1 = vec![0x00, 0xfc, 0x07, 0x00, 0x4a, 0x6f, 0x68, 0x6e, 0x00];
         assert_eq!(convert_user(input1.0, input1.1), expected1);
+    }
+
+    #[test]
+    fn test_unsigned_integer_from_i32() {
+        let input1: i32 = 5;
+        let expected1 = vec![0x05];
+        assert_eq!(UnsignedInteger::from(input1).0, expected1);
+
+        let input2: i32 = 127;
+        let expected2 = vec![0x7f];
+        assert_eq!(UnsignedInteger::from(input2).0, expected2);
+
+        let input3: i32 = 323;
+        let expected3 = vec![0xc3, 0x02];
+        assert_eq!(UnsignedInteger::from(input3).0, expected3);
+
+        let input4: i32 = 16384;
+        let expected4 = vec![0x80, 0x80, 0x01];
+        assert_eq!(UnsignedInteger::from(input4).0, expected4);
+    }
+
+    #[test]
+    fn test_signed_integer_from_i64() {
+        let input1: i64 = 4;
+        let expected1 = vec![0x08];
+        assert_eq!(SignedInteger::from(input1).0, expected1);
+
+        let input2: i64 = 64;
+        let expected2 = vec![0x80, 0x01];
+        assert_eq!(SignedInteger::from(input2).0, expected2);
+
+        let input3: i64 = -2;
+        let expected3 = vec![0x03];
+        assert_eq!(SignedInteger::from(input3).0, expected3);
+
+        let input4: i64 = -3;
+        let expected4 = vec![0x05];
+        assert_eq!(SignedInteger::from(input4).0, expected4);
+
+        let input5: i64 = -65;
+        let expected5 = vec![0x81, 0x01];
+        assert_eq!(SignedInteger::from(input5).0, expected5);
+    }
+
+    #[test]
+    fn test_delta_coder() {
+        let mut delta_coder = DeltaCoder::new();
+
+        // first node
+        assert_eq!(delta_coder.hit_id(125799 as i64).0, vec![0xce, 0xad, 0x0f]);
+        assert_eq!(
+            delta_coder.hit_timestamp("2010-09-30T19:23:30Z").0,
+            vec![0xe4, 0x8e, 0xa7, 0xca, 0x09],
+        );
+        assert_eq!(
+            delta_coder.hit_changeset(5922698 as i64).0,
+            vec![0x94, 0xfe, 0xd2, 0x05],
+        );
+        // assert_eq!(
+        //     delta_coder.hit_lon(8.7867843 as f64),
+        //     vec![0x86, 0x87, 0xe6, 0x53],
+        // );
+        // assert_eq!(
+        //     delta_coder.hit_lat(53.0749606 as f64),
+        //     vec![0xcc, 0xe2, 0x94, 0xfa, 0x03],
+        // );
+
+        // second node (each hit requires calculating a delta)
+        assert_eq!(delta_coder.hit_id(125800).0, vec![0x02]);
+        assert_eq!(
+            delta_coder.hit_timestamp("2010-09-30T19:57:15Z").0,
+            vec![0xd2, 0x1f],
+        );
+        assert_eq!(
+            delta_coder.hit_changeset(5923003 as i64).0,
+            vec![0xe2, 0x04],
+        );
+        // assert_eq!(
+        //     delta_coder.hit_lon(8.7840318 as f64),
+        //     vec![0x89, 0xae, 0x03],
+        // );
+        // assert_eq!(
+        //     delta_coder.hit_lat(53.0719347 as f64),
+        //     vec![0xe5, 0xd8, 0x03],
+        // );
     }
 
     #[test]
