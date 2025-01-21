@@ -22,7 +22,9 @@ impl IntoIterator for SignedInteger {
 
 impl From<i64> for SignedInteger {
     fn from(value: i64) -> Self {
-        if value.is_positive() {
+        if value == 0 {
+            SignedInteger(vec![0x00])
+        } else if value.is_positive() || value == 0 {
             SignedInteger(convert_number(&value.to_be_bytes(), SignBit::Positive))
         } else {
             SignedInteger(convert_number(
@@ -35,7 +37,9 @@ impl From<i64> for SignedInteger {
 
 impl From<i32> for SignedInteger {
     fn from(value: i32) -> Self {
-        if value.is_positive() {
+        if value == 0 {
+            SignedInteger(vec![0x00])
+        } else if value.is_positive() {
             SignedInteger(convert_number(&value.to_be_bytes(), SignBit::Positive))
         } else {
             SignedInteger(convert_number(
@@ -201,10 +205,20 @@ impl DeltaCoder {
     }
 
     pub fn hit_timestamp(&mut self, value: &str) -> SignedInteger {
+        println!("{:?}", value);
+
         let datetime = DateTime::parse_from_rfc3339(value).unwrap();
         let seconds = datetime.timestamp();
         let delta = seconds - self.last_timestamp;
         self.last_timestamp = seconds;
+
+        println!("{:?}", delta);
+
+        for byte in SignedInteger::from(delta) {
+            print!("{:02x} ", byte); // prints: 00, 6d, ff
+        }
+        println!();
+
         delta.into()
     }
 
@@ -295,6 +309,37 @@ mod tests {
         let input5: i64 = -65;
         let expected5 = vec![0x81, 0x01];
         assert_eq!(SignedInteger::from(input5).0, expected5);
+
+        let input6: i64 = 0;
+        let expected6 = vec![0x00];
+        assert_eq!(SignedInteger::from(input6).0, expected6);
+    }
+
+    #[test]
+    fn test_signed_integer_from_i32() {
+        let input1: i32 = 4;
+        let expected1 = vec![0x08];
+        assert_eq!(SignedInteger::from(input1).0, expected1);
+
+        let input2: i32 = 64;
+        let expected2 = vec![0x80, 0x01];
+        assert_eq!(SignedInteger::from(input2).0, expected2);
+
+        let input3: i32 = -2;
+        let expected3 = vec![0x03];
+        assert_eq!(SignedInteger::from(input3).0, expected3);
+
+        let input4: i32 = -3;
+        let expected4 = vec![0x05];
+        assert_eq!(SignedInteger::from(input4).0, expected4);
+
+        let input5: i32 = -65;
+        let expected5 = vec![0x81, 0x01];
+        assert_eq!(SignedInteger::from(input5).0, expected5);
+
+        let input6: i32 = 0;
+        let expected6 = vec![0x00];
+        assert_eq!(SignedInteger::from(input6).0, expected6);
     }
 
     #[test]
