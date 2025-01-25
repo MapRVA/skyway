@@ -5,8 +5,10 @@ char = {
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
-string = @{ char* }
-quoted_string = _{ "\"" ~ string ~ "\"" }
+raw_string = @{ char* }
+quoted_string = { "\"" ~ raw_string ~ "\"" }
+regex = { "r\"" ~ raw_string ~ "\"" }
+string = _{ quoted_string | regex }
 
 // comments
 comment = _{ "#" ~ (!NEWLINE ~ ANY)* }
@@ -20,9 +22,9 @@ header = _{ "SkyFilter " ~ "v"? ~ version ~ NEWLINE{2}}
 
 // modifier statements
 set = { "SET " ~ quoted_string ~ " " ~ quoted_string }
-rename = { "RENAME " ~ quoted_string ~ " " ~ quoted_string }
-keep = { "KEEP " ~ quoted_string ~ (", " ~ quoted_string)* }
-delete = { "DELETE " ~ quoted_string ~ (", " ~ quoted_string)* }
+rename = { "RENAME " ~ string ~ " " ~ quoted_string }
+keep = { "KEEP " ~ string ~ (", " ~ string)* }
+delete = { "DELETE " ~ string ~ (", " ~ string)* }
 commit = { "COMMIT" }
 drop = { "DROP" }
 
@@ -36,8 +38,8 @@ relation = { "relation" }
 osm_type = _{ node | way | relation } // TODO: add "area"
 type_selector = { "TYPE " ~ osm_type ~ (", " ~ osm_type)* }
 
-has = { "HAS " ~ quoted_string }
-equals = { "EQUALS " ~ quoted_string ~ " " ~ quoted_string }
+has = { "HAS " ~ string }
+equals = { "EQUALS " ~ string ~ " " ~ string }
 
 // TODO: add timestamps, since, before, user, uid, id, version
 

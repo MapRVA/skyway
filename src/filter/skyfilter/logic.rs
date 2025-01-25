@@ -1,5 +1,22 @@
+use regex::Regex;
+
 use crate::elements::{Element, ElementType};
 use crate::filter::ElementFilter;
+
+#[derive(Debug)]
+pub enum StringOrRegex {
+    String(String),
+    Regex(Regex),
+}
+
+impl PartialEq<String> for StringOrRegex {
+    fn eq(&self, other: &String) -> bool {
+        match self {
+            StringOrRegex::String(s) => s.eq(other),
+            StringOrRegex::Regex(r) => r.is_match(other),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum SelectorStatement {
@@ -9,11 +26,11 @@ pub enum SelectorStatement {
         relation: bool,
     },
     Has {
-        key: String,
+        key: StringOrRegex,
     },
     Equals {
-        key: String,
-        value: String,
+        key: StringOrRegex,
+        value: StringOrRegex,
     },
 }
 
@@ -30,7 +47,7 @@ fn test_selector(selector: &SelectorStatement, element: &Element) -> bool {
         },
         SelectorStatement::Has { key } => element.tags.contains_key(key),
         SelectorStatement::Equals { key, value } => match element.tags.get(key) {
-            Some(v) => v == value,
+            Some(v) => value == v,
             _ => false,
         },
     }
@@ -42,17 +59,17 @@ pub enum Statement {
     CommitStatement,
     DropStatement,
     DeleteStatement {
-        keys: Vec<String>,
+        keys: Vec<StringOrRegex>,
     },
     KeepStatement {
-        keys: Vec<String>,
+        keys: Vec<StringOrRegex>,
     },
     SetStatement {
         key: String,
         value: String,
     },
     RenameStatement {
-        old_key: String,
+        old_key: StringOrRegex,
         new_key: String,
     },
     SelectionBlock {
@@ -72,13 +89,12 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
         Statement::CommitStatement => StatementResult::Commit,
         Statement::DropStatement => StatementResult::Drop,
         Statement::DeleteStatement { keys } => {
-            for key in keys {
-                element.tags.remove(key);
-            }
+            element.tags.retain(|k, _| !keys.iter().any(|e| e == k));
             StatementResult::Continue
         }
         Statement::KeepStatement { keys } => {
-            element.tags.retain(|k, _| keys.contains(k));
+            element.tags.retain(|k, _| keys.iter().any(|e| e == k));
+            // element.tags.retain(|k, _| keys.contains(k));
             StatementResult::Continue
         }
         Statement::SetStatement { key, value } => {
@@ -86,9 +102,22 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
             StatementResult::Continue
         }
         Statement::RenameStatement { old_key, new_key } => {
-            if let Some(v) = element.tags.remove(old_key) {
-                element.tags.insert(new_key.to_owned(), v);
+            match old_key {
+                StringOrRegex::String(s) => {
+                    if let Some(v) = element.tags.remove(s) {
+                        element.tags.insert(new_key.to_owned(), v);
+                    }
+                }
+                StringOrRegex::Regex(r) => {
+                    for (k, v) in element.tags.iter() {
+                        if r.is_match(&k) {
+                            element.tags.remove(k);
+                            element.tags.insert(new_key.to_owned(), v.to_owned());
+                        }
+                    }
+                }
             }
+
             StatementResult::Continue
         }
         Statement::SelectionBlock {

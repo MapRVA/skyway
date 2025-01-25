@@ -1,8 +1,9 @@
 use pest::iterators::Pair;
 use pest::Parser;
 use pest_derive::Parser;
+use regex::Regex;
 
-use crate::filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement};
+use crate::filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement, StringOrRegex};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -18,11 +19,22 @@ fn collect_inner_strings(pair: Pair<Rule>) -> Vec<String> {
     pair.into_inner().map(|x| get_inner_string(&x)).collect()
 }
 
+fn get_inner_string_or_regex(pair: &Pair<Rule>) -> StringOrRegex {
+    println!("{:?}", pair);
+    StringOrRegex::String(pair.as_span().as_str().to_owned())
+}
+
+fn collect_inner_strings_or_regexes(pair: Pair<Rule>) -> Vec<StringOrRegex> {
+    pair.into_inner()
+        .map(|x| get_inner_string_or_regex(&x))
+        .collect()
+}
+
 fn parse_set_statement(pair: Pair<Rule>) -> Statement {
     let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
     match &inner[..] {
         [key, value] => Statement::SetStatement {
-            key: get_inner_string(key),
+            key: get_inner_string_or_regex(key),
             value: get_inner_string(value),
         },
         _ => panic!("Invalid set statement"),
@@ -33,7 +45,7 @@ fn parse_rename_statement(pair: Pair<Rule>) -> Statement {
     let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
     match &inner[..] {
         [key, value] => Statement::RenameStatement {
-            old_key: get_inner_string(key),
+            old_key: get_inner_string_or_regex(key),
             new_key: get_inner_string(value),
         },
         _ => panic!("Invalid rename statement"),
@@ -52,15 +64,15 @@ fn parse_type_selector(pair: Pair<Rule>) -> SelectorStatement {
 fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
     let mut inner = pair.into_inner();
     SelectorStatement::Equals {
-        key: get_inner_string(&inner.next().unwrap()),
-        value: get_inner_string(&inner.next().unwrap()),
+        key: get_inner_string_or_regex(&inner.next().unwrap()),
+        value: get_inner_string_or_regex(&inner.next().unwrap()),
     }
 }
 
 fn parse_selector(pair: Pair<Rule>) -> SelectorStatement {
     match pair.as_rule() {
         Rule::has => SelectorStatement::Has {
-            key: get_inner_string(&pair.into_inner().next().unwrap()),
+            key: get_inner_string_or_regex(&pair.into_inner().next().unwrap()),
         },
         Rule::equals => parse_equals_selector(pair),
         Rule::type_selector => parse_type_selector(pair),
@@ -83,11 +95,11 @@ fn interpret_statement(pair: Pair<Rule>) -> Statement {
         Rule::commit => Statement::CommitStatement,
         Rule::drop => Statement::DropStatement,
         Rule::delete => Statement::DeleteStatement {
-            keys: collect_inner_strings(pair),
+            keys: collect_inner_strings_or_regexes(pair),
         },
         Rule::set => parse_set_statement(pair),
         Rule::keep => Statement::KeepStatement {
-            keys: collect_inner_strings(pair),
+            keys: collect_inner_strings_or_regexes(pair),
         },
         Rule::rename => parse_rename_statement(pair),
         Rule::selection_block => parse_selection_block(pair),

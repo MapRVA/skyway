@@ -1465,6 +1465,7 @@ dependencies = [
  "pest_derive",
  "quick-xml",
  "rayon",
+ "regex",
  "serde",
  "serde-aux",
  "serde_json",
