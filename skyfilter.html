@@ -186,20 +186,20 @@ COMMIT                                   # commit the element
 You can nest selection blocks.</p>
 <ul>
 <li><code>TYPE way, node</code> — Selects elements of specified type(s), in a comma-separated list.</li>
-<li><code>HAS "key"</code> — Selects elements with tag <code>key</code>.</li>
-<li><code>EQUALS "key" "value"</code> — Selects elements with tag <code>key</code> equalling <code>value</code>.</li>
+<li><code>HAS "key"</code> — Selects elements with tag <code>key</code>. This can be a regular expression (regex, see below).</li>
+<li><code>EQUALS "key" "value"</code> — Selects elements with tag <code>key</code> equalling <code>value</code>. The <code>value</code> may be a regular expression.</li>
 </ul>
 <h3 id="modifiers"><a class="header" href="#modifiers">Modifiers</a></h3>
 <ul>
 <li><code>COMMIT</code> — Commits element as it currently is to be written to output. Short-circuits the rest of the filter for that element.</li>
 <li><code>DROP</code> — Drops element, i.e. excluding it entirely from the output. Short-circuits the rest of the filter for that element.</li>
 <li><code>SET "key" "value"</code> — Sets tag <code>key</code> to <code>value</code>.</li>
-<li><code>KEEP "key_one", "key_two"</code> — Only keep tags with specified key(s), removing any others from the element.</li>
+<li><code>KEEP "key_one", "key_two"</code> — Only keep tags with specified key(s), removing any others from the element. These may be regular expressions.</li>
 <li><code>RENAME "oldkey" "newkey"</code> — Renames tag <code>oldkey</code> to <code>newkey</code>, keeping the value of the tag the same.</li>
-<li><code>DELETE "key_one", "key_two"</code> — Removes tag(s) with specified key(s) from the element.</li>
+<li><code>DELETE "key_one", "key_two"</code> — Removes tag(s) with specified key(s) from the element. These may be regular expressions.</li>
 </ul>
-<h2 id="using-regex"><a class="header" href="#using-regex">Using Regex</a></h2>
-<p>Many SkyFilter statements accept regex strings (see above).
+<h2 id="using-regular-expressions-regex"><a class="header" href="#using-regular-expressions-regex">Using Regular Expressions (Regex)</a></h2>
+<p>Many SkyFilter statements accept regular expressions (see above).
 While regular strings are wrapped in double quotes (e.g. <code>"footway"</code>) regex strings are prefixed with <code>r</code> before the first quote, like this: <code>r"^tiger:"</code>.</p>
 <h3 id="regex-syntax"><a class="header" href="#regex-syntax">Regex Syntax</a></h3>
 <p>SkyFilter uses the <a href="https://docs.rs/regex/latest/regex/">regex</a> crate to parse regex expressions. See <a href="https://docs.rs/regex/latest/regex/#syntax">here</a> for a detailed description of its syntax.</p>
