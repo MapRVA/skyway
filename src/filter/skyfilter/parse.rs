@@ -20,8 +20,11 @@ fn collect_inner_strings(pair: Pair<Rule>) -> Vec<String> {
 }
 
 fn get_inner_string_or_regex(pair: &Pair<Rule>) -> StringOrRegex {
-    println!("{:?}", pair);
-    StringOrRegex::String(pair.as_span().as_str().to_owned())
+    match pair.as_rule() {
+        Rule::quoted_string => StringOrRegex::String(pair.as_span().as_str().to_owned()),
+        Rule::regex => StringOrRegex::Regex(Regex::new(pair.as_span().as_str()).unwrap()),
+        _ => unreachable!(),
+    }
 }
 
 fn collect_inner_strings_or_regexes(pair: Pair<Rule>) -> Vec<StringOrRegex> {
@@ -34,7 +37,7 @@ fn parse_set_statement(pair: Pair<Rule>) -> Statement {
     let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
     match &inner[..] {
         [key, value] => Statement::SetStatement {
-            key: get_inner_string_or_regex(key),
+            key: get_inner_string(key),
             value: get_inner_string(value),
         },
         _ => panic!("Invalid set statement"),
@@ -64,7 +67,7 @@ fn parse_type_selector(pair: Pair<Rule>) -> SelectorStatement {
 fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
     let mut inner = pair.into_inner();
     SelectorStatement::Equals {
-        key: get_inner_string_or_regex(&inner.next().unwrap()),
+        key: get_inner_string(&inner.next().unwrap()),
         value: get_inner_string_or_regex(&inner.next().unwrap()),
     }
 }

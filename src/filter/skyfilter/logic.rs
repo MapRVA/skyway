@@ -29,7 +29,7 @@ pub enum SelectorStatement {
         key: StringOrRegex,
     },
     Equals {
-        key: StringOrRegex,
+        key: String,
         value: StringOrRegex,
     },
 }
@@ -45,7 +45,10 @@ fn test_selector(selector: &SelectorStatement, element: &Element) -> bool {
             ElementType::Way { .. } => way.to_owned(),
             ElementType::Relation { .. } => relation.to_owned(),
         },
-        SelectorStatement::Has { key } => element.tags.contains_key(key),
+        SelectorStatement::Has { key } => match key {
+            StringOrRegex::String(s) => element.tags.contains_key(s),
+            StringOrRegex::Regex(r) => element.tags.keys().any(|k| r.is_match(k)),
+        },
         SelectorStatement::Equals { key, value } => match element.tags.get(key) {
             Some(v) => value == v,
             _ => false,
@@ -94,7 +97,6 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
         }
         Statement::KeepStatement { keys } => {
             element.tags.retain(|k, _| keys.iter().any(|e| e == k));
-            // element.tags.retain(|k, _| keys.contains(k));
             StatementResult::Continue
         }
         Statement::SetStatement { key, value } => {
@@ -109,11 +111,16 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
                     }
                 }
                 StringOrRegex::Regex(r) => {
-                    for (k, v) in element.tags.iter() {
-                        if r.is_match(&k) {
-                            element.tags.remove(k);
-                            element.tags.insert(new_key.to_owned(), v.to_owned());
-                        }
+                    let matches: Vec<(String, String)> = element
+                        .tags
+                        .iter()
+                        .filter(|(k, _)| r.is_match(k))
+                        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+                        .collect();
+
+                    for (matched_key, value) in matches {
+                        element.tags.remove(&matched_key);
+                        element.tags.insert(new_key.to_owned(), value);
                     }
                 }
             }

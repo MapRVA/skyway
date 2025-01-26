@@ -39,7 +39,7 @@ osm_type = _{ node | way | relation } // TODO: add "area"
 type_selector = { "TYPE " ~ osm_type ~ (", " ~ osm_type)* }
 
 has = { "HAS " ~ string }
-equals = { "EQUALS " ~ string ~ " " ~ string }
+equals = { "EQUALS " ~ quoted_string ~ " " ~ string }
 
 // TODO: add timestamps, since, before, user, uid, id, version
 
