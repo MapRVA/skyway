@@ -47,7 +47,7 @@ fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error>
     }
 
     #[cfg(feature = "cel")]
-    if let Some(f) = compile_cel_filter(filter_contents) {
+    if let Ok(f) = compile_cel_filter(filter_contents) {
         return Ok(Box::new(f));
     }
 

@@ -1,3 +1,5 @@
+use std::fmt::Error;
+
 use crate::filter::ElementFilter;
 use cel_interpreter::{Context, Program, Value};
 
@@ -56,12 +58,7 @@ impl ElementFilter for CelFilter {
     }
 }
 
-pub fn compile_cel_filter(filter_content: &str) -> Option<CelFilter> {
-    let program = match Program::compile(filter_content) {
-        Ok(p) => p,
-        Err(e) => {
-            panic!("Error parsing CEL filter: {e:?}");
-        }
-    };
-    Some(CelFilter(program))
+pub fn compile_cel_filter(filter_content: &str) -> Result<CelFilter, Error> {
+    let program = Program::compile(filter_content).map_err(|_| Error)?;
+    Ok(CelFilter(program))
 }
