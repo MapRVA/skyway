@@ -11,43 +11,42 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[grammar = "filter/skyfilter/skyfilter.pest"]
 struct SkyFilterParser;
 
-fn get_inner_string(pair: &Pair<Rule>) -> String {
-    pair.as_span().as_str().to_owned()
+fn get_inner_string(pair: Pair<Rule>) -> String {
+    pair.into_inner()
+        .next()
+        .unwrap()
+        .as_span()
+        .as_str()
+        .to_owned()
 }
 
-fn get_inner_string_or_regex(pair: &Pair<Rule>) -> StringOrRegex {
+fn get_inner_string_or_regex(pair: Pair<Rule>) -> StringOrRegex {
     match pair.as_rule() {
-        Rule::quoted_string => StringOrRegex::String(pair.as_span().as_str().to_owned()),
-        Rule::regex => StringOrRegex::Regex(Regex::new(pair.as_span().as_str()).unwrap()),
+        Rule::quoted_string => StringOrRegex::String(get_inner_string(pair)),
+        Rule::regex => StringOrRegex::Regex(Regex::new(&get_inner_string(pair)).unwrap()), // TODO: better error handling here
         _ => unreachable!(),
     }
 }
 
 fn collect_inner_strings_or_regexes(pair: Pair<Rule>) -> Vec<StringOrRegex> {
     pair.into_inner()
-        .map(|x| get_inner_string_or_regex(&x))
+        .map(|x| get_inner_string_or_regex(x))
         .collect()
 }
 
 fn parse_set_statement(pair: Pair<Rule>) -> Statement {
-    let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
-    match &inner[..] {
-        [key, value] => Statement::SetStatement {
-            key: get_inner_string(key),
-            value: get_inner_string(value),
-        },
-        _ => panic!("Invalid set statement"),
+    let mut inner = pair.into_inner();
+    Statement::SetStatement {
+        key: get_inner_string(inner.next().unwrap()),
+        value: get_inner_string(inner.next().unwrap()),
     }
 }
 
 fn parse_rename_statement(pair: Pair<Rule>) -> Statement {
-    let inner: Vec<Pair<Rule>> = pair.into_inner().collect();
-    match &inner[..] {
-        [key, value] => Statement::RenameStatement {
-            old_key: get_inner_string_or_regex(key),
-            new_key: get_inner_string(value),
-        },
-        _ => panic!("Invalid rename statement"),
+    let mut inner = pair.into_inner();
+    Statement::RenameStatement {
+        old_key: get_inner_string_or_regex(inner.next().unwrap()),
+        new_key: get_inner_string(inner.next().unwrap()),
     }
 }
 
@@ -63,15 +62,15 @@ fn parse_type_selector(pair: Pair<Rule>) -> SelectorStatement {
 fn parse_equals_selector(pair: Pair<Rule>) -> SelectorStatement {
     let mut inner = pair.into_inner();
     SelectorStatement::Equals {
-        key: get_inner_string(&inner.next().unwrap()),
-        value: get_inner_string_or_regex(&inner.next().unwrap()),
+        key: get_inner_string(inner.next().unwrap()),
+        value: get_inner_string_or_regex(inner.next().unwrap()),
     }
 }
 
 fn parse_selector(pair: Pair<Rule>) -> SelectorStatement {
     match pair.as_rule() {
         Rule::has => SelectorStatement::Has {
-            key: get_inner_string_or_regex(&pair.into_inner().next().unwrap()),
+            key: get_inner_string_or_regex(pair.into_inner().next().unwrap()),
         },
         Rule::equals => parse_equals_selector(pair),
         Rule::type_selector => parse_type_selector(pair),
