@@ -1446,7 +1446,7 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "skyway"
-version = "0.4.1"
+version = "0.5.0"
 dependencies = [
  "bit-vec 0.8.0",
  "cel-interpreter",
