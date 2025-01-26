@@ -15,10 +15,6 @@ fn get_inner_string(pair: &Pair<Rule>) -> String {
     pair.as_span().as_str().to_owned()
 }
 
-fn collect_inner_strings(pair: Pair<Rule>) -> Vec<String> {
-    pair.into_inner().map(|x| get_inner_string(&x)).collect()
-}
-
 fn get_inner_string_or_regex(pair: &Pair<Rule>) -> StringOrRegex {
     match pair.as_rule() {
         Rule::quoted_string => StringOrRegex::String(pair.as_span().as_str().to_owned()),
