@@ -112,11 +112,11 @@ fn append_serialized_element(base: &mut String, element: Element) {
             append_serialized_metadata(base, &element);
 
             if element.tags.is_empty() {
-                base.push('>');
+                base.push_str("/>\n");
+            } else {
+                base.push_str(">\n");
                 append_serialized_tags(base, &element);
                 base.push_str(" </node>\n");
-            } else {
-                base.push_str("/>\n")
             }
         }
         ElementType::Way { nodes } => {
