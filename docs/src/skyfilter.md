@@ -38,14 +38,23 @@ A selector must be followed by one or more tab-indented statements (either a mod
 You can nest selection blocks.
 
 - `TYPE way, node` — Selects elements of specified type(s), in a comma-separated list.
-- `HAS "key"` — Selects elements with tag `key`.
-- `EQUALS "key" "value"` — Selects elements with tag `key` equalling `value`.
+- `HAS "key"` — Selects elements with tag `key`. This can be a regular expression (regex, see below).
+- `EQUALS "key" "value"` — Selects elements with tag `key` equalling `value`. The `value` may be a regular expression.
 
 ### Modifiers
 
 - `COMMIT` — Commits element as it currently is to be written to output. Short-circuits the rest of the filter for that element.
 - `DROP` — Drops element, i.e. excluding it entirely from the output. Short-circuits the rest of the filter for that element.
 - `SET "key" "value"` — Sets tag `key` to `value`.
-- `KEEP "key_one", "key_two"` — Only keep tags with specified key(s), removing any others from the element.
+- `KEEP "key_one", "key_two"` — Only keep tags with specified key(s), removing any others from the element. These may be regular expressions.
 - `RENAME "oldkey" "newkey"` — Renames tag `oldkey` to `newkey`, keeping the value of the tag the same.
-- `DELETE "key_one", "key_two"` — Removes tag(s) with specified key(s) from the element.
+- `DELETE "key_one", "key_two"` — Removes tag(s) with specified key(s) from the element. These may be regular expressions.
+
+## Using Regular Expressions (Regex)
+
+Many SkyFilter statements accept regular expressions (see above).
+While regular strings are wrapped in double quotes (e.g. `"footway"`) regex strings are prefixed with `r` before the first quote, like this: `r"^tiger:"`.
+
+### Regex Syntax
+
+SkyFilter uses the [regex](https://docs.rs/regex/latest/regex/) crate to parse regex expressions. See [here](https://docs.rs/regex/latest/regex/#syntax) for a detailed description of its syntax.
