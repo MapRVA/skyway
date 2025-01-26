@@ -293,6 +293,11 @@ You can nest selection blocks.</p>
 <li><code>RENAME "oldkey" "newkey"</code> — Renames tag <code>oldkey</code> to <code>newkey</code>, keeping the value of the tag the same.</li>
 <li><code>DELETE "key_one", "key_two"</code> — Removes tag(s) with specified key(s) from the element.</li>
 </ul>
+<h2 id="using-regex"><a class="header" href="#using-regex">Using Regex</a></h2>
+<p>Many SkyFilter statements accept regex strings (see above).
+While regular strings are wrapped in double quotes (e.g. <code>"footway"</code>) regex strings are prefixed with <code>r</code> before the first quote, like this: <code>r"^tiger:"</code>.</p>
+<h3 id="regex-syntax"><a class="header" href="#regex-syntax">Regex Syntax</a></h3>
+<p>SkyFilter uses the <a href="https://docs.rs/regex/latest/regex/">regex</a> crate to parse regex expressions. See <a href="https://docs.rs/regex/latest/regex/#syntax">here</a> for a detailed description of its syntax.</p>
 
                     </main>
 
