@@ -72,7 +72,7 @@ pub enum Statement {
         value: String,
     },
     RenameStatement {
-        old_key: StringOrRegex,
+        old_key: String,
         new_key: String,
     },
     SelectionBlock {
@@ -104,27 +104,9 @@ fn evaluate_statement(statement: &Statement, element: &mut Element) -> Statement
             StatementResult::Continue
         }
         Statement::RenameStatement { old_key, new_key } => {
-            match old_key {
-                StringOrRegex::String(s) => {
-                    if let Some(v) = element.tags.remove(s) {
-                        element.tags.insert(new_key.to_owned(), v);
-                    }
-                }
-                StringOrRegex::Regex(r) => {
-                    let matches: Vec<(String, String)> = element
-                        .tags
-                        .iter()
-                        .filter(|(k, _)| r.is_match(k))
-                        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-                        .collect();
-
-                    for (matched_key, value) in matches {
-                        element.tags.remove(&matched_key);
-                        element.tags.insert(new_key.to_owned(), value);
-                    }
-                }
+            if let Some(v) = element.tags.remove(old_key) {
+                element.tags.insert(new_key.to_owned(), v);
             }
-
             StatementResult::Continue
         }
         Statement::SelectionBlock {

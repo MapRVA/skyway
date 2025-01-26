@@ -45,7 +45,7 @@ fn parse_set_statement(pair: Pair<Rule>) -> Statement {
 fn parse_rename_statement(pair: Pair<Rule>) -> Statement {
     let mut inner = pair.into_inner();
     Statement::RenameStatement {
-        old_key: get_inner_string_or_regex(inner.next().unwrap()),
+        old_key: get_inner_string(inner.next().unwrap()),
         new_key: get_inner_string(inner.next().unwrap()),
     }
 }
