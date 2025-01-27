@@ -2,7 +2,11 @@ use chrono::{DateTime, SecondsFormat};
 use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
 use rayon::prelude::*;
 
-use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 use crate::{
     chunks::{ChunkBuilder, ElementChunk},
@@ -163,19 +167,21 @@ impl Reader for PbfReader {
     fn read_file(
         self,
         src: Option<PathBuf>,
-        metadata_sender: Sender<Metadata>,
         _chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = ElementChunk> {
+    ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata) {
         let src = super::get_reader(src);
         let reader = BlobReader::new(src);
 
-        reader
+        let metadata_cell = Arc::new(OnceLock::new());
+        let metadata_cell_clone = metadata_cell.clone();
+
+        let iterator = reader
             .filter_map(move |blob| match blob.unwrap().decode() {
                 Ok(BlobDecode::OsmData(block)) => Some(block),
                 Ok(BlobDecode::OsmHeader(block)) => {
-                    metadata_sender
-                        .send(build_metadata_from_block(block))
-                        .expect("Couldn't send metadata to main thread!");
+                    metadata_cell_clone
+                        .set(build_metadata_from_block(block))
+                        .expect("Metadata cannot be set twice!");
                     None
                 }
                 Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
@@ -190,6 +196,13 @@ impl Reader for PbfReader {
                     .map(convert_element)
                     .collect::<Vec<Element>>()
                     .into_boxed_slice(),
-            })
+            });
+
+        let metadata = metadata_cell
+            .get()
+            .expect("No header block found in PBF file.")
+            .clone();
+
+        (iterator, metadata)
     }
 }

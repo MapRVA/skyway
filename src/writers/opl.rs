@@ -1,7 +1,16 @@
 use lexical;
 use rayon::prelude::*;
 
-use std::{fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::channel, sync::mpsc::Receiver};
+use std::{
+    fmt::Write,
+    fs,
+    io::stdout,
+    path::PathBuf,
+    sync::{
+        mpsc::{channel, Receiver},
+        Arc,
+    },
+};
 
 use crate::{
     chunks::{Chunk, ElementChunk, OrderedChunkIterator},
@@ -191,7 +200,7 @@ impl Writer for OplWriter {
     fn write<I>(
         &self,
         par_iter: I,
-        metadata_receiver: Receiver<Metadata>,
+        _metadata: Arc<Metadata>,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
@@ -200,17 +209,14 @@ impl Writer for OplWriter {
         println!("opened the writer");
         let (sender, receiver) = channel();
         let write_thread = std::thread::spawn({
-            move || {
-                let _metadata = metadata_receiver.into_iter().next();
-                match dest {
-                    None => write_output(receiver, stdout()),
-                    Some(a) => match fs::File::create(PathBuf::from(a)) {
-                        Ok(b) => write_output(receiver, b),
-                        Err(e) => {
-                            panic!("Unable to open output file: {e:?}");
-                        }
-                    },
-                }
+            move || match dest {
+                None => write_output(receiver, stdout()),
+                Some(a) => match fs::File::create(PathBuf::from(a)) {
+                    Ok(b) => write_output(receiver, b),
+                    Err(e) => {
+                        panic!("Unable to open output file: {e:?}");
+                    }
+                },
             }
         });
 

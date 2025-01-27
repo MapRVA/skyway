@@ -1,7 +1,7 @@
 use chrono::DateTime;
 use rayon::prelude::*;
 
-use std::{fs::File, io::stdout, path::PathBuf, sync::mpsc::Receiver};
+use std::{fs::File, io::stdout, path::PathBuf, sync::Arc};
 
 use crate::{
     chunks::ElementChunk,
@@ -166,16 +166,11 @@ impl Iterator for WaitingElements {
     }
 }
 
-fn write_output<I>(
-    metadata_receiver: Receiver<Metadata>,
-    par_iter: I,
-    mut dest: impl std::io::Write,
-) where
+fn write_output<I>(metadata: Metadata, par_iter: I, mut dest: impl std::io::Write)
+where
     I: IntoParallelIterator<Item = ElementChunk>,
 {
     let mut waiting_elements = WaitingElements::new();
-
-    let metadata = metadata_receiver.into_iter().next();
 
     let chunks: Vec<ElementChunk> = par_iter.into_par_iter().collect();
 
@@ -202,31 +197,30 @@ fn write_output<I>(
         .expect("Unable to write header to o5m output.");
 
     // write file timestamp to output, if there is one
-    if let Some(m) = metadata {
-        if let Some(t) = m.timestamp {
-            match DateTime::parse_from_rfc3339(&t) {
-                Ok(d) => {
-                    // byte that signals start of timestamp dataset
-                    dest.write(&vec![0xdc])
-                        .expect("Unable to write pre-timestamp byte to output.");
 
-                    // calculate timestamp bytes
-                    let timestamp_bytes = &Vec::<u8>::from(SignedInteger::from(d.timestamp()));
+    if let Some(t) = metadata.timestamp {
+        match DateTime::parse_from_rfc3339(&t) {
+            Ok(d) => {
+                // byte that signals start of timestamp dataset
+                dest.write(&vec![0xdc])
+                    .expect("Unable to write pre-timestamp byte to output.");
 
-                    // write length of timestamp dataset to output
-                    dest.write(&Vec::<u8>::from(UnsignedInteger::from(
-                        timestamp_bytes.len(),
-                    )))
-                    .expect("Unable to write length of timestamp dataset to output.");
+                // calculate timestamp bytes
+                let timestamp_bytes = &Vec::<u8>::from(SignedInteger::from(d.timestamp()));
 
-                    // write the rest of timestamp dataset to output
-                    dest.write(timestamp_bytes)
-                        .expect("Unable to write timestamp to output.");
-                }
-                Err(_) => {
-                    // FIXME: Do better datetime parsing upstream
-                    println!("WARNING: Unable to parse input timestamp as datetime.")
-                }
+                // write length of timestamp dataset to output
+                dest.write(&Vec::<u8>::from(UnsignedInteger::from(
+                    timestamp_bytes.len(),
+                )))
+                .expect("Unable to write length of timestamp dataset to output.");
+
+                // write the rest of timestamp dataset to output
+                dest.write(timestamp_bytes)
+                    .expect("Unable to write timestamp to output.");
+            }
+            Err(_) => {
+                // FIXME: Do better datetime parsing upstream
+                println!("WARNING: Unable to parse input timestamp as datetime.")
             }
         }
     }
@@ -287,16 +281,16 @@ impl Writer for O5mWriter {
     fn write<I>(
         &self,
         par_iter: I,
-        metadata_receiver: Receiver<Metadata>,
+        metadata: Arc<Metadata>,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
         I: IntoParallelIterator<Item = ElementChunk>,
     {
         match dest {
-            None => write_output(metadata_receiver, par_iter, stdout()),
+            None => write_output((*metadata).clone(), par_iter, stdout()),
             Some(a) => match File::create(PathBuf::from(a)) {
-                Ok(b) => write_output(metadata_receiver, par_iter, b),
+                Ok(b) => write_output((*metadata).clone(), par_iter, b),
                 Err(e) => {
                     panic!("Unable to open output file: {e:?}");
                 }

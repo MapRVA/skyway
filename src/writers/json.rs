@@ -7,7 +7,10 @@ use std::{
     fs::File,
     io::stdout,
     path::PathBuf,
-    sync::mpsc::{channel, Receiver},
+    sync::{
+        mpsc::{channel, Receiver},
+        Arc,
+    },
 };
 
 use crate::{
@@ -215,14 +218,13 @@ fn serialize_chunk(chunk: ElementChunk) -> Chunk<String> {
 }
 
 fn write_output(
-    metadata_receiver: Receiver<Metadata>,
+    metadata: Metadata,
     data_receiver: Receiver<Chunk<String>>,
     dest: impl std::io::Write,
     overpass: bool,
 ) {
-    let metadata = metadata_receiver.into_iter().next();
     let mut writer = ToFmtWrite(dest);
-    let header = create_header(metadata.unwrap(), overpass); // TODO: better error message if this unexpectedly panics
+    let header = create_header(metadata, overpass); // TODO: better error message if this unexpectedly panics
     writer
         .write_str(&header)
         .expect("Couldn't write opening metadata to output.");
@@ -253,7 +255,7 @@ impl Writer for JsonWriter {
     fn write<I>(
         &self,
         par_iter: I,
-        metadata_receiver: Receiver<Metadata>,
+        metadata: Arc<Metadata>,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
@@ -264,9 +266,9 @@ impl Writer for JsonWriter {
         let write_thread = std::thread::spawn({
             move || {
                 match dest {
-                    None => write_output(metadata_receiver, receiver, stdout(), overpass),
+                    None => write_output((*metadata).clone(), receiver, stdout(), overpass),
                     Some(a) => match File::create(PathBuf::from(a)) {
-                        Ok(b) => write_output(metadata_receiver, receiver, b, overpass),
+                        Ok(b) => write_output((*metadata).clone(), receiver, b, overpass),
                         Err(e) => {
                             panic!("Unable to open output file: {e:?}");
                         }

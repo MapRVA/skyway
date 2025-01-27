@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Deserializer};
 use serde_json::from_str;
 
-use std::{collections::HashMap, io::Read, path::PathBuf, sync::mpsc::Sender};
+use std::{collections::HashMap, io::Read, path::PathBuf};
 
 use crate::{
     chunks::{ChunkBuilder, ElementChunk},
@@ -170,9 +170,8 @@ impl Reader for JsonReader {
     fn read_file(
         self,
         src: Option<PathBuf>,
-        metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = ElementChunk> {
+    ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata) {
         let mut buf = String::new();
         super::get_reader(src)
             .read_to_string(&mut buf)
@@ -188,16 +187,14 @@ impl Reader for JsonReader {
         // convert MetadataWrapper to Metadata
         let metadata = Metadata::from(osm_json_object.metadata);
 
-        // send OSM document metadata to main thread
-        metadata_sender
-            .send(metadata)
-            .expect("Couldn't send metadata to main thread!");
-
         // TODO: instead of reading the entire file into memory and then processing, iterate out of the reader
 
         // send each deserialized element to the next processing step
         let elements = osm_json_object.elements.into_iter();
 
-        chunk_builder.chunk_iterator(elements).par_bridge()
+        (
+            chunk_builder.chunk_iterator(elements).par_bridge(),
+            metadata,
+        )
     }
 }

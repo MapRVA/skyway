@@ -9,7 +9,7 @@ use std::{
     fs,
     io::{stdin, BufRead, BufReader, Read},
     path::PathBuf,
-    sync::mpsc::{channel, Sender},
+    sync::Arc,
 };
 
 use crate::{
@@ -114,9 +114,8 @@ pub trait Reader: Sized {
     fn read_file(
         self,
         src: Option<PathBuf>,
-        metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> impl ParallelIterator<Item = ElementChunk>;
+    ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata);
 
     fn run_conversion(
         self,
@@ -126,35 +125,37 @@ pub trait Reader: Sized {
         output_format: OutputFileFormat,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError> {
-        let (metadata_sender, metadata_receiver) = channel();
         let chunk_builder = ChunkBuilder::new(chunk_size);
+
+        let (chunk_iterator, metadata) = self.read_file(source, chunk_builder);
+
+        // any intermediate metadata transformations should happen here
+        // transform_metadata(&mut metadata);
+
+        // wrap metadata in an Arc, so we can pass it between threads
+        let metadata = Arc::new(metadata);
 
         #[cfg(feature = "filter")]
         let combined_filter = build_filter(filters);
         #[cfg(feature = "filter")]
-        let chunk_iterator = self
-            .read_file(source, metadata_sender, chunk_builder)
-            .map(|chunk| combined_filter(chunk));
-
-        #[cfg(not(feature = "filter"))]
-        let chunk_iterator = self.read_file(source, metadata_sender, chunk_builder);
+        let chunk_iterator = chunk_iterator.map(|chunk| combined_filter(chunk));
 
         #[allow(unreachable_patterns)]
         match output_format {
             #[cfg(feature = "json")]
             OutputFileFormat::Json => {
-                JsonWriter { overpass: false }.write(chunk_iterator, metadata_receiver, dest)
+                JsonWriter { overpass: false }.write(chunk_iterator, metadata, dest)
             }
             #[cfg(feature = "o5m")]
-            OutputFileFormat::O5m => O5mWriter {}.write(chunk_iterator, metadata_receiver, dest),
+            OutputFileFormat::O5m => O5mWriter {}.write(chunk_iterator, metadata, dest),
             #[cfg(feature = "opl")]
-            OutputFileFormat::Opl => OplWriter {}.write(chunk_iterator, metadata_receiver, dest),
+            OutputFileFormat::Opl => OplWriter {}.write(chunk_iterator, metadata, dest),
             #[cfg(feature = "json")]
             OutputFileFormat::Overpass => {
-                JsonWriter { overpass: true }.write(chunk_iterator, metadata_receiver, dest)
+                JsonWriter { overpass: true }.write(chunk_iterator, metadata, dest)
             }
             #[cfg(feature = "xml")]
-            OutputFileFormat::Xml => XmlWriter {}.write(chunk_iterator, metadata_receiver, dest),
+            OutputFileFormat::Xml => XmlWriter {}.write(chunk_iterator, metadata, dest),
             _ => Err(SkywayError::UnexpectedError(
                 "A file conversion was attempted with an unknown output format.".to_owned(),
             )),
