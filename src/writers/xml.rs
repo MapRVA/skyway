@@ -32,7 +32,7 @@ where
 
 fn create_header(metadata: Metadata) -> String {
     let mut header = String::new();
-    header.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osm version=\"0.6\"");
+    header.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osm");
 
     macro_rules! append_attribute {
         ($attr:ident) => {
