@@ -157,6 +157,9 @@ fn append_serialized_element(base: &mut String, element: Element) {
                 }
                 base.push_str("\"/>\n");
             }
+
+            append_serialized_tags(base, &element);
+
             base.push_str(" </relation>\n");
         }
     }
