@@ -1,6 +1,6 @@
 use crate::elements::SimpleElementType;
 
-use super::numbers::{convert_index, convert_number, SignBit, SignedInteger};
+use super::numbers::{convert_index, convert_number, SignBit};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StringPair(Vec<u8>);
@@ -12,15 +12,6 @@ impl IntoIterator for StringPair {
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
-}
-
-/// convert a single string (surround with zero-bytes)
-pub fn convert_string(input: &str) -> Vec<u8> {
-    let mut output = Vec::new();
-    output.push(0x00);
-    output.extend(input.as_bytes());
-    output.push(0x00);
-    output
 }
 
 pub struct StringTable {
@@ -117,12 +108,6 @@ impl StringTable {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_convert_string() {
-        let input = "1inner";
-        let expected = vec![0x00, 0x31, 0x69, 0x6e, 0x6e, 0x65, 0x72, 0x00];
-        assert_eq!(convert_string(input), expected);
-    }
     #[test]
     fn test_convert_tag() {
         let mut string_table = StringTable::new();

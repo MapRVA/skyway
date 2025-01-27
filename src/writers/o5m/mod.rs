@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use rayon::prelude::*;
 
 use std::{fs::File, io::stdout, path::PathBuf, sync::mpsc::Receiver};
@@ -9,7 +10,7 @@ use crate::{
 };
 
 mod numbers;
-use numbers::{DeltaCoder, UnsignedInteger};
+use numbers::{DeltaCoder, SignedInteger, UnsignedInteger};
 
 mod strings;
 use strings::StringTable;
@@ -125,18 +126,6 @@ struct WaitingElements {
 }
 
 impl WaitingElements {
-    fn from(receiver: Receiver<Element>) -> Self {
-        let mut new_instance = WaitingElements::new();
-        for element in receiver {
-            match element.element_type {
-                ElementType::Node { .. } => new_instance.nodes.push(element),
-                ElementType::Way { .. } => new_instance.ways.push(element),
-                ElementType::Relation { .. } => new_instance.relations.push(element),
-            }
-        }
-        new_instance
-    }
-
     fn append(&mut self, element: Element) {
         match element.element_type {
             ElementType::Node { .. } => self.nodes.push(element),
@@ -186,17 +175,7 @@ fn write_output<I>(
 {
     let mut waiting_elements = WaitingElements::new();
 
-    // TODO: properly write metadata to output
-    //
-    // - write timestamp to dest
-    // - write bounding box to dest?
-    // - write header to dest?
-    let _metadata = metadata_receiver.into_iter().next();
-    // let mut writer = ToFmtWrite(dest);
-    // let header = create_header(metadata.unwrap()); // TODO: better error message if this unexpectedly panics
-    // writer
-    //     .write_str(&header)
-    //     .expect("Unable to write header to XML file!");
+    let metadata = metadata_receiver.into_iter().next();
 
     let chunks: Vec<ElementChunk> = par_iter.into_par_iter().collect();
 
@@ -216,9 +195,44 @@ fn write_output<I>(
     dest.write(&vec![0xff])
         .expect("Unable to begin writing to output.");
 
+    // TODO: write bounding box to dest, once skyway supports bounding boxes
+
     // write header to output
-    dest.write(&vec![0xe0, 0x04, 0x6f, 0x35, 0x6d, 0x32, 0xff])
+    dest.write(&vec![0xe0, 0x04, 0x6f, 0x35, 0x6d, 0x32])
         .expect("Unable to write header to o5m output.");
+
+    // write file timestamp to output, if there is one
+    if let Some(m) = metadata {
+        if let Some(t) = m.timestamp {
+            match DateTime::parse_from_rfc3339(&t) {
+                Ok(d) => {
+                    // byte that signals start of timestamp dataset
+                    dest.write(&vec![0xdc])
+                        .expect("Unable to write pre-timestamp byte to output.");
+
+                    // calculate timestamp bytes
+                    let timestamp_bytes = &Vec::<u8>::from(SignedInteger::from(d.timestamp()));
+
+                    // write length of timestamp dataset to output
+                    dest.write(&Vec::<u8>::from(UnsignedInteger::from(
+                        timestamp_bytes.len(),
+                    )))
+                    .expect("Unable to write length of timestamp dataset to output.");
+
+                    // write the rest of timestamp dataset to output
+                    dest.write(timestamp_bytes)
+                        .expect("Unable to write timestamp to output.");
+                }
+                Err(_) => {
+                    // FIXME: Do better datetime parsing upstream
+                    println!("WARNING: Unable to parse input timestamp as datetime.")
+                }
+            }
+        }
+    }
+
+    dest.write(&vec![0xff])
+        .expect("Unable to write reset byte to output.");
 
     // tracks whether we should write reset byte to the output
     let mut last_vec_had_elements = false;
