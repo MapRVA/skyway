@@ -32,4 +32,4 @@ When paired together, "speedy" readers and writers will generally run faster by 
 | [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ⚡ |
 | [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | `pbf` | ⚡ | ❌ |
 
-<sup>†</sup>*Use the shortname `json` to read OSM JSON, it is the same parser. Use `overpass` for writing.*
+<sup>†</sup>*Use the shortname `json` to read Overpass JSON, it uses the same parser as OSM JSON. Use `overpass` for writing.*
