@@ -158,13 +158,18 @@
                         <h1 id="filtering"><a class="header" href="#filtering">Filtering</a></h1>
 <p>A skyway filter decides whether or not to keep an element, or possibly transforms it.
 If you do not provide a filter to skyway, it will convert the original input as faithfully as it can.</p>
+<h2 id="supported-filtering-languages"><a class="header" href="#supported-filtering-languages">Supported Filtering Languages</a></h2>
+<ul>
+<li><a href="skyfilter.html">SkyFilter</a></li>
+<li><a href="cel-filters.html">CEL</a></li>
+</ul>
 <h2 id="running-skyway-with-a-filter"><a class="header" href="#running-skyway-with-a-filter">Running skyway with a Filter</a></h2>
 <p>To add a filter to skyway, add the <code>--filter [FILTER FILE]</code> option.
-You may pass multiple filters to evaluate in sequence by passing multiple <code>--filter</code> flags.
-The file extension does not matter; skyway will detect if the file is in CEL or SkyFilter and parse it accordingly.</p>
+You may pass multiple filters to evaluate in sequence by passing multiple <code>--filter</code> flags.</p>
+<p>You should use <code>.skyfilter</code> or <code>.cel</code> file extensions so that skyway can provide helpful parsing error messages. However, this is not necessary and skyway will parse any valid filter file regardless of language.</p>
 <h2 id="how-filters-work"><a class="header" href="#how-filters-work">How Filters Work</a></h2>
-<p>In skyway, the input reader and output writer are run in different threads, with the former passing element objects to the latter as they become available.
-This multithreaded approach makes it easy to add one or more middlemen, who can receive elements from the reader, transform them, and then pass them along down the chain.
+<p>In skyway, the input reader and output writer run in parallel, with the former passing element information to the latter as they become available.
+This approach makes it easy to add one or more middlemen, who receive elements from the reader, transform them, and then pass them along down the chain.
 skyway provides a "filtering" system to make it easier to add these processing steps in a modular way.
 Using any number of CEL or SkyFilter expressions, you can create complex processing pipelines.</p>
 <p>This system was inspired by <a href="https://pandoc.org/">Pandoc</a>.</p>

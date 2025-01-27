@@ -163,11 +163,13 @@ I would <strong>massively appreciate</strong> your feedback!
 How would your ideal filter language work?
 </div>
 <h2 id="specification"><a class="header" href="#specification">Specification</a></h2>
-<p>An SkyFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, <strong>followed by at least two newlines</strong>.
-skyway will warn you if there is a version mismatch.
+<p>A SkyFilter file must start with a header as shown below, with the version matching the version of skyway that you are using, <strong>followed by a blank line</strong>.
 After the header, you can use any combination of <strong>selectors</strong> and <strong>modifiers</strong> to manipulate the elements.
 Every selector must be followed by a <strong>tab-indented</strong> block of one or more modifiers or nested selectors.
 Comments start with <code>#</code> and extend through the end of a line.</p>
+<p>It is highly recommended to use the extension <code>.skyfilter</code> when saving SkyFilter files so that skyway knows what kind of filter it's intended to be.
+When you do this, skyway will provide more detailed parsing errors.
+Additionally, skyway will warn you if its version does not match that in the header of your SkyFilter file.</p>
 <pre><code class="language-skyfilter">SkyFilter v0.6.0
 
 TYPE way                                 # selects ways
@@ -183,25 +185,26 @@ COMMIT                                   # commit the element
 <p>Below you can find descriptions of each statement supported by SkyFilter.</p>
 <h3 id="selectors"><a class="header" href="#selectors">Selectors</a></h3>
 <p>A selector must be followed by one or more tab-indented statements (either a modifier or selection block).
-You can nest selection blocks.</p>
-<ul>
-<li><code>TYPE way, node</code> — Selects elements of specified type(s), in a comma-separated list.</li>
-<li><code>HAS "key"</code> — Selects elements with tag <code>key</code>. This can be a regular expression (regex, see below).</li>
-<li><code>EQUALS "key" "value"</code> — Selects elements with tag <code>key</code> equalling <code>value</code>. The <code>value</code> may be a regular expression.</li>
-</ul>
+You can nest selection blocks to create more complex filters.</p>
+<div class="table-wrapper"><table><thead><tr><th>Selector</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>TYPE node, relation</code></td><td>Selects elements of specified type(s), in a comma-separated list. These can be <code>node</code>, <code>way</code>, or <code>relation</code> (no surrounding quotes).</td></tr>
+<tr><td><code>HAS "key"</code></td><td>Selects elements with tag <code>key</code>. This can be a regular expression (regex, see below).</td></tr>
+<tr><td><code>EQUALS "key" "value"</code></td><td>Selects elements with tag <code>key</code> equalling <code>value</code>. The <code>value</code> may be a regular expression.</td></tr>
+</tbody></table>
+</div>
 <h3 id="modifiers"><a class="header" href="#modifiers">Modifiers</a></h3>
-<ul>
-<li><code>COMMIT</code> — Commits element as it currently is to be written to output. Short-circuits the rest of the filter for that element.</li>
-<li><code>DROP</code> — Drops element, i.e. excluding it entirely from the output. Short-circuits the rest of the filter for that element.</li>
-<li><code>SET "key" "value"</code> — Sets tag <code>key</code> to <code>value</code>.</li>
-<li><code>KEEP "key_one", "key_two"</code> — Only keep tags with specified key(s), removing any others from the element. These may be regular expressions.</li>
-<li><code>RENAME "oldkey" "newkey"</code> — Renames tag <code>oldkey</code> to <code>newkey</code>, keeping the value of the tag the same.</li>
-<li><code>DELETE "key_one", "key_two"</code> — Removes tag(s) with specified key(s) from the element. These may be regular expressions.</li>
-</ul>
+<div class="table-wrapper"><table><thead><tr><th>Modifier</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>COMMIT</code></td><td>Immediately commits element in its current state to output.</td></tr>
+<tr><td><code>DROP</code></td><td>Immediately drops element, excluding it entirely from the output.</td></tr>
+<tr><td><code>SET "key" "value"</code></td><td>Sets key to value, creating a new tag if necessary.</td></tr>
+<tr><td><code>DELETE "key1", "key2"</code></td><td>Removes tag(s) with specified key(s) from the element. These may be regular expressions.</td></tr>
+<tr><td><code>KEEP "key1", "key2"</code></td><td>Only keeps tags with specified key(s), deleting any others from the element. These may be regular expressions.</td></tr>
+<tr><td><code>RENAME "old" "new"</code></td><td>If a tag exists with the first given key, the key is replaced with the second given key. Any existing tag with that key is overwritten.</td></tr>
+</tbody></table>
+</div>
 <h2 id="using-regular-expressions-regex"><a class="header" href="#using-regular-expressions-regex">Using Regular Expressions (Regex)</a></h2>
 <p>Many SkyFilter statements accept regular expressions (see above).
 While regular strings are wrapped in double quotes (e.g. <code>"footway"</code>) regex strings are prefixed with <code>r</code> before the first quote, like this: <code>r"^tiger:"</code>.</p>
-<h3 id="regex-syntax"><a class="header" href="#regex-syntax">Regex Syntax</a></h3>
 <p>SkyFilter uses the <a href="https://docs.rs/regex/latest/regex/">regex</a> crate to parse regex expressions. See <a href="https://docs.rs/regex/latest/regex/#syntax">here</a> for a detailed description of its syntax.</p>
 
                     </main>
