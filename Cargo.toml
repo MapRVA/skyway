@@ -6,7 +6,7 @@ homepage = "https://maprva.github.io/skyway/"
 license = "GPL-3.0-or-later"
 name = "skyway"
 repository = "https://github.com/MapRVA/skyway"
-version = "0.5.0"
+version = "0.6.0"
 
 [lib]
 name = "skyway"
