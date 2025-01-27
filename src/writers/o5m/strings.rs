@@ -57,8 +57,11 @@ impl StringTable {
         output.extend(value.as_bytes());
         output.push(0x00);
 
-        // FIXME: do not cache if key and value are too long
-        self.hit_cache(output)
+        if key.len() + value.len() > 250 {
+            output
+        } else {
+            self.hit_cache(output)
+        }
     }
 
     pub fn hit_rel_ref(
@@ -94,13 +97,17 @@ impl StringTable {
     pub fn hit_user(&mut self, uid: i32, username: String) -> Vec<u8> {
         let mut output = Vec::new();
         output.push(0x00);
-        output.extend(convert_number(&uid.to_be_bytes(), SignBit::None));
+        let uid_bytes = convert_number(&uid.to_be_bytes(), SignBit::None);
+        output.extend(&uid_bytes);
         output.push(0x00);
         output.extend(username.as_bytes());
         output.push(0x00);
 
-        // FIXME: do not cache if uid / username are too long
-        self.hit_cache(output)
+        if uid_bytes.len() + username.len() > 250 {
+            output
+        } else {
+            self.hit_cache(output)
+        }
     }
 }
 
@@ -121,6 +128,20 @@ mod tests {
         let input2 = ("atm", "no");
         let expected2 = vec![0x00, 0x61, 0x74, 0x6d, 0x00, 0x6e, 0x6f, 0x00];
         assert_eq!(string_table.hit_tag(input2.0, input2.1), expected2);
+
+        // tags totalling 250 bytes (or less) get cached
+        let input3 = ("a", "a".repeat(249));
+        string_table.hit_tag(input3.0, &input3.1);
+        let expected3 = vec![0x01];
+        assert_eq!(string_table.hit_tag(input3.0, &input3.1), expected3);
+
+        // tags totalling 251 bytes (or more) do not get cached
+        let input4 = ("a", "a".repeat(250));
+        string_table.hit_tag(input4.0, &input4.1);
+        let mut expected4 = vec![0x00, 0x61, 0x00];
+        expected4.extend(vec![0x61; 250]);
+        expected4.push(0x00);
+        assert_eq!(string_table.hit_tag(input4.0, &input4.1), expected4);
     }
 
     #[test]
@@ -130,6 +151,22 @@ mod tests {
         let input1: (i32, String) = (1020, String::from("John"));
         let expected1 = vec![0x00, 0xfc, 0x07, 0x00, 0x4a, 0x6f, 0x68, 0x6e, 0x00];
         assert_eq!(string_table.hit_user(input1.0, input1.1), expected1);
+
+        // tags totalling 250 bytes (or less) get cached
+        // (uid 1020 comes out to two bytes)
+        let input2: (i32, String) = (1020, "a".repeat(248));
+        string_table.hit_user(input2.0, input2.clone().1);
+        let expected2 = vec![0x01];
+        assert_eq!(string_table.hit_user(input2.0, input2.1), expected2);
+
+        // tags totalling 251 bytes (or more) do not get cached
+        // (uid 1020 comes out to two bytes)
+        let input3: (i32, String) = (1020, "a".repeat(249));
+        string_table.hit_user(input3.0, input3.clone().1);
+        let mut expected3 = vec![0x00, 0xfc, 0x07, 0x00];
+        expected3.extend(vec![0x61; 249]);
+        expected3.push(0x00);
+        assert_eq!(string_table.hit_user(input3.0, input3.1), expected3);
     }
 
     #[test]
