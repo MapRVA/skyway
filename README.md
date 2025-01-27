@@ -22,7 +22,7 @@ Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn
 | [GeoJSON](https://wiki.openstreetmap.org/wiki/GeoJSON) | ➖ | ❌ |
 | [GeoPackage](https://wiki.openstreetmap.org/wiki/GeoPackage) | ➖ | ❌ |
 | [GOL](https://wiki.openstreetmap.org/wiki/Geographic_Object_Library) | ❌ | ❌ |
-| [o5m](https://wiki.openstreetmap.org/wiki/O5m) | ❌ | ❌ |
+| [o5m](https://wiki.openstreetmap.org/wiki/O5m) | ❌ | ✅ |
 | [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | ⚡ | ⚡ |
 | [OSM Express](https://wiki.openstreetmap.org/wiki/OSM_Express) | ❌ | ❌ |
 | [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | ✅     | ⚡     |

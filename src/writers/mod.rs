@@ -19,6 +19,8 @@ pub use json::JsonWriter;
 
 #[cfg(feature = "o5m")]
 mod o5m;
+#[cfg(feature = "o5m")]
+pub use o5m::O5mWriter;
 
 #[cfg(feature = "opl")]
 mod opl;
@@ -37,9 +39,9 @@ pub enum OutputFileFormat {
     #[cfg(feature = "json")]
     #[value(name = "json")]
     Json,
-    // #[cfg(feature = "o5m")]
-    // #[value(name = "o5m")]
-    // O5m,
+    #[cfg(feature = "o5m")]
+    #[value(name = "o5m")]
+    O5m,
     #[cfg(feature = "opl")]
     #[value(name = "opl")]
     Opl,
@@ -64,9 +66,8 @@ impl FileFormatOptions for OutputFileFormat {
 pub enum OutputFileFormat {
     #[cfg(feature = "json")]
     Json,
-    // #[cfg(feature = "o5m")]
-    // #[value(name = "o5m")]
-    // O5m,
+    #[cfg(feature = "o5m")]
+    O5m,
     #[cfg(feature = "opl")]
     Opl,
     #[cfg(feature = "json")]

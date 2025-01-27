@@ -46,7 +46,7 @@ thiserror = "1.0.63"
 
 [features]
 # by default, all convert and filter features are enabled
-default = ["cli", "json", "opl", "pbf", "xml", "cel", "skyfilter"]
+default = ["cli", "json", "o5m", "opl", "pbf", "xml", "cel", "skyfilter"]
 
 # conversion filetypes
 json = ["dep:json", "dep:lexical", "dep:serde", "dep:serde_json"]

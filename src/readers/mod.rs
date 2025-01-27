@@ -145,8 +145,8 @@ pub trait Reader: Sized {
             OutputFileFormat::Json => {
                 JsonWriter { overpass: false }.write(chunk_iterator, metadata_receiver, dest)
             }
-            //#[cfg(feature = "o5m")]
-            // O5mWriter { }.write(chunk_iterator, metadata_receiver, dest)
+            #[cfg(feature = "o5m")]
+            OutputFileFormat::O5m => O5mWriter {}.write(chunk_iterator, metadata_receiver, dest),
             #[cfg(feature = "opl")]
             OutputFileFormat::Opl => OplWriter {}.write(chunk_iterator, metadata_receiver, dest),
             #[cfg(feature = "json")]
