@@ -247,12 +247,6 @@ impl Reader for XmlReader {
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
     ) -> impl ParallelIterator<Item = ElementChunk> {
-        // create an empty Metadata object
-        let metadata = Metadata::default();
-        metadata_sender
-            .send(metadata)
-            .expect("Couldn't send metadata to main thread!");
-
         let mut buf = String::new();
         super::get_reader(src)
             .read_to_string(&mut buf)
@@ -283,6 +277,17 @@ impl Reader for XmlReader {
                     .into_iter()
                     .map(|r| convert_element(XmlElement::Relation(r))),
             );
+
+        metadata_sender
+            .send(Metadata {
+                timestamp: osm_xml_object._metadata.timestamp,
+                version: osm_xml_object._metadata.version,
+                generator: osm_xml_object._metadata.generator,
+                copyright: osm_xml_object._metadata.copyright,
+                license: osm_xml_object._metadata.license,
+            })
+            .expect("Couldn't send metadata to main thread!");
+
         chunk_builder.chunk_iterator(elements).par_bridge()
     }
 }
