@@ -3,7 +3,10 @@ use pest::Parser;
 use pest_derive::Parser;
 use regex::Regex;
 
-use crate::filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement, StringOrRegex};
+use crate::{
+    filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement, StringOrRegex},
+    SkywayError,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -118,11 +121,11 @@ fn _interpret_body(body: Pair<Rule>) -> SkyFilter {
     }
 }
 
-pub fn parse_filter(filter_content: &str) -> Option<SkyFilter> {
+pub fn parse_filter(filter_content: &str) -> Result<SkyFilter, SkywayError> {
     let mut file = match SkyFilterParser::parse(Rule::file, filter_content) {
         Ok(v) => v,
-        Err(_) => {
-            return None;
+        Err(e) => {
+            return Err(SkywayError::UnparsableFilter(e.to_string()));
         }
     };
 
@@ -144,7 +147,7 @@ pub fn parse_filter(filter_content: &str) -> Option<SkyFilter> {
 
     match file.next() {
         Some(a) => match a.as_rule() {
-            Rule::body => Some(_interpret_body(a)),
+            Rule::body => Ok(_interpret_body(a)),
             _ => unreachable!(),
         },
         _ => unreachable!(),

@@ -10,7 +10,7 @@ mod skyfilter;
 #[cfg(feature = "skyfilter")]
 use skyfilter::parse::parse_filter;
 
-use std::{fmt::Error, fs::read_to_string, path::Path};
+use std::{fs::read_to_string, path::Path};
 
 use crate::{chunks::ElementChunk, elements::Element, SkywayError};
 
@@ -26,23 +26,14 @@ pub trait ElementFilter: Send + Sync {
     }
 }
 
-pub fn filter_from_path(value: &Path) -> Result<Box<dyn ElementFilter>, SkywayError> {
-    match read_to_string(value) {
-        Ok(contents) => match create_filter(&contents) {
-            Ok(f) => Ok(f),
-            Err(_) => Err(SkywayError::UnparsableFilter(
-                value.to_str().unwrap().to_owned(), // TODO: clean this up
-            )),
-        },
-        Err(_) => Err(SkywayError::InvalidFilterFile(
-            value.to_str().unwrap().to_owned(), // TODO: clean this up
-        )),
-    }
+enum Filter {
+    SkyFilter,
+    Cel,
 }
 
-fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error> {
+fn auto_parse_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, SkywayError> {
     #[cfg(feature = "skyfilter")]
-    if let Some(f) = parse_filter(filter_contents) {
+    if let Ok(f) = parse_filter(filter_contents) {
         return Ok(Box::new(f));
     }
 
@@ -51,7 +42,31 @@ fn create_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, Error>
         return Ok(Box::new(f));
     }
 
-    Err(Error)
+    Err(SkywayError::UnparsableFilter("Unable to parse filter. Please use a recognized file extension to get a more helpful parsing error message.".to_string()))
+}
+
+pub fn filter_from_path(filter_path: &Path) -> Result<Box<dyn ElementFilter>, SkywayError> {
+    // do we recognize the filter type based on its path?
+    let filter_type: Option<Filter> = match filter_path.extension() {
+        Some(e) => match e.to_str() {
+            Some("skyfilter") => Some(Filter::SkyFilter),
+            Some("cel") => Some(Filter::Cel),
+            _ => None,
+        },
+        None => None,
+    };
+
+    match read_to_string(filter_path) {
+        Ok(contents) => match filter_type {
+            Some(Filter::SkyFilter) => Ok(Box::new(parse_filter(&contents)?)),
+            Some(Filter::Cel) => Ok(Box::new(compile_cel_filter(&contents)?)),
+            None => auto_parse_filter(&contents),
+        },
+        Err(_) => Err(SkywayError::InvalidFilterFile(match filter_path.to_str() {
+            Some(s) => format!("Unable to read filter file {}, does it exist?", s),
+            None => "Unable to parse file path or its contents as string.".to_string(),
+        })),
+    }
 }
 
 pub fn build_filter(

@@ -1,6 +1,4 @@
-use std::fmt::Error;
-
-use crate::filter::ElementFilter;
+use crate::{filter::ElementFilter, SkywayError};
 use cel_interpreter::{Context, Program, Value};
 
 use crate::elements::{Element, ElementType};
@@ -58,7 +56,8 @@ impl ElementFilter for CelFilter {
     }
 }
 
-pub fn compile_cel_filter(filter_content: &str) -> Result<CelFilter, Error> {
-    let program = Program::compile(filter_content).map_err(|_| Error)?;
+pub fn compile_cel_filter(filter_content: &str) -> Result<CelFilter, SkywayError> {
+    let program = Program::compile(filter_content)
+        .map_err(|e| SkywayError::UnparsableFilter(e.to_string()))?;
     Ok(CelFilter(program))
 }
