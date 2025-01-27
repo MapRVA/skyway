@@ -4,7 +4,7 @@ use std::{fs::File, io::stdout, path::PathBuf, sync::mpsc::Receiver};
 
 use crate::{
     chunks::ElementChunk,
-    elements::{Element, ElementType, Metadata},
+    elements::{Element, ElementType, Metadata, SimpleElementType},
     SkywayError,
 };
 
@@ -65,16 +65,22 @@ fn convert_element(
         ElementType::Relation { members } => {
             let mut refs = Vec::new();
 
+            let mut current_member_type: &SimpleElementType;
             for member in members {
-                refs.extend(delta_coder.hit_rel_ref(member.id));
-                refs.extend(string_table.hit_rel_ref(
-                    match &member.t {
-                        Some(t) => t,
-                        // FIXME: the following panic is unacceptable lol
-                        None => panic!("Relation member types must be annotated to output o5m"),
-                    },
-                    &member.role,
-                ))
+                match &member.t {
+                    Some(t) => {
+                        current_member_type = t;
+                    }
+                    // FIXME: somehow warn the user sooner, or try to determine the type of this member?
+                    None => panic!("Relation member types must be annotated to output o5m"),
+                }
+
+                // write member id (delta-coded) to output
+                // o5m delta-codes per-type of member, across all relations
+                refs.extend(delta_coder.hit_rel_ref(current_member_type, member.id));
+
+                // write member role to output
+                refs.extend(string_table.hit_rel_ref(current_member_type, &member.role))
             }
 
             // add length of references to output

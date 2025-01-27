@@ -1,6 +1,8 @@
 use bit_vec::BitVec;
 use chrono::DateTime;
 
+use crate::elements::SimpleElementType;
+
 /// newtype for o5m's "signed integers"
 #[derive(Clone)]
 pub struct SignedInteger(Vec<u8>);
@@ -24,7 +26,7 @@ impl From<i64> for SignedInteger {
     fn from(value: i64) -> Self {
         if value == 0 {
             SignedInteger(vec![0x00])
-        } else if value.is_positive() || value == 0 {
+        } else if value.is_positive() {
             SignedInteger(convert_number(&value.to_be_bytes(), SignBit::Positive))
         } else {
             SignedInteger(convert_number(
@@ -154,7 +156,9 @@ pub struct DeltaCoder {
     last_id: i64,
     last_lat: i32,
     last_lon: i32,
-    last_rel_ref: i64,
+    last_rel_ref_n: i64,
+    last_rel_ref_w: i64,
+    last_rel_ref_r: i64,
     last_timestamp: i64,
     last_way_ref: i64,
 }
@@ -166,7 +170,9 @@ impl DeltaCoder {
             last_id: 0.into(),
             last_lat: 0.into(),
             last_lon: 0.into(),
-            last_rel_ref: 0.into(),
+            last_rel_ref_n: 0.into(),
+            last_rel_ref_w: 0.into(),
+            last_rel_ref_r: 0.into(),
             last_timestamp: 0.into(),
             last_way_ref: 0.into(),
         }
@@ -198,27 +204,23 @@ impl DeltaCoder {
         delta.into()
     }
 
-    pub fn hit_rel_ref(&mut self, value: i64) -> SignedInteger {
-        let delta = value - self.last_rel_ref;
-        self.last_rel_ref = value;
+    pub fn hit_rel_ref(&mut self, element_type: &SimpleElementType, value: i64) -> SignedInteger {
+        let last_ref = match element_type {
+            SimpleElementType::Node => &mut self.last_rel_ref_n,
+            SimpleElementType::Way => &mut self.last_rel_ref_w,
+            SimpleElementType::Relation => &mut self.last_rel_ref_r,
+        };
+
+        let delta = value - *last_ref;
+        *last_ref = value;
         delta.into()
     }
 
     pub fn hit_timestamp(&mut self, value: &str) -> SignedInteger {
-        println!("{:?}", value);
-
         let datetime = DateTime::parse_from_rfc3339(value).unwrap();
         let seconds = datetime.timestamp();
         let delta = seconds - self.last_timestamp;
         self.last_timestamp = seconds;
-
-        println!("{:?}", delta);
-
-        for byte in SignedInteger::from(delta) {
-            print!("{:02x} ", byte); // prints: 00, 6d, ff
-        }
-        println!();
-
         delta.into()
     }
 
