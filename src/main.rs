@@ -67,6 +67,10 @@ struct Cli {
     #[arg(long)]
     no_overwrite: bool,
 
+    /// Do not replace generator metadata in output with skyway info
+    #[arg(long)]
+    preserve_generator: bool,
+
     /// Maximum number of elements to store in each chunk passed between threads
     #[arg(long)]
     chunk_size: Option<usize>,
@@ -112,7 +116,7 @@ fn run() -> Result<(), SkywayError> {
     let progress = start_progress("Running conversion...");
 
     // run the conversion with our chosen writer and destination
-    conversion_builder.run_conversion(to, cli.output)?;
+    conversion_builder.run_conversion(to, cli.output, cli.preserve_generator)?;
 
     progress.finish_with_message("Running conversion...done");
 

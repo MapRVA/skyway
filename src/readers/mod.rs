@@ -104,6 +104,12 @@ pub fn get_reader(src: Option<PathBuf>) -> Box<dyn BufRead + Send> {
     }))
 }
 
+fn transform_metadata(metadata: &mut Metadata, preserve_generator: bool) {
+    if !preserve_generator {
+        metadata.generator = Some(format!("skyway v{}", env!("CARGO_PKG_VERSION")))
+    }
+}
+
 pub trait Reader: Sized {
     /// Create a new instance of this Reader
 
@@ -124,13 +130,14 @@ pub trait Reader: Sized {
         #[cfg(feature = "filter")] filters: Vec<Box<dyn ElementFilter>>,
         output_format: OutputFileFormat,
         dest: Option<PathBuf>,
+        preserve_generator: bool,
     ) -> Result<(), SkywayError> {
         let chunk_builder = ChunkBuilder::new(chunk_size);
 
-        let (chunk_iterator, metadata) = self.read_file(source, chunk_builder);
+        let (chunk_iterator, mut metadata) = self.read_file(source, chunk_builder);
 
         // any intermediate metadata transformations should happen here
-        // transform_metadata(&mut metadata);
+        transform_metadata(&mut metadata, preserve_generator);
 
         // wrap metadata in an Arc, so we can pass it between threads
         let metadata = Arc::new(metadata);

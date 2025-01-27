@@ -119,6 +119,7 @@ impl ConversionBuilder {
         self,
         output_format: OutputFileFormat,
         dest: Option<PathBuf>,
+        preserve_generator: bool,
     ) -> Result<(), SkywayError> {
         // set chunk_size, defaulting to 8000,
         // warning if user used custom value with PBF reader
@@ -141,6 +142,7 @@ impl ConversionBuilder {
                 self.filters,
                 output_format,
                 dest,
+                preserve_generator,
             ),
             #[cfg(feature = "opl")]
             InputFileFormat::Opl => OplReader {}.run_conversion(
@@ -150,6 +152,7 @@ impl ConversionBuilder {
                 self.filters,
                 output_format,
                 dest,
+                preserve_generator,
             ),
             #[cfg(feature = "pbf")]
             InputFileFormat::Pbf => PbfReader {}.run_conversion(
@@ -159,6 +162,7 @@ impl ConversionBuilder {
                 self.filters,
                 output_format,
                 dest,
+                preserve_generator,
             ),
             #[cfg(feature = "xml")]
             InputFileFormat::Xml => XmlReader {}.run_conversion(
@@ -168,6 +172,7 @@ impl ConversionBuilder {
                 self.filters,
                 output_format,
                 dest,
+                preserve_generator,
             ),
         }
     }
