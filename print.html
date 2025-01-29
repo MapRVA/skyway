@@ -256,7 +256,21 @@ Please <a href="https://github.com/MapRVA/skyway/issues">file an issue</a> if yo
 <tr><td><code>visible</code></td><td><code>bool</code></td></tr>
 <tr><td><code>type</code></td><td><code>string</code> ("node", "way", or "relation")</td></tr>
 </tbody></table>
-</div><div style="break-before: page; page-break-before: always;"></div><h1 id="skyfilter"><a class="header" href="#skyfilter">SkyFilter</a></h1>
+</div>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<p>Elements from a specific changeset:</p>
+<pre><code class="language-cel">changeset == 323878
+</code></pre>
+<p>Elements from a specific user id:</p>
+<pre><code class="language-cel">uid == 13159395
+</code></pre>
+<p>Only ways:</p>
+<pre><code class="language-cel">type == "way"
+</code></pre>
+<p>Elements with the key golf:</p>
+<pre><code class="language-cel">has(tags.golf)
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="skyfilter"><a class="header" href="#skyfilter">SkyFilter</a></h1>
 <p>SkyFilter is a bespoke filtering language designed for skyway, allowing you to transform element data as they pass through skyway.</p>
 <div class="warning">
 This feature is intended to be the biggest value-add of skyway, but I haven't yet settled on a syntax that feels right.
