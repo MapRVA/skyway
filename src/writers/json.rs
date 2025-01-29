@@ -173,7 +173,7 @@ fn append_serialized_element(base: &mut String, element: Element) {
 
     if let Some(u) = element.user {
         base.push_str(",\"user\":");
-        base.push_str(u.as_str());
+        base.push_str(&stringify(u));
     }
 
     // add visible field only if it is false
@@ -190,7 +190,7 @@ fn append_serialized_element(base: &mut String, element: Element) {
                 base.push(',');
             }
             first_tag_appended = true;
-            base.push_str(k.as_str());
+            base.push_str(&stringify(k));
             base.push(':');
             base.push_str(&stringify(v));
         }
