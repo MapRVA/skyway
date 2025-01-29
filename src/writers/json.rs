@@ -228,7 +228,15 @@ fn write_output(
         .expect("Couldn't write opening metadata to output.");
 
     let ordered_chunks = OrderedChunkIterator::new(data_receiver.into_iter());
+
+    let mut first_chunk_written = false;
     for chunk_content in ordered_chunks {
+        if first_chunk_written {
+            writer
+                .write_str(",")
+                .expect("Failed to write comma between chunks");
+        }
+        first_chunk_written = true;
         writer
             .write_str(&chunk_content)
             .expect("Failed to write chunk");
