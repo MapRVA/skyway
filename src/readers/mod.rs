@@ -9,7 +9,8 @@ use std::{
     fs,
     io::{stdin, BufRead, BufReader, Read},
     path::PathBuf,
-    sync::Arc,
+    sync::mpsc::{channel, Receiver, Sender},
+    thread,
 };
 
 use crate::{
@@ -104,10 +105,16 @@ pub fn get_reader(src: Option<PathBuf>) -> Box<dyn BufRead + Send> {
     }))
 }
 
-fn transform_metadata(metadata: &mut Metadata, preserve_generator: bool) {
+fn transform_metadata(
+    metadata_receiver: Receiver<Metadata>,
+    metadata_sender: Sender<Metadata>,
+    preserve_generator: bool,
+) {
+    let mut metadata = metadata_receiver.into_iter().next().unwrap();
     if !preserve_generator {
         metadata.generator = Some(format!("skyway v{}", env!("CARGO_PKG_VERSION")))
     }
+    metadata_sender.send(metadata).unwrap();
 }
 
 pub trait Reader: Sized {
@@ -120,8 +127,9 @@ pub trait Reader: Sized {
     fn read_file(
         self,
         src: Option<PathBuf>,
+        metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata);
+    ) -> impl ParallelIterator<Item = ElementChunk>;
 
     fn run_conversion(
         self,
@@ -132,37 +140,47 @@ pub trait Reader: Sized {
         dest: Option<PathBuf>,
         preserve_generator: bool,
     ) -> Result<(), SkywayError> {
+        let (metadata_sender, metadata_receiver) = channel();
         let chunk_builder = ChunkBuilder::new(chunk_size);
 
-        let (chunk_iterator, mut metadata) = self.read_file(source, chunk_builder);
-
         // any intermediate metadata transformations should happen here
-        transform_metadata(&mut metadata, preserve_generator);
-
-        // wrap metadata in an Arc, so we can pass it between threads
-        let metadata = Arc::new(metadata);
+        let (trans_metadata_sender, trans_metadata_receiver) = channel();
+        thread::spawn(move || {
+            transform_metadata(metadata_receiver, trans_metadata_sender, preserve_generator)
+        });
 
         #[cfg(feature = "filter")]
         let combined_filter = build_filter(filters);
         #[cfg(feature = "filter")]
-        let chunk_iterator = chunk_iterator.map(|chunk| combined_filter(chunk));
+        let chunk_iterator = self
+            .read_file(source, metadata_sender, chunk_builder)
+            .map(|chunk| combined_filter(chunk));
+
+        #[cfg(not(feature = "filter"))]
+        let chunk_iterator = self.read_file(source, metadata_sender, chunk_builder);
 
         #[allow(unreachable_patterns)]
         match output_format {
             #[cfg(feature = "json")]
             OutputFileFormat::Json => {
-                JsonWriter { overpass: false }.write(chunk_iterator, metadata, dest)
+                JsonWriter { overpass: false }.write(chunk_iterator, trans_metadata_receiver, dest)
             }
             #[cfg(feature = "o5m")]
-            OutputFileFormat::O5m => O5mWriter {}.write(chunk_iterator, metadata, dest),
+            OutputFileFormat::O5m => {
+                O5mWriter {}.write(chunk_iterator, trans_metadata_receiver, dest)
+            }
             #[cfg(feature = "opl")]
-            OutputFileFormat::Opl => OplWriter {}.write(chunk_iterator, metadata, dest),
+            OutputFileFormat::Opl => {
+                OplWriter {}.write(chunk_iterator, trans_metadata_receiver, dest)
+            }
             #[cfg(feature = "json")]
             OutputFileFormat::Overpass => {
-                JsonWriter { overpass: true }.write(chunk_iterator, metadata, dest)
+                JsonWriter { overpass: true }.write(chunk_iterator, trans_metadata_receiver, dest)
             }
             #[cfg(feature = "xml")]
-            OutputFileFormat::Xml => XmlWriter {}.write(chunk_iterator, metadata, dest),
+            OutputFileFormat::Xml => {
+                XmlWriter {}.write(chunk_iterator, trans_metadata_receiver, dest)
+            }
             _ => Err(SkywayError::UnexpectedError(
                 "A file conversion was attempted with an unknown output format.".to_owned(),
             )),

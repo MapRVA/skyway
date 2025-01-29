@@ -92,7 +92,7 @@ impl ElementBuilder {
 }
 
 /// Document-level metadata.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Metadata {
     pub version: Option<String>,
     pub generator: Option<String>,

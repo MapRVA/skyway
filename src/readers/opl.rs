@@ -1,7 +1,13 @@
 use itertools::Itertools;
 use rayon::prelude::*;
 
-use std::{io::BufRead, path::PathBuf, str, sync::mpsc::channel, thread};
+use std::{
+    io::BufRead,
+    path::PathBuf,
+    str,
+    sync::mpsc::{channel, Sender},
+    thread,
+};
 
 use crate::{
     chunks::{Chunk, ChunkBuilder, ElementChunk},
@@ -191,12 +197,16 @@ impl Reader for OplReader {
     fn read_file(
         self,
         src: Option<PathBuf>,
+        metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata) {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         let (sender, receiver) = channel();
 
         // create an empty Metadata object
         let metadata = Metadata::default();
+        metadata_sender
+            .send(metadata)
+            .expect("Couldn't send metadata to main thread!");
 
         let src = super::get_reader(src);
         thread::spawn(move || {
@@ -217,13 +227,10 @@ impl Reader for OplReader {
                 })
         });
 
-        (
-            receiver
-                .into_iter()
-                .par_bridge()
-                .map(|chunk| convert_chunk(*chunk)),
-            metadata,
-        )
+        receiver
+            .into_iter()
+            .par_bridge()
+            .map(|chunk| convert_chunk(*chunk))
     }
 }
 

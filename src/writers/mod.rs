@@ -5,7 +5,7 @@ use rayon::prelude::*;
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
 
-use std::{path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::mpsc::Receiver};
 
 use crate::{chunks::ElementChunk, elements::Metadata, SkywayError};
 
@@ -86,7 +86,7 @@ pub trait Writer {
     fn write<I>(
         &self,
         par_iter: I,
-        metadata: Arc<Metadata>,
+        metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where

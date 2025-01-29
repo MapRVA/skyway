@@ -6,7 +6,7 @@ use serde_aux::field_attributes::{
     deserialize_option_number_from_string,
 };
 
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
     chunks::{ChunkBuilder, ElementChunk},
@@ -244,8 +244,9 @@ impl Reader for XmlReader {
     fn read_file(
         self,
         src: Option<PathBuf>,
+        metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
-    ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata) {
+    ) -> impl ParallelIterator<Item = ElementChunk> {
         let mut buf = String::new();
         super::get_reader(src)
             .read_to_string(&mut buf)
@@ -277,17 +278,16 @@ impl Reader for XmlReader {
                     .map(|r| convert_element(XmlElement::Relation(r))),
             );
 
-        let metadata = Metadata {
-            timestamp: osm_xml_object._metadata.timestamp,
-            version: osm_xml_object._metadata.version,
-            generator: osm_xml_object._metadata.generator,
-            copyright: osm_xml_object._metadata.copyright,
-            license: osm_xml_object._metadata.license,
-        };
+        metadata_sender
+            .send(Metadata {
+                timestamp: osm_xml_object._metadata.timestamp,
+                version: osm_xml_object._metadata.version,
+                generator: osm_xml_object._metadata.generator,
+                copyright: osm_xml_object._metadata.copyright,
+                license: osm_xml_object._metadata.license,
+            })
+            .expect("Couldn't send metadata to main thread!");
 
-        (
-            chunk_builder.chunk_iterator(elements).par_bridge(),
-            metadata,
-        )
+        chunk_builder.chunk_iterator(elements).par_bridge()
     }
 }

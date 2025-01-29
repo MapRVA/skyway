@@ -6,10 +6,7 @@ use std::{
     fs::File,
     io::stdout,
     path::PathBuf,
-    sync::{
-        mpsc::{channel, Receiver},
-        Arc,
-    },
+    sync::mpsc::{channel, Receiver},
 };
 
 use crate::{
@@ -180,12 +177,13 @@ fn serialize_chunk(chunk: ElementChunk) -> Chunk<String> {
 }
 
 fn write_output(
-    metadata: Metadata,
+    metadata_receiver: Receiver<Metadata>,
     data_receiver: Receiver<Chunk<String>>,
     dest: impl std::io::Write,
 ) {
+    let metadata = metadata_receiver.into_iter().next();
     let mut writer = ToFmtWrite(dest);
-    let header = create_header(metadata); // TODO: better error message if this unexpectedly panics
+    let header = create_header(metadata.unwrap()); // TODO: better error message if this unexpectedly panics
     writer
         .write_str(&header)
         .expect("Unable to write header to XML file!");
@@ -214,7 +212,7 @@ impl Writer for XmlWriter {
     fn write<I>(
         &self,
         par_iter: I,
-        metadata: Arc<Metadata>,
+        metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>
     where
@@ -224,9 +222,9 @@ impl Writer for XmlWriter {
         let write_thread = std::thread::spawn({
             move || {
                 match dest {
-                    None => write_output((*metadata).clone(), receiver, stdout()),
+                    None => write_output(metadata_receiver, receiver, stdout()),
                     Some(a) => match File::create(PathBuf::from(a)) {
-                        Ok(b) => write_output((*metadata).clone(), receiver, b),
+                        Ok(b) => write_output(metadata_receiver, receiver, b),
                         Err(e) => {
                             panic!("Unable to open output file: {e:?}");
                         }
