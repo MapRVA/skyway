@@ -19,3 +19,29 @@ The following table describes each variable available to your expression:
 | `timestamp`    | `string`                                      |
 | `visible`      | `bool`                                        |
 | `type`         | `string` ("node", "way", or "relation")       |
+
+## Examples
+
+Elements from a specific changeset:
+
+```cel
+changeset == 323878
+```
+
+Elements from a specific user id:
+
+```cel
+uid == 13159395
+```
+
+Only ways:
+
+```cel
+type == "way"
+```
+
+Elements with the key golf:
+
+```cel
+has(tags.golf)
+```
