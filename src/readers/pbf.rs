@@ -170,20 +170,26 @@ impl Reader for PbfReader {
         _chunk_builder: ChunkBuilder,
     ) -> (impl ParallelIterator<Item = ElementChunk>, Metadata) {
         let src = super::get_reader(src);
-        let reader = BlobReader::new(src);
+        let mut reader = BlobReader::new(src);
 
         let metadata_cell = Arc::new(OnceLock::new());
         let metadata_cell_clone = metadata_cell.clone();
 
-        let iterator = reader
-            .filter_map(move |blob| match blob.unwrap().decode() {
-                Ok(BlobDecode::OsmData(block)) => Some(block),
+        loop {
+            match reader.next().unwrap().unwrap().decode() {
                 Ok(BlobDecode::OsmHeader(block)) => {
                     metadata_cell_clone
                         .set(build_metadata_from_block(block))
                         .expect("Metadata cannot be set twice!");
-                    None
+                    break;
                 }
+                _ => continue,
+            }
+        }
+
+        let iterator = reader
+            .filter_map(move |blob| match blob.unwrap().decode() {
+                Ok(BlobDecode::OsmData(block)) => Some(block),
                 Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
                 _ => None,
             })
