@@ -5,6 +5,11 @@
 
 skyway is a command-line OpenStreetMap data conversion and filtering utility.
 
+> [!WARNING]
+> skyway is currently in <a href="https://semver.org/">major version (0.y.z)</a>, i.e. it is undergoing initial development.
+While I hope you find skyway helpful, it might not work as expected.
+Your feedback and contributions are welcome. Thanks!
+
 ## Documentation
 
 Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn more!
