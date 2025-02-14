@@ -4,10 +4,7 @@ use log::info;
 
 use std::{path::PathBuf, process};
 
-use skyway::{
-    readers::InputFileFormat, writers::OutputFileFormat, ConversionBuilder, FileFormatOptions,
-    SkywayError,
-};
+use skyway::{ConversionBuilder, FileFormatOptions, OsmFormat, SkywayError};
 
 #[cfg(feature = "filter")]
 use skyway::filter::filter_from_path;
@@ -42,11 +39,11 @@ fn start_progress(message: &str) -> ProgressBar {
 struct Cli {
     /// Source file format
     #[arg(long)]
-    from: Option<InputFileFormat>,
+    from: Option<OsmFormat>,
 
     /// Destination file format
     #[arg(long)]
-    to: Option<OutputFileFormat>,
+    to: Option<OsmFormat>,
 
     /// Path to input file (if not given, reads from stdin)
     #[arg(long)]
@@ -83,10 +80,10 @@ fn run() -> Result<(), SkywayError> {
 
     let cli = Cli::parse();
 
-    let from = InputFileFormat::parse(cli.from, &cli.input)?;
+    let from = OsmFormat::parse(cli.from, &cli.input)?;
     info!("Input format determined: {:?}", from);
 
-    let to = OutputFileFormat::parse(cli.to, &cli.output)?;
+    let to = OsmFormat::parse(cli.to, &cli.output)?;
     info!("Output format determined: {:?}", to);
 
     let src = match cli.input {

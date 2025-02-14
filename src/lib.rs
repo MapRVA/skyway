@@ -10,11 +10,13 @@ use std::path::PathBuf;
 
 pub mod chunks;
 pub mod elements;
+mod file_format;
 pub mod readers;
 pub mod writers;
 
+pub use file_format::OsmFormat;
+
 use readers::*;
-use writers::OutputFileFormat;
 
 // selective imports that deal with filters
 #[cfg(feature = "filter")]
@@ -26,10 +28,12 @@ use filter::ElementFilter;
 // this is a work in progress
 #[derive(Error, Debug)]
 pub enum SkywayError {
-    #[error("Cannot determine input file format: {0}")]
-    UnknownInputFormat(String),
-    #[error("Cannot determine output file format: {0}")]
-    UnknownOutputFormat(String),
+    #[error("Cannot determine file format: {0}")]
+    UnknownFormat(String),
+    #[error("Cannot perform read operation: {0}")]
+    UnsupportedRead(String),
+    #[error("Cannot perform write operation: {0}")]
+    UnsupportedWrite(String),
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("File already exits")]
@@ -81,7 +85,7 @@ pub trait FileFormatOptions: ValueEnum {
 // build a file conversion
 // this is the main API for skyway
 pub struct ConversionBuilder {
-    input_format: InputFileFormat,
+    input_format: OsmFormat,
     source: Option<PathBuf>,
     #[cfg(feature = "filter")]
     filters: Vec<Box<dyn ElementFilter>>,
@@ -89,7 +93,7 @@ pub struct ConversionBuilder {
 }
 
 impl ConversionBuilder {
-    pub fn new(input_format: InputFileFormat) -> Self {
+    pub fn new(input_format: OsmFormat) -> Self {
         ConversionBuilder {
             input_format,
             source: None,
@@ -117,15 +121,18 @@ impl ConversionBuilder {
 
     pub fn run_conversion(
         self,
-        output_format: OutputFileFormat,
+        output_format: OsmFormat,
         dest: Option<PathBuf>,
         preserve_generator: bool,
     ) -> Result<(), SkywayError> {
+        // validate conversion
+        OsmFormat::validate_conversion(&self.input_format, &output_format)?;
+
         // set chunk_size, defaulting to 8000,
         // warning if user used custom value with PBF reader
         let chunk_size = if let Some(cs) = self.chunk_size {
             #[cfg(feature = "pbf")]
-            if matches!(self.input_format, InputFileFormat::Pbf) {
+            if matches!(self.input_format, OsmFormat::Pbf) {
                 warn!("Custom chunk size set, but the PBF does not support custom chunk sizes.");
             }
             cs
@@ -135,7 +142,7 @@ impl ConversionBuilder {
 
         match self.input_format {
             #[cfg(feature = "json")]
-            InputFileFormat::Json => JsonReader {}.run_conversion(
+            OsmFormat::Json => JsonReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -145,7 +152,7 @@ impl ConversionBuilder {
                 preserve_generator,
             ),
             #[cfg(feature = "opl")]
-            InputFileFormat::Opl => OplReader {}.run_conversion(
+            OsmFormat::Opl => OplReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -155,7 +162,7 @@ impl ConversionBuilder {
                 preserve_generator,
             ),
             #[cfg(feature = "pbf")]
-            InputFileFormat::Pbf => PbfReader {}.run_conversion(
+            OsmFormat::Pbf => PbfReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -165,7 +172,7 @@ impl ConversionBuilder {
                 preserve_generator,
             ),
             #[cfg(feature = "xml")]
-            InputFileFormat::Xml => XmlReader {}.run_conversion(
+            OsmFormat::Xml => XmlReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -174,6 +181,7 @@ impl ConversionBuilder {
                 dest,
                 preserve_generator,
             ),
+            _ => unreachable!(), // have already checked the validity of input and output
         }
     }
 }

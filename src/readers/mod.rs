@@ -2,9 +2,6 @@
 
 use rayon::prelude::*;
 
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
-
 use std::{
     fs,
     io::{stdin, BufRead, BufReader, Read},
@@ -17,7 +14,7 @@ use crate::{
     chunks::{ChunkBuilder, ElementChunk},
     elements::Metadata,
     writers::*,
-    SkywayError,
+    OsmFormat, SkywayError,
 };
 
 #[cfg(feature = "filter")]
@@ -25,9 +22,6 @@ use crate::filter::{build_filter, ElementFilter};
 
 #[cfg(not(feature = "filter"))]
 use std::convert::identity;
-
-#[cfg(feature = "cli")]
-use crate::FileFormatOptions;
 
 #[cfg(feature = "json")]
 mod json;
@@ -51,45 +45,6 @@ pub use pbf::PbfReader;
 mod xml;
 #[cfg(feature = "xml")]
 pub use xml::XmlReader;
-
-/// Enum that represents the different input file formats skyway supports.
-#[cfg(feature = "cli")]
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
-pub enum InputFileFormat {
-    #[cfg(feature = "json")]
-    #[value(name = "json")]
-    Json,
-    #[cfg(feature = "opl")]
-    #[value(name = "opl")]
-    Opl,
-    #[cfg(feature = "pbf")]
-    #[value(name = "pbf")]
-    Pbf,
-    #[cfg(feature = "xml")]
-    #[value(name = "xml", alias = "osm")]
-    Xml,
-}
-
-#[cfg(feature = "cli")]
-impl FileFormatOptions for InputFileFormat {
-    fn format_error(ext: &str) -> SkywayError {
-        SkywayError::UnknownInputFormat(ext.to_string())
-    }
-}
-
-/// Enum that represents the different input file formats skyway supports.
-#[cfg(not(feature = "cli"))]
-#[derive(Clone, Debug, PartialEq)]
-pub enum InputFileFormat {
-    #[cfg(feature = "json")]
-    Json,
-    #[cfg(feature = "opl")]
-    Opl,
-    #[cfg(feature = "pbf")]
-    Pbf,
-    #[cfg(feature = "xml")]
-    Xml,
-}
 
 pub fn open(path: PathBuf) -> Box<dyn Read + Send> {
     match fs::File::open(path) {
@@ -136,7 +91,7 @@ pub trait Reader: Sized {
         source: Option<PathBuf>,
         chunk_size: usize,
         #[cfg(feature = "filter")] filters: Vec<Box<dyn ElementFilter>>,
-        output_format: OutputFileFormat,
+        output_format: OsmFormat,
         dest: Option<PathBuf>,
         preserve_generator: bool,
     ) -> Result<(), SkywayError> {
@@ -162,25 +117,19 @@ pub trait Reader: Sized {
         #[allow(unreachable_patterns)]
         match output_format {
             #[cfg(feature = "json")]
-            OutputFileFormat::Json => {
+            OsmFormat::Json => {
                 JsonWriter { overpass: false }.write(chunk_iterator, trans_metadata_receiver, dest)
             }
             #[cfg(feature = "o5m")]
-            OutputFileFormat::O5m => {
-                O5mWriter {}.write(chunk_iterator, trans_metadata_receiver, dest)
-            }
+            OsmFormat::O5m => O5mWriter {}.write(chunk_iterator, trans_metadata_receiver, dest),
             #[cfg(feature = "opl")]
-            OutputFileFormat::Opl => {
-                OplWriter {}.write(chunk_iterator, trans_metadata_receiver, dest)
-            }
+            OsmFormat::Opl => OplWriter {}.write(chunk_iterator, trans_metadata_receiver, dest),
             #[cfg(feature = "json")]
-            OutputFileFormat::Overpass => {
+            OsmFormat::Overpass => {
                 JsonWriter { overpass: true }.write(chunk_iterator, trans_metadata_receiver, dest)
             }
             #[cfg(feature = "xml")]
-            OutputFileFormat::Xml => {
-                XmlWriter {}.write(chunk_iterator, trans_metadata_receiver, dest)
-            }
+            OsmFormat::Xml => XmlWriter {}.write(chunk_iterator, trans_metadata_receiver, dest),
             _ => Err(SkywayError::UnexpectedError(
                 "A file conversion was attempted with an unknown output format.".to_owned(),
             )),
