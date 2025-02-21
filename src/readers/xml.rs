@@ -1,235 +1,402 @@
-use quick_xml::de::from_str;
+use quick_xml::events::{BytesStart, Event};
+use quick_xml::name::QName;
 use rayon::prelude::*;
-use serde::{Deserialize, Deserializer};
-use serde_aux::field_attributes::{
-    deserialize_bool_from_anything, deserialize_number_from_string,
-    deserialize_option_number_from_string,
-};
+use std::collections::VecDeque;
+use std::io::BufRead;
+use std::mem;
 
-use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
+use std::path::PathBuf;
+use std::str::from_utf8;
+use std::sync::mpsc::Sender;
 
+use crate::elements::{Element, ElementBuilder, ElementTypeBuilder, Member};
+use crate::SkywayError;
 use crate::{
     chunks::{ChunkBuilder, ElementChunk},
-    elements::{Element, ElementType, Member, Metadata, SimpleElementType},
+    elements::{Metadata, SimpleElementType},
     readers::Reader,
 };
 
-fn deserialize_simple_element_type<'de, D>(
-    deserializer: D,
-) -> Result<Option<SimpleElementType>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: Option<String> = Option::deserialize(deserializer)?;
-    match s.as_deref() {
-        Some("node") => Ok(Some(SimpleElementType::Node)),
-        Some("way") => Ok(Some(SimpleElementType::Way)),
-        Some("relation") => Ok(Some(SimpleElementType::Relation)),
-        None => Ok(None),
-        Some(other) => Err(serde::de::Error::custom(format!(
-            "Invalid element type: {}",
-            other
-        ))),
+/// XML-specific reading errors
+#[derive(Debug)]
+enum XmlReadError {
+    MissingAttribute(String),
+    InvalidAttributeValue { attr: String, value: String },
+    ParsingError(String),
+    UnexpectedElement(String),
+}
+
+impl From<XmlReadError> for SkywayError {
+    fn from(err: XmlReadError) -> SkywayError {
+        match err {
+            XmlReadError::MissingAttribute(attr) => SkywayError::InvalidInputFile,
+            // FIXME: InvalidInputFile should support a message
+            // Once that fix is made across the rest of the library,
+            // I'll add better messages here
+            XmlReadError::InvalidAttributeValue { attr, value } => SkywayError::UnexpectedError(
+                format!("Invalid value '{}' for attribute '{}'", value, attr),
+            ),
+            XmlReadError::ParsingError(msg) => SkywayError::InvalidInputFile,
+            XmlReadError::UnexpectedElement(elem) => SkywayError::InvalidInputFile,
+        }
     }
 }
 
-#[derive(Deserialize)]
-#[serde(remote = "Member", rename = "member")]
-struct MemberDef {
-    #[serde(rename = "@type", deserialize_with = "deserialize_simple_element_type")]
-    t: Option<SimpleElementType>,
-    #[serde(rename = "@ref", deserialize_with = "deserialize_number_from_string")]
-    id: i64,
-    #[serde(rename = "@role")]
-    role: Option<String>,
-}
+// Convert a BytesStart event for an <osm> tag into a Metadata object
+fn generate_metadata(osm_event: BytesStart) -> Metadata {
+    let mut metadata = Metadata::default();
 
-#[derive(Deserialize)]
-#[serde(remote = "Metadata")]
-struct MetadataDef {
-    #[serde(rename = "@version")]
-    version: Option<String>,
-    #[serde(rename = "@generator")]
-    generator: Option<String>,
-    #[serde(rename = "@copyright")]
-    copyright: Option<String>,
-    #[serde(rename = "@license")]
-    license: Option<String>,
-    #[serde(rename = "@timestamp")]
-    timestamp: Option<String>,
-}
+    for attr in osm_event.attributes() {
+        if let Ok(attr) = attr {
+            match attr.key.into_inner() {
+                b"version" => {
+                    metadata.version = attr_value_to_str(attr.value.as_ref())
+                        .ok()
+                        .map(|s| s.to_string())
+                }
 
-#[derive(Deserialize)]
-struct XmlTags {
-    #[serde(rename = "@k")]
-    k: String,
-    #[serde(rename = "@v")]
-    v: String,
-}
-
-#[derive(Deserialize)]
-pub struct XmlElementMeta {
-    #[serde(rename = "@id", deserialize_with = "deserialize_number_from_string")]
-    id: i64,
-    #[serde(rename = "@user")]
-    user: Option<String>,
-    #[serde(
-        rename = "@uid",
-        deserialize_with = "deserialize_option_number_from_string"
-    )]
-    uid: Option<i32>,
-    #[serde(
-        rename = "@visible",
-        deserialize_with = "deserialize_bool_from_anything"
-    )]
-    visible: bool,
-    #[serde(
-        rename = "@version",
-        deserialize_with = "deserialize_option_number_from_string"
-    )]
-    version: Option<i32>,
-    #[serde(
-        rename = "@changeset",
-        deserialize_with = "deserialize_option_number_from_string"
-    )]
-    changeset: Option<i64>,
-    #[serde(rename = "@timestamp")]
-    timestamp: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct XmlNode {
-    #[serde(rename = "@lat", deserialize_with = "deserialize_number_from_string")]
-    lat: f64,
-    #[serde(rename = "@lon", deserialize_with = "deserialize_number_from_string")]
-    lon: f64,
-    #[serde(flatten)]
-    meta: XmlElementMeta,
-    #[serde(default, rename = "tag")]
-    tags: Vec<XmlTags>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename = "nd")]
-struct XmlWayNode {
-    #[serde(rename = "@ref", deserialize_with = "deserialize_number_from_string")]
-    nd_ref: i64,
-}
-
-#[derive(Deserialize)]
-struct XmlWay {
-    #[serde(flatten)]
-    meta: XmlElementMeta,
-    nd: Vec<XmlWayNode>,
-    #[serde(default, rename = "tag")]
-    tags: Vec<XmlTags>,
-}
-
-fn member_vec_annotation<'de, D>(deserializer: D) -> Result<Vec<Member>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    struct Wrapper(#[serde(with = "MemberDef")] Member);
-
-    let v = Vec::deserialize(deserializer)?;
-    Ok(v.into_iter().map(|Wrapper(a)| a).collect())
-}
-
-#[derive(Deserialize)]
-struct XmlRelation {
-    #[serde(flatten)]
-    meta: XmlElementMeta,
-    #[serde(deserialize_with = "member_vec_annotation")]
-    member: Vec<Member>,
-    #[serde(default, rename = "tag")]
-    tags: Vec<XmlTags>,
-}
-
-// for now, bounds are not converted
-// #[derive(Deserialize)]
-// struct Bounds {
-//     #[serde(rename = "@minlat")]
-//     minlat: String,
-//     #[serde(rename = "@minlon")]
-//     minlon: String,
-//     #[serde(rename = "@maxlat")]
-//     maxlat: String,
-//     #[serde(rename = "@maxlon")]
-//     maxlon: String,
-// }
-
-#[derive(Deserialize)]
-#[serde(rename = "osm")]
-struct OsmXmlDocument {
-    #[serde(flatten, with = "MetadataDef")]
-    _metadata: Metadata,
-    // bounds: Bounds,
-    #[serde(default)]
-    node: Vec<XmlNode>,
-    #[serde(default)]
-    way: Vec<XmlWay>,
-    #[serde(default)]
-    relation: Vec<XmlRelation>,
-}
-
-enum XmlElement {
-    Node(XmlNode),
-    Way(XmlWay),
-    Relation(XmlRelation),
-}
-
-fn convert_tags(xml_tags: Vec<XmlTags>) -> HashMap<String, String> {
-    let mut tag_map = HashMap::default();
-    for tag in xml_tags {
-        tag_map.insert(tag.k, tag.v);
+                b"generator" => {
+                    metadata.generator = attr_value_to_str(attr.value.as_ref())
+                        .ok()
+                        .map(|s| s.to_string());
+                }
+                // TODO: Add other metadata attributes...
+                _ => {}
+            }
+        }
     }
-    tag_map
+    metadata
 }
 
-fn convert_element(xml_element: XmlElement) -> Element {
-    match xml_element {
-        XmlElement::Node(node) => Element {
-            changeset: node.meta.changeset,
-            user: node.meta.user,
-            version: node.meta.version,
-            uid: node.meta.uid,
-            id: node.meta.id,
-            timestamp: node.meta.timestamp,
-            visible: Some(node.meta.visible),
-            tags: convert_tags(node.tags),
-            element_type: ElementType::Node {
-                lat: node.lat,
-                lon: node.lon,
-            },
-        },
-        XmlElement::Way(way) => Element {
-            changeset: way.meta.changeset,
-            user: way.meta.user,
-            version: way.meta.version,
-            uid: way.meta.uid,
-            id: way.meta.id,
-            timestamp: way.meta.timestamp,
-            visible: Some(way.meta.visible),
-            tags: convert_tags(way.tags),
-            element_type: ElementType::Way {
-                nodes: way.nd.iter().map(|n| n.nd_ref).collect(),
-            },
-        },
-        XmlElement::Relation(rel) => Element {
-            changeset: rel.meta.changeset,
-            user: rel.meta.user,
-            version: rel.meta.version,
-            uid: rel.meta.uid,
-            id: rel.meta.id,
-            timestamp: rel.meta.timestamp,
-            visible: Some(rel.meta.visible),
-            tags: convert_tags(rel.tags),
-            element_type: ElementType::Relation {
-                members: rel.member,
-            },
-        },
+struct ElementBuffer {
+    builder: ChunkBuilder,
+    current_elements: Vec<Element>,
+    completed_chunks: VecDeque<ElementChunk>,
+}
+
+impl ElementBuffer {
+    fn new(builder: ChunkBuilder) -> Self {
+        Self {
+            current_elements: Vec::with_capacity(builder.max_size),
+            completed_chunks: VecDeque::new(),
+            builder,
+        }
     }
+
+    // Add a new element to the buffer, potentially creating new chunks
+    fn push(&mut self, element: Element) {
+        self.current_elements.push(element);
+
+        if self.current_elements.len() >= self.builder.max_size {
+            self.flush();
+        }
+    }
+
+    // Force creation of a chunk from current elements
+    fn flush(&mut self) {
+        if !self.current_elements.is_empty() {
+            let elements = std::mem::replace(
+                &mut self.current_elements,
+                Vec::with_capacity(self.builder.max_size),
+            );
+            let chunk = self.builder.build_next_chunk(elements.into_boxed_slice());
+            self.completed_chunks.push_back(chunk);
+        }
+    }
+
+    // Convert buffer into a parallel iterator
+    fn into_iter(mut self) -> impl ParallelIterator<Item = ElementChunk> {
+        self.flush();
+        self.completed_chunks.into_iter().par_bridge()
+    }
+}
+
+struct ParseMachine {
+    read_buffer: Vec<u8>,
+    reader: quick_xml::reader::Reader<Box<dyn BufRead + Send>>,
+    element_buffer: ElementBuffer,
+    element_builder: ElementBuilder,
+    in_osm: bool,
+    current_element: Option<SimpleElementType>,
+    metadata_sender: Sender<Metadata>,
+}
+
+impl ParseMachine {
+    fn new(
+        reader: quick_xml::reader::Reader<Box<dyn BufRead + Send>>,
+        chunk_builder: ChunkBuilder,
+        metadata_sender: Sender<Metadata>,
+    ) -> Self {
+        Self {
+            read_buffer: Vec::new(),
+            reader,
+            element_buffer: ElementBuffer::new(chunk_builder),
+            element_builder: ElementBuilder::default(),
+            in_osm: false,
+            current_element: None,
+            metadata_sender,
+        }
+    }
+
+    fn handle_tag(&mut self, tag: BytesStart) -> Result<(), SkywayError> {
+        let mut k = None;
+        let mut v = None;
+
+        for attr in tag.attributes() {
+            let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+            match attr.key.into_inner() {
+                b"k" => k = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                b"v" => v = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                _ => {}
+            }
+        }
+
+        if let (Some(key), Some(value)) = (k, v) {
+            self.element_builder.tags.insert(key, value);
+        }
+
+        Ok(())
+    }
+
+    fn process_event(&mut self, event: Event) -> Result<(), SkywayError> {
+        match event {
+            Event::Start(s) => match s.name() {
+                QName(b"osm") => {
+                    self.in_osm = true;
+                    self.metadata_sender
+                        .send(generate_metadata(s))
+                        .expect("Unable to send metadata out of reader process");
+                    Ok(())
+                }
+                QName(b"node") | QName(b"way") | QName(b"relation") => {
+                    if let Ok(Some(element_type)) = self.start_element(s) {
+                        self.current_element = Some(element_type);
+                    }
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
+            Event::End(_) => {
+                if let Ok(Some(element)) = self.finish_element() {
+                    self.element_buffer.push(element);
+                    self.current_element = None;
+                }
+                Ok(())
+            }
+            Event::Empty(e) => match e.name() {
+                QName(b"tag") => self.handle_tag(e),
+                _ => self.handle_empty_element(e),
+            },
+            _ => Ok(()),
+        }
+    }
+
+    fn into_chunk_iter(
+        mut self,
+    ) -> Result<impl ParallelIterator<Item = ElementChunk>, SkywayError> {
+        loop {
+            let event = self
+                .reader
+                .read_event_into(&mut self.read_buffer)
+                .map_err(|e| {
+                    XmlReadError::ParsingError(format!(
+                        "Error at position {}: {:?}",
+                        self.reader.buffer_position(),
+                        e
+                    ))
+                })?;
+
+            // Convert event to owned data that doesn't reference the buffer
+            let owned_event = event.into_owned();
+
+            // Check for EOF before processing
+            if let Event::Eof = owned_event {
+                break;
+            }
+
+            // Now we can process the owned event
+            self.process_event(owned_event)?;
+
+            // Clear the buffer after we're done
+            self.read_buffer.clear();
+        }
+
+        // Verify we found and processed an OSM document
+        if !self.in_osm {
+            return Err(XmlReadError::ParsingError("No OSM document found".to_string()).into());
+        }
+
+        // Ensure any remaining elements are processed
+        self.element_buffer.flush();
+
+        Ok(self.element_buffer.into_iter())
+    }
+
+    fn start_element(
+        &mut self,
+        start: BytesStart,
+    ) -> Result<Option<SimpleElementType>, XmlReadError> {
+        for attr in start.attributes() {
+            let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+            match attr.key.into_inner() {
+                b"id" => {
+                    self.element_builder.id = attr_value_to_str(attr.value.as_ref())?.parse().ok();
+                    break;
+                }
+                b"version" => {
+                    self.element_builder.version =
+                        attr_value_to_str(attr.value.as_ref())?.parse().ok()
+                }
+                b"timestamp" => {
+                    self.element_builder.timestamp =
+                        Some(attr_value_to_str(attr.value.as_ref())?.to_string())
+                }
+                b"changeset" => {
+                    self.element_builder.changeset =
+                        attr_value_to_str(attr.value.as_ref())?.parse().ok()
+                }
+                b"uid" => {
+                    self.element_builder.uid = attr_value_to_str(attr.value.as_ref())?.parse().ok()
+                }
+                b"user" => {
+                    self.element_builder.user =
+                        Some(attr_value_to_str(attr.value.as_ref())?.to_string())
+                }
+                b"visible" => {
+                    self.element_builder.visible =
+                        Some(attr_value_to_str(attr.value.as_ref())? == "true")
+                }
+                _ => (),
+            }
+        }
+
+        let element_type = match start.name().into_inner() {
+            b"node" => {
+                let mut lat = None;
+                let mut lon = None;
+
+                for attr in start.attributes() {
+                    let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+                    match attr.key.into_inner() {
+                        b"lat" => lat = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                        b"lon" => lon = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                        _ => {}
+                    }
+                }
+
+                // Required attributes for nodes
+                if lat.is_none() || lon.is_none() {
+                    return Err(XmlReadError::MissingAttribute("lat/lon".to_string()));
+                }
+
+                self.element_builder.element_type =
+                    Some(ElementTypeBuilder::NodeBuilder { lat, lon });
+
+                Some(SimpleElementType::Node)
+            }
+            b"way" => {
+                self.element_builder.element_type =
+                    Some(ElementTypeBuilder::WayBuilder { nodes: Vec::new() });
+
+                Some(SimpleElementType::Way)
+            }
+            b"relation" => {
+                self.element_builder.element_type = Some(ElementTypeBuilder::RelationBuilder {
+                    members: Vec::new(),
+                });
+
+                Some(SimpleElementType::Relation)
+            }
+            _ => None,
+        };
+
+        Ok(element_type)
+    }
+
+    fn finish_element(&mut self) -> Result<Option<Element>, SkywayError> {
+        if self.element_builder.element_type.is_some() && self.element_builder.id.is_some() {
+            let temp_builder = mem::replace(&mut self.element_builder, ElementBuilder::default());
+            match temp_builder.build() {
+                element @ Element { .. } => Ok(Some(element)),
+                #[allow(unreachable_patterns)]
+                _ => Err(XmlReadError::ParsingError("Failed to build element".to_string()).into()),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn handle_empty_element(&mut self, empty: BytesStart) -> Result<(), SkywayError> {
+        match empty.name().into_inner() {
+            b"nd" => {
+                if let Some(SimpleElementType::Way) = self.current_element {
+                    if let Some(ElementTypeBuilder::WayBuilder { nodes }) =
+                        &mut self.element_builder.element_type
+                    {
+                        for attr in empty.attributes() {
+                            let attr =
+                                attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+                            if attr.key.into_inner() == b"ref" {
+                                if let Ok(node_ref) =
+                                    attr_value_to_str(attr.value.as_ref())?.parse::<i64>()
+                                {
+                                    nodes.push(node_ref);
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            b"member" => {
+                if let Some(SimpleElementType::Relation) = self.current_element {
+                    if let Some(ElementTypeBuilder::RelationBuilder { members }) =
+                        &mut self.element_builder.element_type
+                    {
+                        let mut role = None;
+                        let mut ref_id = None;
+                        let mut type_ = None;
+
+                        for attr in empty.attributes() {
+                            let attr =
+                                attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+                            match attr.key.into_inner() {
+                                b"role" => {
+                                    role = Some(attr_value_to_str(attr.value.as_ref())?.to_string())
+                                }
+                                b"ref" => {
+                                    ref_id = attr_value_to_str(attr.value.as_ref())?.parse().ok()
+                                }
+                                b"type" => {
+                                    type_ = match attr_value_to_str(attr.value.as_ref())? {
+                                        "node" => Some(SimpleElementType::Node),
+                                        "way" => Some(SimpleElementType::Way),
+                                        "relation" => Some(SimpleElementType::Relation),
+                                        _ => None,
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if let (Some(id), Some(t)) = (ref_id, type_) {
+                            members.push(Member {
+                                role,
+                                id,
+                                t: Some(t),
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+fn attr_value_to_str(value: &[u8]) -> Result<&str, XmlReadError> {
+    from_utf8(value).map_err(|e| XmlReadError::ParsingError(e.to_string()))
 }
 
 pub struct XmlReader {}
@@ -247,47 +414,13 @@ impl Reader for XmlReader {
         metadata_sender: Sender<Metadata>,
         chunk_builder: ChunkBuilder,
     ) -> impl ParallelIterator<Item = ElementChunk> {
-        let mut buf = String::new();
-        super::get_reader(src)
-            .read_to_string(&mut buf)
-            .expect("Unable to read from input!"); // TODO: handle more gracefully
-
-        let osm_xml_object: OsmXmlDocument = match from_str(&buf) {
-            Ok(v) => v,
+        let reader = quick_xml::reader::Reader::from_reader(super::get_reader(src));
+        let parse_machine = ParseMachine::new(reader, chunk_builder, metadata_sender);
+        match parse_machine.into_chunk_iter() {
+            Ok(result) => result,
             Err(e) => {
-                panic!("ERROR: Could not parse XML file: {e:?}"); // TODO: handle more gracefully
+                panic!("Failed to parse XML: {}", e)
             }
-        };
-
-        // TODO: instead of reading the entire file into memory and then processing, iterate out of the reader
-
-        let elements = osm_xml_object
-            .node
-            .into_iter()
-            .map(|n| convert_element(XmlElement::Node(n)))
-            .chain(
-                osm_xml_object
-                    .way
-                    .into_iter()
-                    .map(|w| convert_element(XmlElement::Way(w))),
-            )
-            .chain(
-                osm_xml_object
-                    .relation
-                    .into_iter()
-                    .map(|r| convert_element(XmlElement::Relation(r))),
-            );
-
-        metadata_sender
-            .send(Metadata {
-                timestamp: osm_xml_object._metadata.timestamp,
-                version: osm_xml_object._metadata.version,
-                generator: osm_xml_object._metadata.generator,
-                copyright: osm_xml_object._metadata.copyright,
-                license: osm_xml_object._metadata.license,
-            })
-            .expect("Couldn't send metadata to main thread!");
-
-        chunk_builder.chunk_iterator(elements).par_bridge()
+        }
     }
 }
