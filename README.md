@@ -14,6 +14,8 @@ Your feedback and contributions are welcome. Thanks!
 
 Please see the [skyway documentation](https://maprva.github.io/skyway/) to learn more!
 
+Join `#skyway` in the [OpenStreetMap Slack](https://openstreetmap.us/get-involved/slack/) to participate in general discussion about skyway.
+
 ## Supported Formats
 
 **Key:**<br>
