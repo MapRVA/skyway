@@ -152,7 +152,7 @@ fn append_serialized_element(base: &mut String, element: Element) {
                 base.push_str(" ref=\"");
                 base.push_str(&lexical::to_string(m.id));
                 base.push_str("\" role=\"");
-                if let Some(ref r) = &m.role {
+                if let Some(r) = &m.role {
                     base.push_str(&escape(r));
                 }
                 base.push_str("\"/>\n");

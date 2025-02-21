@@ -1,7 +1,7 @@
 [package]
 authors = ["Jacob Hall <email@jacobhall.net>"]
 description = "A command-line OpenStreetMap file converter"
-edition = "2021"
+edition = "2024"
 homepage = "https://maprva.github.io/skyway/"
 license = "GPL-3.0-or-later"
 name = "skyway"
