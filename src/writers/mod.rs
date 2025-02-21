@@ -2,15 +2,9 @@
 
 use rayon::prelude::*;
 
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
-
 use std::{path::PathBuf, sync::mpsc::Receiver};
 
 use crate::{chunks::ElementChunk, elements::Metadata, SkywayError};
-
-#[cfg(feature = "cli")]
-use crate::FileFormatOptions;
 
 #[cfg(feature = "json")]
 mod json;
@@ -31,50 +25,6 @@ pub use opl::OplWriter;
 mod xml;
 #[cfg(feature = "xml")]
 pub use xml::XmlWriter;
-
-/// Enum that represents the different output file formats skyway supports.
-#[cfg(feature = "cli")]
-#[derive(Clone, Debug, ValueEnum)]
-pub enum OutputFileFormat {
-    #[cfg(feature = "json")]
-    #[value(name = "json")]
-    Json,
-    #[cfg(feature = "o5m")]
-    #[value(name = "o5m")]
-    O5m,
-    #[cfg(feature = "opl")]
-    #[value(name = "opl")]
-    Opl,
-    #[cfg(feature = "json")]
-    #[value(name = "overpass")]
-    Overpass,
-    #[cfg(feature = "xml")]
-    #[value(name = "xml", alias = "osm")]
-    Xml,
-}
-
-#[cfg(feature = "cli")]
-impl FileFormatOptions for OutputFileFormat {
-    fn format_error(ext: &str) -> SkywayError {
-        SkywayError::UnknownOutputFormat(ext.to_string())
-    }
-}
-
-/// Enum that represents the different output file formats skyway supports.
-#[cfg(not(feature = "cli"))]
-#[derive(Clone, Debug)]
-pub enum OutputFileFormat {
-    #[cfg(feature = "json")]
-    Json,
-    #[cfg(feature = "o5m")]
-    O5m,
-    #[cfg(feature = "opl")]
-    Opl,
-    #[cfg(feature = "json")]
-    Overpass,
-    #[cfg(feature = "xml")]
-    Xml,
-}
 
 /// `Writer` implements the output of OpenStreetMap data in a specific format.
 pub trait Writer {
