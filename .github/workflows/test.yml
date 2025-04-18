@@ -6,6 +6,7 @@ on:
     paths:
       - src/**
       - Cargo.toml
+      - Cargo.lock
       - .github/workflows/test.yml
     branches: [trunk]
 
