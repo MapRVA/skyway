@@ -76,20 +76,6 @@ fn transform_metadata(
     metadata_sender.send(metadata).unwrap();
 }
 
-fn extract_element_references(element: Element) -> Option<Vec<i64>> {
-    match element.element_type {
-        ElementType::Node { .. } => None,
-        ElementType::Way { nodes } => Some(nodes),
-        ElementType::Relation { members } => {
-            let mut ids = Vec::new();
-            for m in members {
-                ids.push(m.id);
-            }
-            Some(ids)
-        }
-    }
-}
-
 pub trait Reader: Sized + Clone + Send + 'static {
     /// Create a new instance of this Reader
 
