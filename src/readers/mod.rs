@@ -16,7 +16,7 @@ use std::{
 use crate::{
     OsmFormat, SkywayError,
     chunks::{Chunk, ChunkBuilder, ElementChunk},
-    elements::{Element, ElementType, Metadata},
+    elements::Metadata,
     sort::{ElementSorter, SortStrategy},
     writers::*,
 };
