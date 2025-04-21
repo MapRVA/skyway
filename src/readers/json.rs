@@ -158,6 +158,8 @@ where
     let v = Vec::deserialize(deserializer)?;
     Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
+
+#[derive(Clone)]
 pub struct JsonReader {}
 
 impl JsonReader {

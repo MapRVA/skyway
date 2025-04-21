@@ -1,12 +1,11 @@
 use chrono::DateTime;
-use rayon::prelude::*;
 
 use std::{fs::File, io::stdout, path::PathBuf, sync::mpsc::Receiver};
 
 use crate::{
+    SkywayError,
     chunks::ElementChunk,
     elements::{Element, ElementType, Metadata, SimpleElementType},
-    SkywayError,
 };
 
 mod numbers;
@@ -166,20 +165,16 @@ impl Iterator for WaitingElements {
     }
 }
 
-fn write_output<I>(
+fn write_output(
     metadata_receiver: Receiver<Metadata>,
-    par_iter: I,
+    element_receiver: Receiver<ElementChunk>,
     mut dest: impl std::io::Write,
-) where
-    I: IntoParallelIterator<Item = ElementChunk>,
-{
+) {
     let mut waiting_elements = WaitingElements::new();
 
     let metadata = metadata_receiver.into_iter().next();
 
-    let chunks: Vec<ElementChunk> = par_iter.into_par_iter().collect();
-
-    for chunk in chunks {
+    for chunk in element_receiver {
         for element in chunk.content {
             waiting_elements.append(element);
         }
@@ -284,19 +279,16 @@ impl O5mWriter {
 }
 
 impl Writer for O5mWriter {
-    fn write<I>(
+    fn write(
         &self,
-        par_iter: I,
+        element_receiver: Receiver<ElementChunk>,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> Result<(), SkywayError>
-    where
-        I: IntoParallelIterator<Item = ElementChunk>,
-    {
+    ) -> Result<(), SkywayError> {
         match dest {
-            None => write_output(metadata_receiver, par_iter, stdout()),
+            None => write_output(metadata_receiver, element_receiver, stdout()),
             Some(a) => match File::create(PathBuf::from(a)) {
-                Ok(b) => write_output(metadata_receiver, par_iter, b),
+                Ok(b) => write_output(metadata_receiver, element_receiver, b),
                 Err(e) => {
                     panic!("Unable to open output file: {e:?}");
                 }

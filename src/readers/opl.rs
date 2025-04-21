@@ -5,7 +5,7 @@ use std::{
     io::BufRead,
     path::PathBuf,
     str,
-    sync::mpsc::{channel, Sender},
+    sync::mpsc::{Sender, channel},
     thread,
 };
 
@@ -185,6 +185,7 @@ fn convert_chunk(chunk: Chunk<Box<[Vec<u8>]>>) -> ElementChunk {
     }
 }
 
+#[derive(Clone)]
 pub struct OplReader {}
 
 impl OplReader {

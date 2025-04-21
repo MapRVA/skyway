@@ -1,18 +1,17 @@
 use quick_xml::escape::escape;
-use rayon::prelude::*;
 
 use std::{
     fmt::Write,
     fs::File,
     io::stdout,
     path::PathBuf,
-    sync::mpsc::{channel, Receiver},
+    sync::mpsc::{Receiver, channel},
 };
 
 use crate::{
+    SkywayError,
     chunks::{Chunk, ElementChunk, OrderedChunkIterator},
     elements::{Element, ElementType, Metadata, SimpleElementType},
-    SkywayError,
 };
 
 use super::Writer;
@@ -209,15 +208,12 @@ impl XmlWriter {
 }
 
 impl Writer for XmlWriter {
-    fn write<I>(
+    fn write(
         &self,
-        par_iter: I,
+        element_receiver: Receiver<ElementChunk>,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> Result<(), SkywayError>
-    where
-        I: IntoParallelIterator<Item = ElementChunk>,
-    {
+    ) -> Result<(), SkywayError> {
         let (sender, receiver) = channel();
         let write_thread = std::thread::spawn({
             move || {
@@ -233,11 +229,11 @@ impl Writer for XmlWriter {
             }
         });
 
-        par_iter.into_par_iter().for_each(|chunk| {
+        for chunk in element_receiver {
             sender
                 .send(serialize_chunk(chunk))
                 .expect("Failed to send serialized chunk");
-        });
+        }
 
         drop(sender);
 

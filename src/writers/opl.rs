@@ -1,12 +1,11 @@
 use lexical;
-use rayon::prelude::*;
 
-use std::{fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::channel, sync::mpsc::Receiver};
+use std::{fmt::Write, fs, io::stdout, path::PathBuf, sync::mpsc::Receiver, sync::mpsc::channel};
 
 use crate::{
+    SkywayError,
     chunks::{Chunk, ElementChunk, OrderedChunkIterator},
     elements::{ElementType, Metadata, SimpleElementType},
-    SkywayError,
 };
 
 use super::Writer;
@@ -188,16 +187,12 @@ fn write_output(chunk_iterator: Receiver<Chunk<String>>, dest_buffer: impl std::
 }
 
 impl Writer for OplWriter {
-    fn write<I>(
+    fn write(
         &self,
-        par_iter: I,
+        element_receiver: Receiver<ElementChunk>,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> Result<(), SkywayError>
-    where
-        I: IntoParallelIterator<Item = ElementChunk>,
-    {
-        println!("opened the writer");
+    ) -> Result<(), SkywayError> {
         let (sender, receiver) = channel();
         let write_thread = std::thread::spawn({
             move || {
@@ -214,11 +209,11 @@ impl Writer for OplWriter {
             }
         });
 
-        par_iter.into_par_iter().for_each(|chunk| {
+        for chunk in element_receiver {
             sender
                 .send(serialize_chunk(chunk))
                 .expect("Failed to send serialized chunk");
-        });
+        }
 
         drop(sender);
 

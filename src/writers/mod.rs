@@ -1,10 +1,8 @@
 //! Writes OSM data out.
 
-use rayon::prelude::*;
-
 use std::{path::PathBuf, sync::mpsc::Receiver};
 
-use crate::{chunks::ElementChunk, elements::Metadata, SkywayError};
+use crate::{SkywayError, chunks::ElementChunk, elements::Metadata};
 
 #[cfg(feature = "json")]
 mod json;
@@ -33,12 +31,10 @@ pub trait Writer {
     /// * `par_iter`: Object implementing `IntoParallelIterator<Item = Chunk>`.
     /// * `metadata_receiver`: Receiver for a channel of (1) `Metadata`.\
     /// * `dest`: Path to output file. If None, data will be written to stdout.
-    fn write<I>(
+    fn write(
         &self,
-        par_iter: I,
+        element_receiver: Receiver<ElementChunk>,
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
-    ) -> Result<(), SkywayError>
-    where
-        I: IntoParallelIterator<Item = ElementChunk>;
+    ) -> Result<(), SkywayError>;
 }

@@ -1,3 +1,4 @@
+use sort::SortStrategy;
 use thiserror::Error;
 
 #[cfg(feature = "cli")]
@@ -12,6 +13,7 @@ pub mod chunks;
 pub mod elements;
 mod file_format;
 pub mod readers;
+pub mod sort;
 pub mod writers;
 
 pub use file_format::OsmFormat;
@@ -82,25 +84,68 @@ pub trait FileFormatOptions: ValueEnum {
     }
 }
 
-// build a file conversion
+/// Builder for file conversions
 // this is the main API for skyway
 pub struct ConversionBuilder {
     input_format: OsmFormat,
+    output_format: OsmFormat,
     source: Option<PathBuf>,
+    dest: Option<PathBuf>,
     #[cfg(feature = "filter")]
     filters: Vec<Box<dyn ElementFilter>>,
+    #[cfg(feature = "filter")]
+    omit_references: bool,
+    sort: bool,
+    sort_strategy: Option<SortStrategy>,
     chunk_size: Option<usize>,
+    preserve_generator: bool,
 }
 
 impl ConversionBuilder {
-    pub fn new(input_format: OsmFormat) -> Self {
+    pub fn new(input_format: OsmFormat, output_format: OsmFormat) -> Self {
         ConversionBuilder {
             input_format,
+            output_format,
             source: None,
+            dest: None,
             #[cfg(feature = "filter")]
             filters: Vec::new(),
+            #[cfg(feature = "filter")]
+            omit_references: false,
+            sort: false,
+            sort_strategy: None,
             chunk_size: None,
+            preserve_generator: true,
         }
+    }
+
+    // TODO: I don't love some of these with_xxx functions. These could just be
+    // public fields in the struct. I wanted to use the builder pattern here but
+    // it might not make sense.
+
+    pub fn with_dest(mut self, dest: Option<PathBuf>) -> Self {
+        self.dest = dest;
+        self
+    }
+
+    pub fn with_omit_references(mut self, omit_references: bool) -> Self {
+        self.omit_references = omit_references;
+        self
+    }
+
+    pub fn with_preserve_generator(mut self, preserve_generator: bool) -> Self {
+        self.preserve_generator = preserve_generator;
+        self
+    }
+
+    pub fn with_sort(mut self, sort: bool) -> Self {
+        self.sort = sort;
+        self
+    }
+
+    pub fn with_sort_strategy(mut self, sort_strategy: Option<SortStrategy>) -> Self {
+        self.sort_strategy = sort_strategy;
+        self
     }
 
     pub fn with_source(mut self, source: Option<PathBuf>) -> Self {
@@ -119,25 +164,45 @@ impl ConversionBuilder {
         self
     }
 
-    pub fn run_conversion(
-        self,
-        output_format: OsmFormat,
-        dest: Option<PathBuf>,
-        preserve_generator: bool,
-    ) -> Result<(), SkywayError> {
-        // validate conversion
-        OsmFormat::validate_conversion(&self.input_format, &output_format)?;
+    pub fn run_conversion(self) -> Result<(), SkywayError> {
+        // confirm that we can convert between these formats
+        OsmFormat::validate_conversion(&self.input_format, &self.output_format)?;
 
         // set chunk_size, defaulting to 8000,
         // warning if user used custom value with PBF reader
         let chunk_size = if let Some(cs) = self.chunk_size {
             #[cfg(feature = "pbf")]
             if matches!(self.input_format, OsmFormat::Pbf) {
-                warn!("Custom chunk size set, but the PBF does not support custom chunk sizes.");
+                warn!(
+                    "Custom chunk size set, but the PBF writer does not support custom chunk sizes."
+                );
             }
             cs
         } else {
             8000
+        };
+
+        let sort_strategy = match self.sort_strategy {
+            Some(s) => {
+                // it's a big deal if a non-standard sort strategy is used for 05m,
+                // so let's warn the user in that case
+                #[cfg(feature = "o5m")]
+                if matches!(&self.output_format, OsmFormat::O5m)
+                    && !matches!(s, SortStrategy::TypeAndId)
+                {
+                    warn!(
+                        "You selected a non-standard sort strategy for the o5m format. The output may not be readable by other tools."
+                    )
+                }
+                s // regardless, return what the user requested
+            }
+            None => match &self.output_format {
+                // as above, o5m should be using the TypeAndId sort strategy
+                #[cfg(feature = "o5m")]
+                OsmFormat::O5m => SortStrategy::TypeAndId,
+                // otherwise we do not sort by default
+                _ => SortStrategy::None,
+            },
         };
 
         match self.input_format {
@@ -147,9 +212,12 @@ impl ConversionBuilder {
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
-                output_format,
-                dest,
-                preserve_generator,
+                #[cfg(feature = "filter")]
+                self.omit_references,
+                self.output_format,
+                sort_strategy,
+                self.dest,
+                self.preserve_generator,
             ),
             #[cfg(feature = "opl")]
             OsmFormat::Opl => OplReader {}.run_conversion(
@@ -157,9 +225,12 @@ impl ConversionBuilder {
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
-                output_format,
-                dest,
-                preserve_generator,
+                #[cfg(feature = "filter")]
+                self.omit_references,
+                self.output_format,
+                sort_strategy,
+                self.dest,
+                self.preserve_generator,
             ),
             #[cfg(feature = "pbf")]
             OsmFormat::Pbf => PbfReader {}.run_conversion(
@@ -167,9 +238,12 @@ impl ConversionBuilder {
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
-                output_format,
-                dest,
-                preserve_generator,
+                #[cfg(feature = "filter")]
+                self.omit_references,
+                self.output_format,
+                sort_strategy,
+                self.dest,
+                self.preserve_generator,
             ),
             #[cfg(feature = "xml")]
             OsmFormat::Xml => XmlReader {}.run_conversion(
@@ -177,9 +251,12 @@ impl ConversionBuilder {
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
-                output_format,
-                dest,
-                preserve_generator,
+                #[cfg(feature = "filter")]
+                self.omit_references,
+                self.output_format,
+                sort_strategy,
+                self.dest,
+                self.preserve_generator,
             ),
             _ => unreachable!(), // have already checked the validity of input and output
         }

@@ -4,7 +4,7 @@ use log::info;
 
 use std::{path::PathBuf, process};
 
-use skyway::{ConversionBuilder, FileFormatOptions, OsmFormat, SkywayError};
+use skyway::{ConversionBuilder, FileFormatOptions, OsmFormat, SkywayError, sort::SortStrategy};
 
 #[cfg(feature = "filter")]
 use skyway::filter::filter_from_path;
@@ -21,11 +21,13 @@ fn start_progress(message: &str) -> ProgressBar {
     progress.set_message(message.to_owned());
 
     let progress_clone = progress.clone();
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        progress_clone.tick();
-        if progress_clone.is_finished() {
-            break;
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            progress_clone.tick();
+            if progress_clone.is_finished() {
+                break;
+            }
         }
     });
     progress
@@ -59,6 +61,15 @@ struct Cli {
     #[arg(long)]
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     output: Option<PathBuf>,
+
+    /// Sort order for output elements
+    #[arg(long)]
+    #[arg(value_parser = clap::value_parser!(SortStrategy))]
+    sort_strategy: Option<SortStrategy>,
+
+    /// Do not include referenced elements unless they themselves pass through filters
+    #[arg(long)]
+    omit_references: bool,
 
     /// If output file already exists, don't overwrite it
     #[arg(long)]
@@ -95,7 +106,11 @@ fn run() -> Result<(), SkywayError> {
     };
 
     // create a ConversionBuilder that will handle the conversion
-    let mut conversion_builder = ConversionBuilder::new(from).with_source(src);
+    let mut conversion_builder = ConversionBuilder::new(from, to)
+        .with_source(src)
+        .with_dest(cli.output)
+        .with_omit_references(cli.omit_references)
+        .with_preserve_generator(cli.preserve_generator);
 
     if let Some(chunk_size) = cli.chunk_size {
         conversion_builder = conversion_builder.with_chunk_size(chunk_size)
@@ -112,8 +127,7 @@ fn run() -> Result<(), SkywayError> {
 
     let progress = start_progress("Running conversion...");
 
-    // run the conversion with our chosen writer and destination
-    conversion_builder.run_conversion(to, cli.output, cli.preserve_generator)?;
+    conversion_builder.run_conversion()?;
 
     progress.finish_with_message("Running conversion...done");
 

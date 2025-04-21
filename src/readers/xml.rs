@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use std::str::from_utf8;
 use std::sync::mpsc::Sender;
 
-use crate::elements::{Element, ElementBuilder, ElementTypeBuilder, Member};
 use crate::SkywayError;
+use crate::elements::{Element, ElementBuilder, ElementTypeBuilder, Member};
 use crate::{
     chunks::{ChunkBuilder, ElementChunk},
     elements::{Metadata, SimpleElementType},
@@ -399,6 +399,7 @@ fn attr_value_to_str(value: &[u8]) -> Result<&str, XmlReadError> {
     from_utf8(value).map_err(|e| XmlReadError::ParsingError(e.to_string()))
 }
 
+#[derive(Clone)]
 pub struct XmlReader {}
 
 impl XmlReader {

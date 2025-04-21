@@ -5,10 +5,10 @@ use rayon::prelude::*;
 use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
 
 use crate::{
+    SkywayError,
     chunks::{ChunkBuilder, ElementChunk},
     elements::{Element, ElementType, Member, Metadata, SimpleElementType},
     readers::Reader,
-    SkywayError,
 };
 
 /// Convert the OSM PBF timestamps to RFC 3339
@@ -151,6 +151,7 @@ fn build_metadata_from_block(header_block: Box<HeaderBlock>) -> Metadata {
     }
 }
 
+#[derive(Clone)]
 pub struct PbfReader {}
 
 impl PbfReader {

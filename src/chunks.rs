@@ -7,6 +7,7 @@ pub struct Chunk<T> {
     pub content: T,
 }
 
+/// Chunk of Elements
 pub type ElementChunk = Chunk<Box<[Element]>>;
 
 #[derive(Copy, Clone, Debug)]
@@ -162,7 +163,10 @@ where
 
             // this should never happen!
             if source_exhausted && !self.buffer.is_empty() {
-                panic!("ERROR: The source iterator of chunks was exhausted, but the next chunk could not be found (index {})", self.next_index);
+                panic!(
+                    "ERROR: The source iterator of chunks was exhausted, but the next chunk could not be found (index {})",
+                    self.next_index
+                );
             }
         }
     }

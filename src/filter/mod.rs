@@ -10,20 +10,22 @@ mod skyfilter;
 #[cfg(feature = "skyfilter")]
 use skyfilter::parse::parse_filter;
 
-use std::{fs::read_to_string, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::read_to_string,
+    path::Path,
+    sync::mpsc::Receiver,
+};
 
-use crate::{chunks::ElementChunk, elements::Element, SkywayError};
+use crate::{
+    SkywayError,
+    chunks::{Chunk, ElementChunk},
+    elements::{Element, ElementType},
+};
 
 /// Represents a filter that can be evaluated on an `Element`, transforming it.
 pub trait ElementFilter: Send + Sync {
     fn evaluate(&self, element: &mut Element) -> bool;
-
-    fn evaluate_option(&self, mut element: Element) -> Option<Element> {
-        match self.evaluate(&mut element) {
-            true => Some(element),
-            false => None,
-        }
-    }
 }
 
 enum Filter {
@@ -69,21 +71,88 @@ pub fn filter_from_path(filter_path: &Path) -> Result<Box<dyn ElementFilter>, Sk
     }
 }
 
+fn get_referenced_ids(
+    id: &i64,
+    relation_references: &HashMap<i64, Vec<i64>>,
+    way_references: &HashMap<i64, Vec<i64>>,
+) -> Vec<i64> {
+    let mut referenced_ids = Vec::new();
+    if let Some(relation_refs) = relation_references.get(&id) {
+        for r in relation_refs {
+            referenced_ids.extend(get_referenced_ids(r, relation_references, way_references));
+        }
+    } else if let Some(way_refs) = way_references.get(&id) {
+        referenced_ids.extend(way_refs);
+    } else {
+        referenced_ids.push(*id);
+    }
+    referenced_ids
+}
+
+pub fn build_keep_list(
+    filters: Vec<Box<dyn ElementFilter>>,
+    chunk_receiver: Receiver<Chunk<Box<[Element]>>>,
+) -> HashSet<i64> {
+    let mut keep_ids = HashSet::new();
+
+    let mut relation_references = HashMap::new();
+    let mut way_references = HashMap::new();
+
+    for mut chunk in chunk_receiver {
+        for element in chunk.content.iter_mut() {
+            match &element.element_type {
+                ElementType::Node { .. } => (),
+                ElementType::Way { nodes } => {
+                    // FIXME: return some kind of error if this element already exists in the HashMap
+                    way_references.insert(element.id, nodes.clone());
+                }
+                ElementType::Relation { members } => {
+                    let mut member_ids = Vec::new();
+                    for member in members {
+                        member_ids.push(member.id);
+                    }
+                    relation_references.insert(element.id, member_ids);
+                }
+            }
+            for filter in &filters {
+                if filter.evaluate(element) {
+                    keep_ids.insert(element.id);
+                }
+            }
+        }
+    }
+
+    let mut keep_ids_with_references = keep_ids.clone();
+    for id in keep_ids {
+        keep_ids_with_references.extend(get_referenced_ids(
+            &id,
+            &relation_references,
+            &way_references,
+        ))
+    }
+    keep_ids_with_references
+}
+
 pub fn build_filter(
     filters: Vec<Box<dyn ElementFilter>>,
 ) -> Box<dyn Fn(ElementChunk) -> ElementChunk + Sync> {
-    Box::new(move |mut chunk: ElementChunk| {
-        for filter in &filters {
-            chunk = ElementChunk {
-                index: chunk.index,
-                content: chunk
-                    .content
-                    .into_vec()
-                    .into_iter()
-                    .filter_map(|element| filter.evaluate_option(element))
-                    .collect(),
+    Box::new(move |chunk: ElementChunk| {
+        let mut out_elements = Vec::new();
+        for mut element in chunk.content.into_iter() {
+            let mut keep_element = true;
+            for filter in &filters {
+                if !filter.evaluate(&mut element) {
+                    keep_element = false;
+                    break;
+                }
+            }
+            if keep_element {
+                out_elements.push(element);
             }
         }
-        chunk
+        Chunk {
+            content: out_elements.into_boxed_slice(),
+            index: chunk.index,
+        }
     })
 }
