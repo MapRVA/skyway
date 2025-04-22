@@ -183,6 +183,9 @@ pub trait Reader: Sized + Clone + Send + 'static {
                         .send(chunk)
                         .expect("Unable to send chunk.")
                 });
+
+            // necessary to close the channel and prevent the receiver from blocking
+            drop(filter_chunk_sender);
         };
 
         #[cfg(not(feature = "filter"))]
