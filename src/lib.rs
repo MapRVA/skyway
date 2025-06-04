@@ -26,8 +26,7 @@ pub mod filter;
 #[cfg(feature = "filter")]
 use filter::ElementFilter;
 
-// All errors skyway can return
-// this is a work in progress
+/// Errors skyway might return.
 #[derive(Error, Debug)]
 pub enum SkywayError {
     #[error("Cannot determine file format: {0}")]
