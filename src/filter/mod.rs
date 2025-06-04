@@ -90,7 +90,7 @@ fn get_referenced_ids(
 }
 
 pub fn build_keep_list(
-    filters: Vec<Box<dyn ElementFilter>>,
+    filters: &Vec<Box<dyn ElementFilter>>,
     chunk_receiver: Receiver<Chunk<Box<[Element]>>>,
 ) -> HashSet<i64> {
     let mut keep_ids = HashSet::new();
@@ -114,7 +114,7 @@ pub fn build_keep_list(
                     relation_references.insert(element.id, member_ids);
                 }
             }
-            for filter in &filters {
+            for filter in filters {
                 if filter.evaluate(element) {
                     keep_ids.insert(element.id);
                 }

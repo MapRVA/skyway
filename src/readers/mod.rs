@@ -153,11 +153,18 @@ pub trait Reader: Sized + Clone + Send + 'static {
                 });
 
                 // generate a list of element IDs to keep
-                let keep_ids = build_keep_list(filters, first_filter_chunk_receiver);
+                let keep_ids = build_keep_list(&filters, first_filter_chunk_receiver);
                 let keep_ids = Arc::new(Mutex::new(keep_ids));
 
+                let (fake_metadata_sender, fake_metadata_receiver) = channel();
+
+                let combined_filter = build_filter(filters);
+
                 // re-read the input file, only keeping the elements in keep_ids
-                self.read_file(source, metadata_sender, chunk_builder)
+                self.read_file(source, fake_metadata_sender, chunk_builder)
+                    // run the filter on each chunk now
+                    .map(|chunk| combined_filter(chunk))
+                    // keep elements depending on if we determined they are necessary above
                     .for_each(move |chunk| {
                         let mut elements = Vec::new();
                         let mut keep_ids_lock = keep_ids.lock().unwrap();
@@ -175,6 +182,9 @@ pub trait Reader: Sized + Clone + Send + 'static {
                             })
                             .expect("Unable to send chunk.")
                     });
+
+                // dropping the fake metadata receiver now means it was available during the second read
+                drop(fake_metadata_receiver);
             }
         } else {
             self.read_file(source, metadata_sender, chunk_builder)
