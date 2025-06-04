@@ -1,21 +1,26 @@
+//! Helpers for working with chunks of OSM elements.
+
 use std::{cmp::Reverse, collections::BinaryHeap};
 
 use crate::elements::Element;
 
+/// Indexed chunk of objects of a single type.
 pub struct Chunk<T> {
     pub index: usize,
     pub content: T,
 }
 
-/// Chunk of Elements
+/// Chunk of OSM Elements.
 pub type ElementChunk = Chunk<Box<[Element]>>;
 
+/// Builds a series of chunks from an iterator of objects.
 #[derive(Copy, Clone, Debug)]
 pub struct ChunkBuilder {
     pub max_size: usize,
     current_index: usize,
 }
 
+/// Converts an iterator of Elements into an iterator of ElementChunks.
 pub struct ElementsIntoChunkIterator<I>
 where
     I: Iterator<Item = Element>,
@@ -92,6 +97,7 @@ impl<T: Sized + Send> PartialOrd for Chunk<T> {
     }
 }
 
+/// Sorts iterators of Chunks by index.
 pub struct OrderedChunkIterator<I, T: Sized + Send>
 where
     I: Iterator<Item = Chunk<T>>,
