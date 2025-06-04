@@ -1,3 +1,5 @@
+//! Utilities for sorting OSM elements.
+
 use std::{
     sync::mpsc::{Receiver, Sender, channel},
     thread,
