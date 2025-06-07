@@ -71,22 +71,31 @@ pub fn filter_from_path(filter_path: &Path) -> Result<Box<dyn ElementFilter>, Sk
     }
 }
 
+/// Given a list of all way and relation references in a dataset,
+/// return all elements referenced by element with given id, recursive.
 fn get_referenced_ids(
     id: &i64,
     relation_references: &HashMap<i64, Vec<i64>>,
     way_references: &HashMap<i64, Vec<i64>>,
-) -> Vec<i64> {
-    let mut referenced_ids = Vec::new();
+) -> Option<Vec<i64>> {
     if let Some(relation_refs) = relation_references.get(&id) {
+        // Element is relation, we must recursively resolve its references.
+        // (Because relations can reference other relations!)
+        let mut recursive_referenced_ids = Vec::new();
         for r in relation_refs {
-            referenced_ids.extend(get_referenced_ids(r, relation_references, way_references));
+            if let Some(referenced_ids) = get_referenced_ids(r, relation_references, way_references)
+            {
+                recursive_referenced_ids.extend(referenced_ids);
+            }
         }
+        Some(recursive_referenced_ids)
     } else if let Some(way_refs) = way_references.get(&id) {
-        referenced_ids.extend(way_refs);
+        // Element is way, we can quickly determine its references.
+        Some(way_refs.to_owned())
     } else {
-        referenced_ids.push(*id);
+        // Element is node, no potential references.
+        None
     }
-    referenced_ids
 }
 
 pub fn build_keep_list(
@@ -95,12 +104,22 @@ pub fn build_keep_list(
 ) -> HashSet<i64> {
     let mut keep_ids = HashSet::new();
 
-    let mut relation_references = HashMap::new();
-    let mut way_references = HashMap::new();
+    // HashMap that stores every relation ID, along with
+    // every element ID that it references.
+    let mut relation_references: HashMap<i64, Vec<i64>> = HashMap::new();
 
+    // HashMap that stores every way ID, along with every
+    // node ID that it references.
+    let mut way_references: HashMap<i64, Vec<i64>> = HashMap::new();
+
+    // Iterate over every input element, storing all
+    // references in the above two HashMaps.
     for mut chunk in chunk_receiver {
         for element in chunk.content.iter_mut() {
             match &element.element_type {
+                // Ignore nodes, they don't reference anything!
+                //
+                // Note that nodes may still be kept by filters below.
                 ElementType::Node { .. } => (),
                 ElementType::Way { nodes } => {
                     // FIXME: return some kind of error if this element already exists in the HashMap
@@ -114,6 +133,8 @@ pub fn build_keep_list(
                     relation_references.insert(element.id, member_ids);
                 }
             }
+
+            // Keep elements that pass the filters.
             for filter in filters {
                 if filter.evaluate(element) {
                     keep_ids.insert(element.id);
@@ -122,17 +143,21 @@ pub fn build_keep_list(
         }
     }
 
+    // Now we need to add the IDs of all elements referenced
+    // by kept elements to keep_ids, recursively.
     let mut keep_ids_with_references = keep_ids.clone();
     for id in keep_ids {
-        keep_ids_with_references.extend(get_referenced_ids(
-            &id,
-            &relation_references,
-            &way_references,
-        ))
+        if let Some(referenced_ids) = get_referenced_ids(&id, &relation_references, &way_references)
+        {
+            keep_ids_with_references.extend(referenced_ids)
+        }
     }
+
+    // Return all IDs of kept elements + their references.
     keep_ids_with_references
 }
 
+/// Transform a Vec of boxed ElementFilters into a single function that filters an ElementChunk
 pub fn build_filter(
     filters: Vec<Box<dyn ElementFilter>>,
 ) -> Box<dyn Fn(ElementChunk) -> ElementChunk + Sync> {
