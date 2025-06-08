@@ -181,3 +181,31 @@ pub fn build_filter(
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+    #[test]
+    fn test_auto_parse_skyfilter() {
+        let filter_contents = format!("SkyFilter v{}\n\nCOMMIT", VERSION);
+        let parsed_filter = auto_parse_filter(&filter_contents);
+        assert!(parsed_filter.is_ok());
+    }
+
+    #[test]
+    fn test_auto_parse_cel() {
+        let filter_contents = format!("type == \"way\"");
+        let parsed_filter = auto_parse_filter(&filter_contents);
+        assert!(parsed_filter.is_ok());
+    }
+
+    #[test]
+    fn test_auto_parse_error() {
+        let filter_contents = format!("notafilter!!!");
+        let parsed_filter = auto_parse_filter(&filter_contents);
+        assert!(parsed_filter.is_err());
+    }
+}
