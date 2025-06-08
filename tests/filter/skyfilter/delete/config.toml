@@ -1,0 +1,5 @@
+name = "SkyFilter DROP"
+description = "Tests the SkyFilter DROP modifier."
+input = "input.opl"
+filters = ["delete_bicycle.skyfilter"]
+expected_output = "expected.opl"

@@ -52,5 +52,5 @@ If you would like to make drastic changes to skyway, I recommend reaching out fi
 skyway is released under GPLv3 or any later version.
 Please see [LICENSE.md](LICENSE.md) for more information.
 
-Example data in this repository is from [OpenStreetMap](https://www.openstreetmap.org), and is therefore subject to the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/).
+Test data in the `tests/` directory is derived from [OpenStreetMap](https://www.openstreetmap.org), and is therefore subject to the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/).
 Please click [here](https://www.openstreetmap.org/copyright) for more information.

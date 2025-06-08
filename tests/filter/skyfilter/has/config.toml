@@ -1,0 +1,5 @@
+name = "SkyFilter HAS"
+description = "Tests the SkyFilter HAS selector."
+input = "input.opl"
+filters = ["drop_bicycle.skyfilter"]
+expected_output = "expected.opl"

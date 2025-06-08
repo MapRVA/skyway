@@ -1,6 +1,6 @@
 //! Helpers for working with chunks of OSM elements.
 
-use std::{cmp::Reverse, collections::BinaryHeap};
+use std::{cmp::Reverse, collections::BinaryHeap, vec::IntoIter};
 
 use crate::elements::Element;
 
@@ -12,6 +12,15 @@ pub struct Chunk<T> {
 
 /// Chunk of OSM Elements.
 pub type ElementChunk = Chunk<Box<[Element]>>;
+
+impl IntoIterator for ElementChunk {
+    type Item = Element;
+    type IntoIter = IntoIter<Element>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Vec::from(self.content).into_iter()
+    }
+}
 
 /// Builds a series of chunks from an iterator of objects.
 #[derive(Copy, Clone, Debug)]

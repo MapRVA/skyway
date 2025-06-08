@@ -33,7 +33,7 @@ enum Filter {
     Cel,
 }
 
-fn auto_parse_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, SkywayError> {
+pub fn auto_parse_filter(filter_contents: &str) -> Result<Box<dyn ElementFilter>, SkywayError> {
     #[cfg(feature = "skyfilter")]
     if let Ok(f) = parse_filter(filter_contents) {
         return Ok(Box::new(f));
