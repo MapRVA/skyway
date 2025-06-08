@@ -240,11 +240,17 @@ pub trait Reader: Sized + Clone + Send + 'static {
                 // At this point, we know the IDs of every element we want to keep, in the
                 // keep_ids Arc<Mutex<HashSet<i64>>>
                 //
-                // Now, let's re-read the input file, only keeping what's in keep_ids.
+                // Now, we'll re-read the input file, only keeping what's in keep_ids.
+                //
+                // First, build the combined filter again so they get the chance to modify
+                // elements as necessary
+                let combined_filter = build_filter(filters);
+
                 self.read_file(source, fake_metadata_sender, chunk_builder)
-                    // run the filter on each chunk now
-                    // TODO: delete the following line?
-                    // .map(|chunk| combined_filter(chunk))
+                    // It is imperative that we re-run the filters, because even though
+                    // we already know which elements we want to keep, we don't know
+                    // what modifications the filters might make to those elements.
+                    .map(|chunk| combined_filter(chunk))
                     // keep elements depending on if we determined they are necessary above
                     .for_each(move |chunk| {
                         // Vec that will hold each element we keep from this ElementChunk.
