@@ -211,8 +211,8 @@ impl Reader for OplReader {
 
         let src = super::get_reader(src);
         thread::spawn(move || {
-            src.split(b'\n')
-                .map(|s| s.expect("Unable to read input file buffer"))
+            src.lines()
+                .map(|s| s.expect("Unable to read input file buffer").into_bytes())
                 .chunks(chunk_builder.max_size)
                 .into_iter()
                 .enumerate()
