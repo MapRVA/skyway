@@ -24,9 +24,6 @@ use crate::{
 #[cfg(feature = "filter")]
 use crate::filter::{ElementFilter, build_filter, build_keep_list};
 
-#[cfg(not(feature = "filter"))]
-use std::convert::identity;
-
 #[cfg(feature = "json")]
 mod json;
 #[cfg(feature = "json")]
@@ -307,8 +304,16 @@ pub trait Reader: Sized + Clone + Send + 'static {
         };
 
         #[cfg(not(feature = "filter"))]
-        let chunk_iterator: Box<impl ParallelIterator<ElementChunk>> =
-            self.read_file(source, metadata_sender, chunk_builder);
+        self.read_file(source, metadata_sender, chunk_builder)
+            .for_each(|chunk| {
+                filter_chunk_sender
+                    .send(chunk)
+                    .expect("Unable to send chunk.")
+            });
+
+        // Receiver will block if we don't explicitly drop this channel.
+        #[cfg(not(feature = "filter"))]
+        drop(filter_chunk_sender);
 
         // Remember that the sorting thread is processing post-read/filter
         // elements in parallel. We can now send its output, final_chunk_receiver,
