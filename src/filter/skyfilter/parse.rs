@@ -1,11 +1,11 @@
-use pest::iterators::Pair;
 use pest::Parser;
+use pest::iterators::Pair;
 use pest_derive::Parser;
 use regex::Regex;
 
 use crate::{
-    filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement, StringOrRegex},
     SkywayError,
+    filter::skyfilter::logic::{SelectorStatement, SkyFilter, Statement, StringOrRegex},
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -136,7 +136,10 @@ pub fn parse_filter(filter_content: &str) -> Result<SkyFilter, SkywayError> {
                 Rule::version => {
                     let filter_version = a.as_str();
                     if filter_version != VERSION {
-                        eprintln!("WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.", filter_version, VERSION);
+                        eprintln!(
+                            "WARNING: Version mismatch, the filter is version {} but you are running skyway {}. You may encounter unexpected behavior.",
+                            filter_version, VERSION
+                        );
                     }
                 }
                 _ => unreachable!(),

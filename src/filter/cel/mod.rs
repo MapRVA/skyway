@@ -1,4 +1,4 @@
-use crate::{filter::ElementFilter, SkywayError};
+use crate::{SkywayError, filter::ElementFilter};
 use cel_interpreter::{Context, Program, Value};
 
 use crate::elements::{Element, ElementType};

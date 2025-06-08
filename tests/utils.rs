@@ -1,17 +1,17 @@
 use serde::Deserialize;
-use skyway::SkywayError;
 use skyway::filter::auto_parse_filter;
+use skyway::SkywayError;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Receiver;
 use toml;
 
 use skyway::{
-    FileFormatOptions, OsmFormat,
     chunks::ElementChunk,
     elements::{Element, Metadata},
     filter::ElementFilter,
     readers::Reader,
     sort::SortStrategy,
+    FileFormatOptions, OsmFormat,
 };
 
 #[cfg(feature = "json")]

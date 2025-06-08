@@ -1,6 +1,6 @@
 use crate::elements::SimpleElementType;
 
-use super::numbers::{convert_index, convert_number, SignBit};
+use super::numbers::{SignBit, convert_index, convert_number};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StringPair(Vec<u8>);
