@@ -14,11 +14,10 @@ use std::{
 };
 
 use crate::{
-    OsmFormat, SkywayError,
+    SkywayError,
     chunks::{Chunk, ChunkBuilder, ElementChunk},
     elements::Metadata,
     sort::{ElementSorter, SortStrategy},
-    writers::*,
 };
 
 #[cfg(feature = "filter")]
@@ -315,51 +314,5 @@ pub trait Reader: Sized + Clone + Send + 'static {
         drop(filter_chunk_sender);
 
         Ok((final_chunk_receiver, trans_metadata_receiver))
-    }
-
-    fn run_full_conversion(
-        self,
-        source: Option<PathBuf>,
-        chunk_size: usize,
-        #[cfg(feature = "filter")] filters: Vec<Box<dyn ElementFilter>>,
-        #[cfg(feature = "filter")] omit_references: bool,
-        output_format: OsmFormat,
-        sort_strategy: SortStrategy,
-        dest: Option<PathBuf>,
-        preserve_generator: bool,
-    ) -> Result<(), SkywayError> {
-        // Calls run_conversion, and then finishes the job by passing that output to the reader.
-
-        let (element_chunk_receiver, metadata_receiver) = self.run_conversion(
-            source,
-            chunk_size,
-            filters,
-            omit_references,
-            sort_strategy,
-            preserve_generator,
-        )?;
-
-        #[allow(unreachable_patterns)]
-        match output_format {
-            #[cfg(feature = "json")]
-            OsmFormat::Json => JsonWriter { overpass: false }.write(
-                element_chunk_receiver,
-                metadata_receiver,
-                dest,
-            ),
-            #[cfg(feature = "o5m")]
-            OsmFormat::O5m => O5mWriter {}.write(element_chunk_receiver, metadata_receiver, dest),
-            #[cfg(feature = "opl")]
-            OsmFormat::Opl => OplWriter {}.write(element_chunk_receiver, metadata_receiver, dest),
-            #[cfg(feature = "json")]
-            OsmFormat::Overpass => {
-                JsonWriter { overpass: true }.write(element_chunk_receiver, metadata_receiver, dest)
-            }
-            #[cfg(feature = "xml")]
-            OsmFormat::Xml => XmlWriter {}.write(element_chunk_receiver, metadata_receiver, dest),
-            _ => Err(SkywayError::UnexpectedError(
-                "A file conversion was attempted with an unknown output format.".to_owned(),
-            )),
-        }
     }
 }

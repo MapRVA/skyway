@@ -19,6 +19,7 @@ pub mod writers;
 pub use file_format::OsmFormat;
 
 use readers::*;
+use writers::*;
 
 // selective imports that deal with filters
 #[cfg(feature = "filter")]
@@ -204,60 +205,83 @@ impl ConversionBuilder {
             },
         };
 
-        match self.input_format {
+        let (element_chunk_receiver, metadata_receiver) = match self.input_format {
             #[cfg(feature = "json")]
-            OsmFormat::Json => JsonReader {}.run_full_conversion(
+            OsmFormat::Json => JsonReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
                 #[cfg(feature = "filter")]
                 self.omit_references,
-                self.output_format,
                 sort_strategy,
-                self.dest,
                 self.preserve_generator,
-            ),
+            )?,
             #[cfg(feature = "opl")]
-            OsmFormat::Opl => OplReader {}.run_full_conversion(
+            OsmFormat::Opl => OplReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
                 #[cfg(feature = "filter")]
                 self.omit_references,
-                self.output_format,
                 sort_strategy,
-                self.dest,
                 self.preserve_generator,
-            ),
+            )?,
             #[cfg(feature = "pbf")]
-            OsmFormat::Pbf => PbfReader {}.run_full_conversion(
+            OsmFormat::Pbf => PbfReader {}.run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
                 self.filters,
                 #[cfg(feature = "filter")]
                 self.omit_references,
-                self.output_format,
                 sort_strategy,
-                self.dest,
                 self.preserve_generator,
+            )?,
+            #[cfg(feature = "xml")]
+            OsmFormat::Xml => XmlReader {}.run_conversion(
+                self.source,
+                chunk_size,
+                #[cfg(feature = "filter")]
+                self.filters,
+                #[cfg(feature = "filter")]
+                self.omit_references,
+                sort_strategy,
+                self.preserve_generator,
+            )?,
+            _ => unreachable!(), // have already checked the validity of input and output
+        };
+
+        #[allow(unreachable_patterns)]
+        match self.output_format {
+            #[cfg(feature = "json")]
+            OsmFormat::Json => JsonWriter { overpass: false }.write(
+                element_chunk_receiver,
+                metadata_receiver,
+                self.dest,
+            ),
+            #[cfg(feature = "o5m")]
+            OsmFormat::O5m => {
+                O5mWriter {}.write(element_chunk_receiver, metadata_receiver, self.dest)
+            }
+            #[cfg(feature = "opl")]
+            OsmFormat::Opl => {
+                OplWriter {}.write(element_chunk_receiver, metadata_receiver, self.dest)
+            }
+            #[cfg(feature = "json")]
+            OsmFormat::Overpass => JsonWriter { overpass: true }.write(
+                element_chunk_receiver,
+                metadata_receiver,
+                self.dest,
             ),
             #[cfg(feature = "xml")]
-            OsmFormat::Xml => XmlReader {}.run_full_conversion(
-                self.source,
-                chunk_size,
-                #[cfg(feature = "filter")]
-                self.filters,
-                #[cfg(feature = "filter")]
-                self.omit_references,
-                self.output_format,
-                sort_strategy,
-                self.dest,
-                self.preserve_generator,
-            ),
-            _ => unreachable!(), // have already checked the validity of input and output
+            OsmFormat::Xml => {
+                XmlWriter {}.write(element_chunk_receiver, metadata_receiver, self.dest)
+            }
+            _ => Err(SkywayError::UnexpectedError(
+                "A file conversion was attempted with an unknown output format.".to_owned(),
+            )),
         }
     }
 }
