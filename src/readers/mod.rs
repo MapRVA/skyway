@@ -88,6 +88,20 @@ pub trait Reader: Sized + Clone + Send + 'static {
     /// * `src`: Path of input file, None if the input is standard input.
     /// * `metadata_sender`: Sender for a channel of (1) `Metadata`.
     /// * `chunk_builder`: `ChunkBuilder` for building Chunks as elements are read.
+    //
+    // This trait contains a lot of high-level logic that dictates
+    // how conversions should run in skyway.
+    //
+    // I wish to one day separate most of this logic from the Reader trait.
+    // It muddies the purpose of the Reader, and makes the skyway
+    // codebase more difficult to work on. However, my attempts to
+    // do so have been thwarted by the Rust compiler. Since I cannot
+    // know the specific types of the Reader and Writer trait
+    // implementors we will use until runtime, it is difficult to create
+    // both of them in an outside function and pass one's output into the
+    // other. I circumvent this limitation by creating one inside the
+    // other's implementation, below.
+
     fn read_file(
         self,
         src: Option<PathBuf>,
@@ -101,24 +115,9 @@ pub trait Reader: Sized + Clone + Send + 'static {
         chunk_size: usize,
         #[cfg(feature = "filter")] filters: Vec<Box<dyn ElementFilter>>,
         #[cfg(feature = "filter")] omit_references: bool,
-        output_format: OsmFormat,
         sort_strategy: SortStrategy,
-        dest: Option<PathBuf>,
         preserve_generator: bool,
-    ) -> Result<(), SkywayError> {
-        // This function contains a lot of high-level logic that dictates
-        // how conversions should run in skyway.
-        //
-        // I wish to separate most of this logic from the Reader trait.
-        // It muddies the purpose of the Reader, and makes the skyway
-        // codebase more difficult to work on. However, my attempts to
-        // do so have been thwarted by the Rust compiler. Since I cannot
-        // know the specific types of the Reader and Writer trait
-        // implementors until runtime, it is difficult to create both of
-        // them in an outside function and pass one's output into the
-        // other. I circumvent this limitation by creating one inside the
-        // other's implementation, below.
-
+    ) -> Result<(Receiver<ElementChunk>, Receiver<Metadata>), SkywayError> {
         // Channel for passing file metadata from the reader thread to
         // the metadata transformation thread.
         let (metadata_sender, metadata_receiver) = channel();
@@ -315,35 +314,49 @@ pub trait Reader: Sized + Clone + Send + 'static {
         #[cfg(not(feature = "filter"))]
         drop(filter_chunk_sender);
 
-        // Remember that the sorting thread is processing post-read/filter
-        // elements in parallel. We can now send its output, final_chunk_receiver,
-        // to a writer thread based on the desired output format.
+        Ok((final_chunk_receiver, trans_metadata_receiver))
+    }
+
+    fn run_full_conversion(
+        self,
+        source: Option<PathBuf>,
+        chunk_size: usize,
+        #[cfg(feature = "filter")] filters: Vec<Box<dyn ElementFilter>>,
+        #[cfg(feature = "filter")] omit_references: bool,
+        output_format: OsmFormat,
+        sort_strategy: SortStrategy,
+        dest: Option<PathBuf>,
+        preserve_generator: bool,
+    ) -> Result<(), SkywayError> {
+        // Calls run_conversion, and then finishes the job by passing that output to the reader.
+
+        let (element_chunk_receiver, metadata_receiver) = self.run_conversion(
+            source,
+            chunk_size,
+            filters,
+            omit_references,
+            sort_strategy,
+            preserve_generator,
+        )?;
+
         #[allow(unreachable_patterns)]
         match output_format {
             #[cfg(feature = "json")]
             OsmFormat::Json => JsonWriter { overpass: false }.write(
-                final_chunk_receiver,
-                trans_metadata_receiver,
+                element_chunk_receiver,
+                metadata_receiver,
                 dest,
             ),
             #[cfg(feature = "o5m")]
-            OsmFormat::O5m => {
-                O5mWriter {}.write(final_chunk_receiver, trans_metadata_receiver, dest)
-            }
+            OsmFormat::O5m => O5mWriter {}.write(element_chunk_receiver, metadata_receiver, dest),
             #[cfg(feature = "opl")]
-            OsmFormat::Opl => {
-                OplWriter {}.write(final_chunk_receiver, trans_metadata_receiver, dest)
-            }
+            OsmFormat::Opl => OplWriter {}.write(element_chunk_receiver, metadata_receiver, dest),
             #[cfg(feature = "json")]
-            OsmFormat::Overpass => JsonWriter { overpass: true }.write(
-                final_chunk_receiver,
-                trans_metadata_receiver,
-                dest,
-            ),
-            #[cfg(feature = "xml")]
-            OsmFormat::Xml => {
-                XmlWriter {}.write(final_chunk_receiver, trans_metadata_receiver, dest)
+            OsmFormat::Overpass => {
+                JsonWriter { overpass: true }.write(element_chunk_receiver, metadata_receiver, dest)
             }
+            #[cfg(feature = "xml")]
+            OsmFormat::Xml => XmlWriter {}.write(element_chunk_receiver, metadata_receiver, dest),
             _ => Err(SkywayError::UnexpectedError(
                 "A file conversion was attempted with an unknown output format.".to_owned(),
             )),

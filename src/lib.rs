@@ -206,7 +206,7 @@ impl ConversionBuilder {
 
         match self.input_format {
             #[cfg(feature = "json")]
-            OsmFormat::Json => JsonReader {}.run_conversion(
+            OsmFormat::Json => JsonReader {}.run_full_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -219,7 +219,7 @@ impl ConversionBuilder {
                 self.preserve_generator,
             ),
             #[cfg(feature = "opl")]
-            OsmFormat::Opl => OplReader {}.run_conversion(
+            OsmFormat::Opl => OplReader {}.run_full_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -232,7 +232,7 @@ impl ConversionBuilder {
                 self.preserve_generator,
             ),
             #[cfg(feature = "pbf")]
-            OsmFormat::Pbf => PbfReader {}.run_conversion(
+            OsmFormat::Pbf => PbfReader {}.run_full_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
@@ -245,7 +245,7 @@ impl ConversionBuilder {
                 self.preserve_generator,
             ),
             #[cfg(feature = "xml")]
-            OsmFormat::Xml => XmlReader {}.run_conversion(
+            OsmFormat::Xml => XmlReader {}.run_full_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
