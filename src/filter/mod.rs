@@ -101,7 +101,7 @@ fn get_referenced_ids(
 pub fn build_keep_list(
     filters: &Vec<Box<dyn ElementFilter>>,
     chunk_receiver: Receiver<Chunk<Box<[Element]>>>,
-) -> HashSet<i64> {
+) -> Vec<i64> {
     let mut keep_ids = HashSet::new();
 
     // HashMap that stores every relation ID, along with
@@ -154,14 +154,14 @@ pub fn build_keep_list(
     }
 
     // Return all IDs of kept elements + their references.
-    keep_ids_with_references
+    keep_ids_with_references.into_iter().collect()
 }
 
 /// Transform a Vec of boxed ElementFilters into a single function that filters an ElementChunk
 pub fn build_filter(
     filters: Vec<Box<dyn ElementFilter>>,
-) -> Box<dyn Fn(ElementChunk) -> ElementChunk + Sync> {
-    Box::new(move |chunk: ElementChunk| {
+) -> Box<dyn Fn(ElementChunk, Vec<i64>) -> ElementChunk + Sync> {
+    Box::new(move |chunk: ElementChunk, keep_ids: Vec<i64>| {
         let mut out_elements = Vec::new();
         for mut element in chunk.content.into_iter() {
             let mut keep_element = true;
@@ -172,6 +172,8 @@ pub fn build_filter(
                 }
             }
             if keep_element {
+                out_elements.push(element);
+            } else if keep_ids.contains(&element.id) {
                 out_elements.push(element);
             }
         }

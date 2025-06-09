@@ -6,16 +6,13 @@ use std::{
     fs,
     io::{BufRead, BufReader, Read, stdin},
     path::PathBuf,
-    sync::{
-        Arc, Mutex,
-        mpsc::{Receiver, Sender, channel},
-    },
+    sync::mpsc::{Receiver, Sender, channel},
     thread,
 };
 
 use crate::{
     SkywayError,
-    chunks::{Chunk, ChunkBuilder, ElementChunk},
+    chunks::{ChunkBuilder, ElementChunk},
     elements::Metadata,
     sort::{ElementSorter, SortStrategy},
 };
@@ -172,7 +169,7 @@ pub trait Reader: Sized + Clone + Send + 'static {
                 // and run those resulting ElementChunks through the combined_filter.
                 let chunk_iterator = self
                     .read_file(source, metadata_sender, chunk_builder)
-                    .map(|chunk| combined_filter(chunk));
+                    .map(|chunk| combined_filter(chunk, Vec::new()));
 
                 // Send out each of those filtered ElementChunks through the correct channel.
                 chunk_iterator.for_each(|chunk| {
@@ -225,10 +222,6 @@ pub trait Reader: Sized + Clone + Send + 'static {
                 // Please note that this is where all filtering happens!
                 let keep_ids = build_keep_list(&filters, first_filter_chunk_receiver);
 
-                // Make keep_ids thread-safe
-                // TODO: Consider performance implications of this.
-                let keep_ids = Arc::new(Mutex::new(keep_ids));
-
                 // "Fake" channel that we won't use, to make the reader thread happy.
                 // We already read the metadata the first time around.
                 let (fake_metadata_sender, fake_metadata_receiver) = channel();
@@ -250,37 +243,13 @@ pub trait Reader: Sized + Clone + Send + 'static {
                     // It is imperative that we re-run the filters, because even though
                     // we already know which elements we want to keep, we don't know
                     // what modifications the filters might make to those elements.
-                    .map(|chunk| combined_filter(chunk))
-                    // keep elements depending on if we determined they are necessary above
-                    .for_each(move |chunk| {
-                        // Vec that will hold each element we keep from this ElementChunk.
-                        let mut elements = Vec::new();
-
-                        // We are iterating through a ParallelIterator, which is why I am
-                        // locking keep_ids here. I reckon there are better ways of
-                        // accomplishing this!
-                        let mut keep_ids_lock = keep_ids.lock().unwrap();
-
-                        // For each element, push it to the elements Vec (to keep) if it
-                        // existed in the keep_ids Vec. At the same time, remove the ID
-                        // from keep_ids.
-                        //
-                        // TODO: is it really necessary to delete it? Are we really going
-                        // to check if keep_ids is fully exhausted in the end?
-                        for element in chunk.content {
-                            if keep_ids_lock.remove(&element.id) {
-                                elements.push(element);
-                            }
-                        }
-                        // Drop the lock so parallel processes can have their fun with keep_ids
-                        drop(keep_ids_lock);
-
-                        // Send elements Vec out, neatly packaged as a Chunk
+                    // We pass keep_ids to combined_filter so that it keeps referenced
+                    // elements.
+                    .map(|chunk| combined_filter(chunk, keep_ids.clone()))
+                    // Send chunk out for sorting
+                    .for_each(|chunk| {
                         filter_chunk_sender
-                            .send(Chunk {
-                                content: elements.into_boxed_slice(),
-                                index: chunk.index,
-                            })
+                            .send(chunk)
                             .expect("Unable to send chunk.")
                     });
 

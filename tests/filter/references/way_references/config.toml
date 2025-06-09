@@ -1,0 +1,5 @@
+name = "Keep Way References"
+description = "Ensure that nodes are kept if ways that reference them are kept."
+input = "input.opl"
+filters = ["keep_one_way.skyfilter"]
+expected_output = "expected.opl"
