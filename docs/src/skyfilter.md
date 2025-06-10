@@ -20,7 +20,7 @@ When you do this, skyway will provide more detailed parsing errors.
 Additionally, skyway will warn you if its version does not match that in the header of your SkyFilter file.
 
 ```skyfilter
-SkyFilter v0.6.0
+SkyFilter v0.7.0
 
 TYPE way                                 # selects ways
 	HAS "footway"                    # selects elements with a "footway" tag (any value)
