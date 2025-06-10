@@ -33,17 +33,17 @@ jobs:
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - uses: actions/checkout@v4
+      - name: Run tests
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: test
+          target: ${{ matrix.platform.target }}
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
           command: build
           target: ${{ matrix.platform.target }}
           args: "--release"
-      - name: Run tests
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: test
-          target: ${{ matrix.platform.target }}
       - name: Publish artifacts
         uses: houseabsolute/actions-rust-release@v0
         with:
