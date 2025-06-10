@@ -21,7 +21,7 @@ required-features = ["cli"]
 bit-vec = { version = "0.8.0", optional = true }
 cel-interpreter = { version = "0.9.1", optional = true }
 chrono = { version = "0.4.38", optional = true }
-clap = { version = "4.5.10", features = ["derive"], optional = true }
+clap = { version = "4.5.40", features = ["derive"], optional = true }
 enum_dispatch = "0.3.13"
 env_logger = { version = "0.11.5", optional = true }
 indicatif = { version = "0.17.8", optional = true }
