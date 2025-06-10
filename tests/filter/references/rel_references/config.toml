@@ -1,0 +1,5 @@
+name = "Keep Relation References"
+description = "Ensure that referenced elements are kept if relations that reference them are kept."
+input = "input.opl"
+filters = ["keep_one_rel.skyfilter"]
+expected_output = "expected.opl"

@@ -1,0 +1,5 @@
+SkyFilter v0.6.0
+
+EQUALS "type" "route"
+	COMMIT
+DROP
