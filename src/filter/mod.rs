@@ -81,7 +81,15 @@ fn get_referenced_ids(
     if let Some(relation_refs) = relation_references.get(&id) {
         // Element is relation, we must recursively resolve its references.
         // (Because relations can reference other relations!)
+
         let mut recursive_referenced_ids = Vec::new();
+
+        // This relation's references should be added to our output.
+        recursive_referenced_ids.extend(relation_refs);
+
+        // Each of these relation's references need to be checked in case
+        // they themselves have references (recursive), which should also
+        // be added to our output.
         for r in relation_refs {
             if let Some(referenced_ids) = get_referenced_ids(r, relation_references, way_references)
             {
