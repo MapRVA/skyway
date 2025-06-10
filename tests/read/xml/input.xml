@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm copyright="OpenStreetMap and contributors" generator="skyway v0.6.0" license="http://opendatacommons.org/licenses/odbl/1-0/" version="0.6">
+ <node lat="50.2106234" lon="8.5856189" id="35352001" version="6" changeset="14206963" timestamp="2012-12-08T23:04:02Z" uid="75317" user="HoloDuke"/>
+ <node lat="50.2121617" lon="8.5867523" id="35352063" version="4" changeset="64755187" timestamp="2018-11-21T20:52:44Z" uid="4433367" user="Jonaes"/>
+ <node lat="50.2106895" lon="8.5857061" id="6772305769" version="1" changeset="74092935" timestamp="2019-09-04T15:05:00Z" uid="4433367" user="Jonaes">
+  <tag k="bicycle" v="yes"/>
+  <tag k="tourism" v="information"/>
+  <tag k="information" v="guidepost"/>
+  <tag k="ref" v="OU.425.1"/>
+ </node>
+ <way id="5123563" version="7" changeset="74092935" timestamp="2019-09-04T15:05:00Z" uid="4433367" user="Jonaes">
+  <nd ref="35352060"/>
+  <nd ref="35352061"/>
+  <nd ref="35352062"/>
+  <nd ref="35352063"/>
+  <nd ref="2056819178"/>
+  <nd ref="35352001"/>
+  <tag k="horse" v="yes"/>
+  <tag k="lcn" v="yes"/>
+  <tag k="bicycle" v="yes"/>
+  <tag k="traffic_sign" v="DE:260,DE:1026-36"/>
+  <tag k="highway" v="track"/>
+  <tag k="surface" v="asphalt"/>
+  <tag k="tracktype" v="grade1"/>
+  <tag k="foot" v="yes"/>
+  <tag k="motor_vehicle" v="agricultural;forestry"/>
+ </way>
+ <relation id="10000000" version="2" changeset="74641141" timestamp="2019-09-18T18:21:44Z" uid="75317" user="HoloDuke">
+  <member type="node" ref="6772305769" role="sign"/>
+  <member type="node" ref="35352001" role="intersection"/>
+  <member type="way" ref="5123563" role="to"/>
+  <tag k="bicycle" v="yes"/>
+  <tag k="distance" v="8.0;4.6"/>
+  <tag k="type" v="destination_sign"/>
+  <tag k="colour:back" v="white"/>
+  <tag k="destination:symbol" v=";train_station"/>
+  <tag k="colour:arrow" v="green"/>
+  <tag k="colour:text" v="green"/>
+  <tag k="destination" v="Friedrichsdorf;Bad Homburg"/>
+ </relation>
+</osm>
