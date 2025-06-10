@@ -58,6 +58,12 @@ fn append_serialized_metadata(base: &mut String, element: &Element) {
     base.push_str(&lexical::to_string(element.id));
     base.push('\"');
 
+    if let Some(v) = element.version {
+        base.push_str(" version=\"");
+        base.push_str(&lexical::to_string(v));
+        base.push('\"');
+    }
+
     if let Some(c) = element.changeset {
         base.push_str(" changeset=\"");
         base.push_str(&lexical::to_string(c));
