@@ -48,7 +48,17 @@ thiserror = "2.0.12"
 toml = "0.8.22"
 
 [features]
-default = ["cli", "json", "o5m", "opl", "pbf", "xml", "cel", "skyfilter"]
+default = [
+    "cli",
+    "json",
+    "o5m",
+    "opl",
+    "pbf",
+    "xml",
+    "filter",
+    "cel",
+    "skyfilter",
+]
 
 # by default, all convert and filter features are enabled
 # conversion filetypes
