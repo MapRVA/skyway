@@ -1,4 +1,0 @@
-name = "JSON to OPL Conversion"
-description = "Tests conversion from JSON to OPL"
-input = "input.json"
-expected_output = "expected.opl"

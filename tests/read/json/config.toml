@@ -1,0 +1,4 @@
+name = "Read JSON"
+description = "Tests JSON reader"
+input = "input.json"
+expected_output = "expected.opl"
