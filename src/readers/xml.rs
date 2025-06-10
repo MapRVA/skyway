@@ -184,6 +184,19 @@ impl ParseMachine {
                 Ok(())
             }
             Event::Empty(e) => match e.name() {
+                QName(b"node") => {
+                    // <node ... /> elements are registered as "empty" because they
+                    // don't have separate <node> and </node> events.
+                    // FIXME: make this more concise, this logic is not all necessary, we know it's a node
+                    if let Ok(Some(element_type)) = self.start_element(e) {
+                        self.current_element = Some(element_type);
+                    }
+                    if let Ok(Some(element)) = self.finish_element() {
+                        self.element_buffer.push(element);
+                        self.current_element = None;
+                    }
+                    Ok(())
+                }
                 QName(b"tag") => self.handle_tag(e),
                 _ => self.handle_empty_element(e),
             },
@@ -240,8 +253,7 @@ impl ParseMachine {
             let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
             match attr.key.into_inner() {
                 b"id" => {
-                    self.element_builder.id = attr_value_to_str(attr.value.as_ref())?.parse().ok();
-                    break;
+                    self.element_builder.id = attr_value_to_str(attr.value.as_ref())?.parse().ok()
                 }
                 b"version" => {
                     self.element_builder.version =
