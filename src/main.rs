@@ -36,7 +36,7 @@ fn start_progress(message: &str) -> ProgressBar {
 #[derive(Parser)]
 #[command(name = "skyway")]
 #[command(author = "Jacob Hall <email@jacobhall.net>")]
-#[command(version = env!("CARGO_PKG_VERSION"))]
+#[command(version)]
 #[command(about = "Converts OpenStreetMap data between various file formats")]
 struct Cli {
     /// Source file format
