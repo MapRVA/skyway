@@ -106,7 +106,7 @@ fn append_serialized_element(base: &mut String, element: Element) {
             base.push_str(&lexical::to_string(*lat));
             base.push_str("\" lon=\"");
             base.push_str(&lexical::to_string(*lon));
-            base.push_str("\" ");
+            base.push_str("\"");
 
             append_serialized_metadata(base, &element);
 
