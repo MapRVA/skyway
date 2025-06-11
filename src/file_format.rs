@@ -2,59 +2,67 @@
 use clap::ValueEnum;
 use std::ffi::OsStr;
 use std::fmt;
+use std::path::PathBuf;
 
-use crate::{FileFormatOptions, SkywayError};
+use crate::SkywayError;
 
 /// Enum that represents the different OSM file formats skyway supports.
-#[cfg(feature = "cli")]
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 #[non_exhaustive]
 pub enum OsmFormat {
-    #[cfg(feature = "json")]
-    #[value(name = "json")]
+    #[cfg_attr(feature = "cli", value(name = "json"))]
     Json,
-    #[cfg(feature = "o5m")]
-    #[value(name = "o5m")]
+    #[cfg_attr(feature = "cli", value(name = "o5m"))]
     O5m,
-    #[cfg(feature = "opl")]
-    #[value(name = "opl")]
+    #[cfg_attr(feature = "cli", value(name = "opl"))]
     Opl,
-    #[cfg(feature = "json")]
-    #[value(name = "overpass")]
+    #[cfg_attr(feature = "cli", value(name = "overpass"))]
     Overpass,
-    #[cfg(feature = "xml")]
-    #[value(name = "xml", alias = "osm")]
+    #[cfg_attr(feature = "cli", value(name = "xml", alias = "osm"))]
     Xml,
-    #[cfg(feature = "pbf")]
-    #[value(name = "pbf")]
+    #[cfg_attr(feature = "cli", value(name = "pbf"))]
     Pbf,
-}
-
-#[cfg(not(feature = "cli"))]
-#[derive(Clone, Debug)]
-pub enum OsmFormat {
-    #[cfg(feature = "json")]
-    Json,
-    #[cfg(feature = "o5m")]
-    O5m,
-    #[cfg(feature = "opl")]
-    Opl,
-    #[cfg(feature = "json")]
-    Overpass,
-    #[cfg(feature = "xml")]
-    Xml,
-    #[cfg(feature = "pbf")]
-    Pbf,
-}
-
-#[cfg(feature = "cli")]
-impl FileFormatOptions for OsmFormat {
-    fn format_error(ext: &str) -> SkywayError {
-        SkywayError::UnknownFormat(ext.to_string())
-    }
 }
 
 impl OsmFormat {
+    fn format_error(ext: &str) -> SkywayError {
+        SkywayError::UnknownFormat(ext.to_string())
+    }
+
+    pub fn parse(
+        cli_format: Option<Self>,
+        file_path: &Option<PathBuf>,
+    ) -> Result<Self, SkywayError> {
+        if let Some(format) = cli_format {
+            Ok(format)
+        } else {
+            let path = file_path.as_ref().ok_or(Self::format_error(
+                "no file path given or format specified.",
+            ))?;
+
+            let extension = path.extension().ok_or(Self::format_error(
+                format!(
+                    "unable to extract extension from path \"{}\"",
+                    path.display()
+                )
+                .as_str(),
+            ))?;
+
+            let ext_str = extension.to_str().ok_or(Self::format_error(
+                format!(
+                    "extension found but could not be converted to a string in path \"{}\"",
+                    path.display()
+                )
+                .as_str(),
+            ))?;
+
+            Self::from_extension(ext_str).ok_or(Self::format_error(
+                format!("File extension not recognized: {}", ext_str).as_str(),
+            ))
+        }
+    }
+
     /// Return if the `OsmFormat` can be decoded by the lib.
     pub const fn can_read(&self) -> bool {
         match self {
@@ -62,14 +70,13 @@ impl OsmFormat {
             OsmFormat::Json => true,
             #[cfg(feature = "json")]
             OsmFormat::Overpass => true,
-            #[cfg(feature = "o5m")]
-            OsmFormat::O5m => false,
             #[cfg(feature = "opl")]
             OsmFormat::Opl => true,
             #[cfg(feature = "xml")]
             OsmFormat::Xml => true,
             #[cfg(feature = "pbf")]
             OsmFormat::Pbf => true,
+            _ => false,
         }
     }
 
@@ -86,8 +93,7 @@ impl OsmFormat {
             OsmFormat::Opl => true,
             #[cfg(feature = "xml")]
             OsmFormat::Xml => true,
-            #[cfg(feature = "pbf")]
-            OsmFormat::Pbf => false,
+            _ => false,
         }
     }
 
@@ -100,14 +106,13 @@ impl OsmFormat {
             OsmFormat::Json => true,
             #[cfg(feature = "json")]
             OsmFormat::Overpass => true,
-            #[cfg(feature = "o5m")]
-            OsmFormat::O5m => false,
             #[cfg(feature = "opl")]
             OsmFormat::Opl => true,
             #[cfg(feature = "xml")]
             OsmFormat::Xml => true,
             #[cfg(feature = "pbf")]
             OsmFormat::Pbf => true,
+            _ => false,
         }
     }
 
@@ -126,8 +131,7 @@ impl OsmFormat {
             OsmFormat::Opl => true,
             #[cfg(feature = "xml")]
             OsmFormat::Xml => true,
-            #[cfg(feature = "pbf")]
-            OsmFormat::Pbf => false,
+            _ => false,
         }
     }
     /// Validates format capabilities (can be evaluated at compile time)
@@ -187,15 +191,10 @@ impl OsmFormat {
             let ext = ext.to_str()?.to_ascii_lowercase();
 
             match ext.as_str() {
-                #[cfg(feature = "json")]
                 "json" => Some(OsmFormat::Json),
-                #[cfg(feature = "o5m")]
                 "o5m" => Some(OsmFormat::O5m),
-                #[cfg(feature = "opl")]
                 "opl" => Some(OsmFormat::Opl),
-                #[cfg(feature = "xml")]
                 "osm" | "xml" => Some(OsmFormat::Xml),
-                #[cfg(feature = "pbf")]
                 "pbf" => Some(OsmFormat::Pbf),
                 _ => None,
             }
@@ -208,17 +207,11 @@ impl OsmFormat {
 impl fmt::Display for OsmFormat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            #[cfg(feature = "json")]
             OsmFormat::Json => write!(f, "json")?,
-            #[cfg(feature = "json")]
             OsmFormat::Overpass => write!(f, "overpass")?,
-            #[cfg(feature = "o5m")]
             OsmFormat::O5m => write!(f, "o5m")?,
-            #[cfg(feature = "opl")]
             OsmFormat::Opl => write!(f, "opl")?,
-            #[cfg(feature = "xml")]
             OsmFormat::Xml => write!(f, "xml")?,
-            #[cfg(feature = "pbf")]
             OsmFormat::Pbf => write!(f, "pbf")?,
         }
 

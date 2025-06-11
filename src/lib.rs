@@ -1,3 +1,5 @@
+use chunks::ElementChunk;
+use elements::Metadata;
 use sort::SortStrategy;
 use thiserror::Error;
 
@@ -7,7 +9,7 @@ use clap::ValueEnum;
 #[cfg(feature = "pbf")]
 use log::warn;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::mpsc::Receiver};
 
 pub mod chunks;
 pub mod elements;
@@ -128,6 +130,7 @@ impl ConversionBuilder {
         self
     }
 
+    #[cfg(feature = "filter")]
     pub fn with_omit_references(mut self, omit_references: bool) -> Self {
         self.omit_references = omit_references;
         self
@@ -205,7 +208,10 @@ impl ConversionBuilder {
             },
         };
 
-        let (element_chunk_receiver, metadata_receiver) = match self.input_format {
+        let (element_chunk_receiver, metadata_receiver): (
+            Receiver<ElementChunk>,
+            Receiver<Metadata>,
+        ) = match self.input_format {
             #[cfg(feature = "json")]
             OsmFormat::Json => JsonReader {}.run_conversion(
                 self.source,

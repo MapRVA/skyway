@@ -4,7 +4,7 @@ use log::info;
 
 use std::{path::PathBuf, process};
 
-use skyway::{ConversionBuilder, FileFormatOptions, OsmFormat, SkywayError, sort::SortStrategy};
+use skyway::{ConversionBuilder, OsmFormat, SkywayError, sort::SortStrategy};
 
 #[cfg(feature = "filter")]
 use skyway::filter::filter_from_path;
@@ -109,8 +109,12 @@ fn run() -> Result<(), SkywayError> {
     let mut conversion_builder = ConversionBuilder::new(from, to)
         .with_source(src)
         .with_dest(cli.output)
-        .with_omit_references(cli.omit_references)
         .with_preserve_generator(cli.preserve_generator);
+
+    #[cfg(feature = "filter")]
+    {
+        conversion_builder = conversion_builder.with_omit_references(cli.omit_references);
+    }
 
     if let Some(chunk_size) = cli.chunk_size {
         conversion_builder = conversion_builder.with_chunk_size(chunk_size)
