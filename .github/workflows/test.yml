@@ -43,6 +43,12 @@ jobs:
         with:
           command: build
           target: ${{ matrix.platform.target }}
+      - name: Build binary (no features)
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          args: --no-default-features
+          target: ${{ matrix.platform.target }}
       - name: Run tests
         uses: houseabsolute/actions-rust-cross@v1
         with:
