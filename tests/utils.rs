@@ -6,7 +6,7 @@ use std::sync::mpsc::Receiver;
 use toml;
 
 use skyway::{
-    FileFormatOptions, OsmFormat,
+    OsmFormat,
     chunks::ElementChunk,
     elements::{Element, Metadata},
     filter::ElementFilter,
