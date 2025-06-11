@@ -14,20 +14,20 @@ use crate::{
 };
 
 /// Enum that represents the different sorting strategies skyway supports.
-#[cfg(feature = "cli")]
-#[derive(Clone, ValueEnum)]
+#[derive(Clone)]
+#[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum SortStrategy {
     // First nodes, then ways, then relations
-    #[value(name = "type")]
+    #[cfg_attr(feature = "cli", value(name = "type"))]
     Type,
     // All elements sorted by ID
-    #[value(name = "id")]
+    #[cfg_attr(feature = "cli", value(name = "id"))]
     Id,
     // Grouped by type, elements are sorted by ID within each type group
-    #[value(name = "type-id")]
+    #[cfg_attr(feature = "cli", value(name = "type-id"))]
     TypeAndId,
     // Explicit none, do not sort the elements regardless of default behavior
-    #[value(name = "none")]
+    #[cfg_attr(feature = "cli", value(name = "none"))]
     None,
 }
 
@@ -76,27 +76,6 @@ impl ElementStorage {
         }
     }
 
-    pub fn new(sort_strategy: SortStrategy) -> Self {
-        match sort_strategy {
-            SortStrategy::Id => ElementStorage::ById {
-                elements: Vec::new(),
-            },
-            SortStrategy::Type => ElementStorage::ByType {
-                nodes: Vec::new(),
-                ways: Vec::new(),
-                relations: Vec::new(),
-            },
-            SortStrategy::TypeAndId => ElementStorage::ByTypeAndId {
-                nodes: Vec::new(),
-                ways: Vec::new(),
-                relations: Vec::new(),
-            },
-            SortStrategy::None => ElementStorage::None {
-                elements: Vec::new(),
-            },
-        }
-    }
-
     pub fn sort(mut self) -> Self {
         match &mut self {
             ElementStorage::ById { elements } => {
@@ -115,6 +94,29 @@ impl ElementStorage {
             ElementStorage::None { .. } => (),
         }
         self
+    }
+}
+
+impl From<&SortStrategy> for ElementStorage {
+    fn from(value: &SortStrategy) -> Self {
+        match value {
+            SortStrategy::Id => ElementStorage::ById {
+                elements: Vec::new(),
+            },
+            SortStrategy::Type => ElementStorage::ByType {
+                nodes: Vec::new(),
+                ways: Vec::new(),
+                relations: Vec::new(),
+            },
+            SortStrategy::TypeAndId => ElementStorage::ByTypeAndId {
+                nodes: Vec::new(),
+                ways: Vec::new(),
+                relations: Vec::new(),
+            },
+            SortStrategy::None => ElementStorage::None {
+                elements: Vec::new(),
+            },
+        }
     }
 }
 
@@ -205,7 +207,7 @@ impl ElementSorter {
     }
 
     pub fn sort(self, chunk_receiver: Receiver<ElementChunk>, chunk_sender: Sender<ElementChunk>) {
-        let mut element_storage = ElementStorage::new(self.sort_strategy);
+        let mut element_storage = ElementStorage::from(&self.sort_strategy);
 
         let (new_chunk_sender, new_chunk_receiver) = channel::<ElementChunk>();
 
