@@ -35,7 +35,9 @@ fn get_tags(tag_iter: osmpbf::elements::TagIter) -> HashMap<String, String> {
 
 fn get_dense_tags(tag_iter: osmpbf::dense::DenseTagIter) -> HashMap<String, String> {
     let mut tag_map = HashMap::new();
-    let _ = tag_iter.map(|(k, v)| tag_map.insert(k.to_owned(), v.to_owned()));
+    for (k, v) in tag_iter {
+        tag_map.insert(k.to_owned(), v.to_owned());
+    }
     tag_map
 }
 
