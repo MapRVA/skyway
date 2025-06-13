@@ -1,0 +1,5 @@
+name = "SkyFilter EQUALS"
+description = "Tests the SkyFilter EQUALS selector."
+input = "input.opl"
+filters = ["keep_guidepost.skyfilter"]
+expected_output = "expected.opl"
