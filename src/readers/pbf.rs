@@ -196,3 +196,17 @@ impl Reader for PbfReader {
             })
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_convert_timestamp() {
+        let input1 = 1355007842000 as i64;
+        let expected1 = String::from("2012-12-08T23:04:02Z");
+        let output1 = convert_timestamp(input1).unwrap();
+        assert_eq!(output1, expected1);
+    }
+}
