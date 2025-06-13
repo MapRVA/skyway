@@ -34,7 +34,6 @@ where
 fn create_header(metadata: Metadata, overpass: bool) -> String {
     let mut header = String::from("{");
 
-    // TODO: add skyway details to this?
     if let Some(g) = metadata.generator {
         header.push_str("\"generator\":");
         header.push_str(&stringify(g));
