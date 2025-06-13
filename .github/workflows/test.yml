@@ -53,4 +53,5 @@ jobs:
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: test
+          use-rust-cache: false
           target: ${{ matrix.platform.target }}
