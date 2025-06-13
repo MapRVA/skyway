@@ -21,7 +21,7 @@ pub struct Member {
 /// The varying characteristics of each element type.
 #[derive(Debug, PartialEq)]
 pub enum ElementType {
-    Node { lat: f64, lon: f64 },
+    Node { lat: i32, lon: i32 },
     Way { nodes: Vec<i64> },
     Relation { members: Vec<Member> },
 }
@@ -43,7 +43,7 @@ pub struct Element {
 /// Builder type for ElementType, must be used with ElementBuilder.
 #[derive(Debug, PartialEq)]
 pub enum ElementTypeBuilder {
-    NodeBuilder { lat: Option<f64>, lon: Option<f64> },
+    NodeBuilder { lat: Option<i32>, lon: Option<i32> },
     WayBuilder { nodes: Vec<i64> },
     RelationBuilder { members: Vec<Member> },
 }

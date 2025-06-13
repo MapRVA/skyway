@@ -12,7 +12,7 @@ use std::{
 use crate::{
     chunks::{Chunk, ChunkBuilder, ElementChunk},
     elements::{ElementBuilder, ElementTypeBuilder, Member, Metadata, SimpleElementType},
-    readers::Reader,
+    readers::{Reader, coord_from_f64},
 };
 
 fn unescape_str(input: &str) -> String {
@@ -98,11 +98,11 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
             None => {
                 element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
                     lat: None,
-                    lon: Some(value_as!(f64)),
+                    lon: Some(coord_from_f64(&value_as!(f64))),
                 });
             }
             Some(ElementTypeBuilder::NodeBuilder { lon, .. }) => {
-                *lon = Some(value_as!(f64));
+                *lon = Some(coord_from_f64(&value_as!(f64)));
             }
             _ => {
                 panic!("Longitude set for a non-node element!");
@@ -110,11 +110,11 @@ fn add_byte_field(field: &[u8], element_builder: &mut ElementBuilder) {
         },
         b"y" => match &mut element_builder.element_type {
             Some(ElementTypeBuilder::NodeBuilder { lat, .. }) => {
-                *lat = Some(value_as!(f64));
+                *lat = Some(coord_from_f64(&value_as!(f64)));
             }
             None => {
                 element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
-                    lat: Some(value_as!(f64)),
+                    lat: Some(coord_from_f64(&value_as!(f64))),
                     lon: None,
                 });
             }

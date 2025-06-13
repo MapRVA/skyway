@@ -17,6 +17,8 @@ use crate::{
     readers::Reader,
 };
 
+use super::coord_from_f64;
+
 /// XML-specific reading errors
 #[derive(Debug)]
 enum XmlReadError {
@@ -301,8 +303,10 @@ impl ParseMachine {
                     return Err(XmlReadError::MissingAttribute("lat/lon".to_string()));
                 }
 
-                self.element_builder.element_type =
-                    Some(ElementTypeBuilder::NodeBuilder { lat, lon });
+                self.element_builder.element_type = Some(ElementTypeBuilder::NodeBuilder {
+                    lat: lat.map(|f| coord_from_f64(&f)),
+                    lon: lon.map(|f| coord_from_f64(&f)),
+                });
 
                 Some(SimpleElementType::Node)
             }

@@ -190,17 +190,15 @@ impl DeltaCoder {
         delta.into()
     }
 
-    pub fn hit_lat(&mut self, value: f64) -> SignedInteger {
-        let nanodegrees = (value * 1e7) as i32;
-        let delta = nanodegrees.overflowing_sub(self.last_lat).0;
-        self.last_lat = nanodegrees;
+    pub fn hit_lat(&mut self, value: i32) -> SignedInteger {
+        let delta = value.overflowing_sub(self.last_lat).0;
+        self.last_lat = value;
         delta.into()
     }
 
-    pub fn hit_lon(&mut self, value: f64) -> SignedInteger {
-        let nanodegrees = (value * 1e7) as i32;
-        let delta = nanodegrees.overflowing_sub(self.last_lon).0;
-        self.last_lon = nanodegrees;
+    pub fn hit_lon(&mut self, value: i32) -> SignedInteger {
+        let delta = value.overflowing_sub(self.last_lon).0;
+        self.last_lon = value;
         delta.into()
     }
 
@@ -359,11 +357,11 @@ mod tests {
             vec![0x94, 0xfe, 0xd2, 0x05],
         );
         assert_eq!(
-            delta_coder.hit_lat(53.0749606 as f64).0,
+            delta_coder.hit_lat(530749606 as i32).0,
             vec![0xcc, 0xe2, 0x94, 0xfa, 0x03],
         );
         assert_eq!(
-            delta_coder.hit_lon(8.7867843 as f64).0,
+            delta_coder.hit_lon(87867843 as i32).0,
             vec![0x86, 0x87, 0xe6, 0x53],
         );
 
@@ -378,11 +376,11 @@ mod tests {
             vec![0xe2, 0x04],
         );
         assert_eq!(
-            delta_coder.hit_lat(53.0719347 as f64).0,
+            delta_coder.hit_lat(530719347 as i32).0,
             vec![0xe5, 0xd8, 0x03],
         );
         assert_eq!(
-            delta_coder.hit_lon(8.7840318 as f64).0,
+            delta_coder.hit_lon(87840318 as i32).0,
             vec![0x89, 0xae, 0x03],
         );
     }

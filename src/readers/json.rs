@@ -10,6 +10,8 @@ use crate::{
     readers::Reader,
 };
 
+use super::coord_from_f64;
+
 fn deserialize_simple_element_type<'de, D>(
     deserializer: D,
 ) -> Result<Option<SimpleElementType>, D::Error>
@@ -50,12 +52,22 @@ where
     Ok(v.into_iter().map(|Wrapper(a)| a).collect())
 }
 
+fn convert_coord<'de, D>(deserializer: D) -> Result<i32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let f: f64 = Deserialize::deserialize(deserializer)?;
+    Ok(coord_from_f64(&f))
+}
+
 #[derive(Deserialize)]
 #[serde(remote = "ElementType", tag = "type", rename_all = "lowercase")]
 enum ElementTypeDef {
     Node {
-        lat: f64,
-        lon: f64,
+        #[serde(deserialize_with = "convert_coord")]
+        lat: i32,
+        #[serde(deserialize_with = "convert_coord")]
+        lon: i32,
     },
     Way {
         nodes: Vec<i64>,

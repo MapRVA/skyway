@@ -24,6 +24,12 @@ mod xml;
 #[cfg(feature = "xml")]
 pub use xml::XmlWriter;
 
+/// Convert an i32 representing decimicrodegrees (10⁻⁷) to a String representing degrees.
+pub fn coord_to_string(coord: i32) -> String {
+    let f: f64 = (coord as f64) / 1e7;
+    lexical::to_string(f)
+}
+
 /// `Writer` implements the output of OpenStreetMap data in a specific format.
 pub trait Writer {
     /// Write data out from a `ParallelIterator` of `Chunk`s.
@@ -37,4 +43,21 @@ pub trait Writer {
         metadata_receiver: Receiver<Metadata>,
         dest: Option<PathBuf>,
     ) -> Result<(), SkywayError>;
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_coord_to_string() {
+        let input1 = 85857061 as i32;
+        let output1 = String::from("8.5857061");
+        assert_eq!(coord_to_string(input1), output1);
+
+        let input2 = 502106895 as i32;
+        let output2 = String::from("50.2106895");
+        assert_eq!(coord_to_string(input2), output2);
+    }
 }

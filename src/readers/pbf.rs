@@ -61,8 +61,8 @@ fn convert_element(element: osmpbf::Element) -> Element {
                 id: node.id(),
                 tags: get_tags(node.tags()),
                 element_type: ElementType::Node {
-                    lat: node.lat(),
-                    lon: node.lon(),
+                    lat: node.decimicro_lat(),
+                    lon: node.decimicro_lon(),
                 },
                 changeset: node_info.changeset(),
                 user: node_info.user().and_then(|r| r.ok()).map(|s| s.to_owned()),
@@ -78,8 +78,8 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     id: dense_node.id(),
                     tags: get_dense_tags(dense_node.tags()),
                     element_type: ElementType::Node {
-                        lat: dense_node.lat(),
-                        lon: dense_node.lon(),
+                        lat: dense_node.decimicro_lat(),
+                        lon: dense_node.decimicro_lon(),
                     },
                     changeset: Some(dense_node_info.changeset()),
                     user: dense_node_info.user().map(|r| r.to_owned()).ok(),
@@ -93,8 +93,8 @@ fn convert_element(element: osmpbf::Element) -> Element {
                     id: dense_node.id(),
                     tags: get_dense_tags(dense_node.tags()),
                     element_type: ElementType::Node {
-                        lat: dense_node.lat(),
-                        lon: dense_node.lon(),
+                        lat: dense_node.decimicro_lat(),
+                        lon: dense_node.decimicro_lon(),
                     },
                     changeset: None,
                     user: None,

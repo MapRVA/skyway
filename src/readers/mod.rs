@@ -57,6 +57,11 @@ pub fn get_reader(src: Option<PathBuf>) -> Box<dyn BufRead + Send> {
     }))
 }
 
+/// Convert f64 coordinate representing degrees into i32 representing decimicrodegrees (10⁻⁷)
+fn coord_from_f64(value: &f64) -> i32 {
+    (value * 1e7).round() as i32
+}
+
 fn transform_metadata(
     metadata_receiver: Receiver<Metadata>,
     metadata_sender: Sender<Metadata>,
@@ -289,5 +294,22 @@ pub trait Reader: Sized + Clone + Send + 'static {
         drop(filter_chunk_sender);
 
         Ok((final_chunk_receiver, trans_metadata_receiver))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_coord_from_f64() {
+        let input1 = 8.5857061 as f64;
+        let output1 = 85857061 as i32;
+        assert_eq!(coord_from_f64(&input1), output1);
+
+        let input2 = 50.2106895 as f64;
+        let output2 = 502106895 as i32;
+        assert_eq!(coord_from_f64(&input2), output2);
     }
 }

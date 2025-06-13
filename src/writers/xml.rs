@@ -11,6 +11,7 @@ use std::{
 use crate::{
     SkywayError,
     chunks::{Chunk, ElementChunk, OrderedChunkIterator},
+    coord_to_string,
     elements::{Element, ElementType, Metadata, SimpleElementType},
 };
 
@@ -109,9 +110,9 @@ fn append_serialized_element(base: &mut String, element: Element) {
     match &element.element_type {
         ElementType::Node { lat, lon } => {
             base.push_str(" <node lat=\"");
-            base.push_str(&lexical::to_string(*lat));
+            base.push_str(&coord_to_string(*lat));
             base.push_str("\" lon=\"");
-            base.push_str(&lexical::to_string(*lon));
+            base.push_str(&coord_to_string(*lon));
             base.push_str("\"");
 
             append_serialized_metadata(base, &element);
