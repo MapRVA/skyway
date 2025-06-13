@@ -1,0 +1,5 @@
+n35352001 v6 dV c14206963 t2012-12-08T23:04:02Z i75317 uHoloDuke T x8.5856189 y50.2106234
+n35352063 v4 dV c64755187 t2018-11-21T20:52:44Z i4433367 uJonaes T x8.5867523 y50.2121617
+n6772305769 v1 dV c74092935 t2019-09-04T15:05:00Z i4433367 uJonaes Tinformation=guidepost,tourism=information,bicycle=yes,ref=OU.425.1 x8.5857061 y50.2106895
+w5123563 v7 dV c74092935 t2019-09-04T15:05:00Z i4433367 uJonaes Thorse=yes,motor_vehicle=agricultural;forestry,lcn=yes,surface=asphalt,foot=yes,traffic_sign=DE:260%2c%DE:1026-36,highway=track,tracktype=grade1,bicycle=yes Nn35352060,n35352061,n35352062,n35352063,n2056819178,n35352001
+r10000000 v2 dV c74641141 t2019-09-18T18:21:44Z i75317 uHoloDuke Tdistance=8.0;4.6,colour:text=green,destination:symbol=;train_station,bicycle=yes,colour:back=white,colour:arrow=green,type=destination_sign,destination=Friedrichsdorf;Bad%20%Homburg Mn6772305769@sign,n35352001@intersection,w5123563@to

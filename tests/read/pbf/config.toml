@@ -1,0 +1,4 @@
+name = "Read PBF"
+description = "Tests PBF reader"
+input = "input.pbf"
+expected_output = "expected.opl"
