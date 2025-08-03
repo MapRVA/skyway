@@ -23,23 +23,16 @@ use super::coord_from_f64;
 #[derive(Debug)]
 enum XmlReadError {
     MissingAttribute(String),
-    InvalidAttributeValue { attr: String, value: String },
     ParsingError(String),
-    UnexpectedElement(String),
 }
 
 impl From<XmlReadError> for SkywayError {
     fn from(err: XmlReadError) -> SkywayError {
         match err {
-            XmlReadError::MissingAttribute(attr) => SkywayError::InvalidInputFile,
-            // FIXME: InvalidInputFile should support a message
-            // Once that fix is made across the rest of the library,
-            // I'll add better messages here
-            XmlReadError::InvalidAttributeValue { attr, value } => SkywayError::UnexpectedError(
-                format!("Invalid value '{}' for attribute '{}'", value, attr),
-            ),
-            XmlReadError::ParsingError(msg) => SkywayError::InvalidInputFile,
-            XmlReadError::UnexpectedElement(elem) => SkywayError::InvalidInputFile,
+            XmlReadError::MissingAttribute(attr) => {
+                SkywayError::InvalidInputFile(format!("An expected attribute is missing: {}", attr))
+            }
+            XmlReadError::ParsingError(msg) => SkywayError::InvalidInputFile(msg),
         }
     }
 }

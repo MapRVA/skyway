@@ -42,8 +42,8 @@ pub enum SkywayError {
     IoError(#[from] std::io::Error),
     #[error("File already exits")]
     OutputFileExists,
-    #[error("Invalid input file")]
-    InvalidInputFile,
+    #[error("Invalid input file: {0}")]
+    InvalidInputFile(String),
     #[error("Invalid filter file: {0}")]
     InvalidFilterFile(String),
     #[error("Cannot parse filter file: {0}")]

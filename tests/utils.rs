@@ -80,7 +80,9 @@ pub fn read_elements_and_metadata(
             sort_strategy,
             preserve_generator,
         ),
-        _ => Err(SkywayError::InvalidInputFile),
+        _ => Err(SkywayError::UnexpectedError(
+            "Unable to parse input file type.".to_string(),
+        )),
     }
 }
 

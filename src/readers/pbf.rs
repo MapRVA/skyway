@@ -13,10 +13,13 @@ use crate::{
 
 /// Convert the OSM PBF timestamps to RFC 3339
 fn convert_timestamp(milli_timestamp: i64) -> Result<String, SkywayError> {
-    DateTime::from_timestamp_millis(milli_timestamp)
-        .map_or(Err(SkywayError::InvalidInputFile), |d| {
-            Ok(d.to_rfc3339_opts(SecondsFormat::Secs, true))
-        })
+    DateTime::from_timestamp_millis(milli_timestamp).map_or(
+        Err(SkywayError::InvalidInputFile(format!(
+            "Unable to convert OSM PBF timestamp to RFC 3339: {}",
+            milli_timestamp
+        ))),
+        |d| Ok(d.to_rfc3339_opts(SecondsFormat::Secs, true)),
+    )
 }
 
 fn timestamp_conversion_wrapper(timestamp: Option<i64>) -> Option<String> {
