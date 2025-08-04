@@ -36,6 +36,7 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc.js"></script>
@@ -92,10 +93,13 @@
                 sidebar = sidebar || 'visible';
             } else {
                 sidebar = 'hidden';
+                sidebar_toggle.checked = false;
             }
-            sidebar_toggle.checked = sidebar === 'visible';
-            html.classList.remove('sidebar-visible');
-            html.classList.add("sidebar-" + sidebar);
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
@@ -149,7 +153,12 @@
 
                 <div id="search-wrapper" class="hidden">
                     <form id="searchbar-outer" class="searchbar-outer">
-                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
                     </form>
                     <div id="searchresults-outer" class="searchresults-outer hidden">
                         <div id="searchresults-header" class="searchresults-header"></div>
@@ -179,7 +188,7 @@ This enables you to stream data into and out of skyway, like this:</p>
 <pre><code class="language-sh">cat input-file.pbf | skyway --from pbf --to json &gt; output-file.json
 </code></pre>
 <h2 id="supported-formats"><a class="header" href="#supported-formats">Supported Formats</a></h2>
-<p>Here is a table showing the formats skyway supports reading and writing.
+<p>Here is a table showing the formats skyway supports reading or writing.
 The shortname is used to indicate the format when running skyway, e.g. <code>skyway --from xml ...</code>.
 When paired together, "speedy" readers and writers will generally run faster by passing data between threads.</p>
 <p><strong>Key:</strong><br>
@@ -190,13 +199,10 @@ When paired together, "speedy" readers and writers will generally run faster by 
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/O5m">o5m</a></td><td><code>o5m</code></td><td>❌</td><td>✅</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/OPL_format">OPL</a></td><td><code>opl</code></td><td>⚡</td><td>⚡</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/OSM_JSON">OSM JSON</a></td><td><code>json</code></td><td>✅</td><td>⚡</td></tr>
-<tr><td><a href="https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API">Overpass JSON</a></td><td>†</td><td>✅</td><td>⚡</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/OSM_XML">OSM XML</a></td><td><code>xml</code></td><td>✅</td><td>⚡</td></tr>
 <tr><td><a href="https://wiki.openstreetmap.org/wiki/PBF_Format">PBF</a></td><td><code>pbf</code></td><td>⚡</td><td>❌</td></tr>
 </tbody></table>
 </div>
-<p><sup>†</sup><em>Use the shortname <code>json</code> to read Overpass JSON, it uses the same parser as OSM JSON. Use <code>overpass</code> for writing.</em></p>
-
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
@@ -243,6 +249,7 @@ When paired together, "speedy" readers and writers will generally run faster by 
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+
 
 
     </div>
