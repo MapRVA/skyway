@@ -205,6 +205,8 @@ impl ConversionBuilder {
                 } else {
                     s // return what the user requested
                 }
+                #[cfg(not(feature = "geojson"))]
+                s // return what the user requested
             }
             None => match &self.output_format {
                 // as above, o5m should be using the TypeAndId sort strategy
