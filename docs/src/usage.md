@@ -14,7 +14,7 @@ cat input-file.pbf | skyway --from pbf --to json > output-file.json
 
 ## Supported Formats
 
-Here is a table showing the formats skyway supports reading and writing.
+Here is a table showing the formats skyway supports reading or writing.
 The shortname is used to indicate the format when running skyway, e.g. `skyway --from xml ...`.
 When paired together, "speedy" readers and writers will generally run faster by passing data between threads.
 
@@ -28,8 +28,5 @@ When paired together, "speedy" readers and writers will generally run faster by 
 | [o5m](https://wiki.openstreetmap.org/wiki/O5m) | `o5m` | ❌ | ✅ |
 | [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ⚡ | ⚡ |
 | [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | `json` | ✅ | ⚡ |
-| [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | † | ✅ | ⚡ |
 | [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ⚡ |
 | [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | `pbf` | ⚡ | ❌ |
-
-<sup>†</sup>*Use the shortname `json` to read Overpass JSON, it uses the same parser as OSM JSON. Use `overpass` for writing.*
