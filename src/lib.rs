@@ -197,7 +197,14 @@ impl ConversionBuilder {
                         "You selected a non-standard sort strategy for the o5m format. The output may not be readable by other tools."
                     )
                 }
-                s // regardless, return what the user requested
+
+                #[cfg(feature = "geojson")]
+                if matches!(&self.output_format, OsmFormat::GeoJson) {
+                    warn!("Sorry, skyway does not support sorting geometric outputs at this time.");
+                    SortStrategy::None
+                } else {
+                    s // return what the user requested
+                }
             }
             None => match &self.output_format {
                 // as above, o5m should be using the TypeAndId sort strategy
@@ -261,6 +268,10 @@ impl ConversionBuilder {
 
         #[allow(unreachable_patterns)]
         match self.output_format {
+            #[cfg(feature = "geojson")]
+            OsmFormat::GeoJson => {
+                GeoJsonWriter {}.write(element_chunk_receiver, metadata_receiver, self.dest)
+            }
             #[cfg(feature = "json")]
             OsmFormat::Json => JsonWriter { overpass: false }.write(
                 element_chunk_receiver,

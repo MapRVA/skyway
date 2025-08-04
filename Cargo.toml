@@ -23,6 +23,8 @@ cel-interpreter = { version = "0.9.1", optional = true }
 chrono = { version = "0.4.41", optional = true }
 clap = { version = "4.5.40", features = ["derive"], optional = true }
 env_logger = { version = "0.11.8", optional = true }
+geo-types = { version = "0.7.17", optional = true }
+geojson = { version = "0.24.2", optional = true }
 indicatif = { version = "0.17.8", optional = true }
 itertools = "0.14.0"
 json = { version = "0.12.4", optional = true }
@@ -49,6 +51,7 @@ toml = "0.8.23"
 [features]
 default = [
     "cli",
+    "geojson",
     "json",
     "o5m",
     "opl",
@@ -62,11 +65,15 @@ default = [
 # by default, all convert and filter features are enabled
 # conversion filetypes
 json = ["dep:json", "dep:serde", "dep:serde_json"]
+geojson = ["dep:geo-types", "dep:geojson"]
 o5m = ["dep:bit-vec"]
 opl = []
 osmx = ["dep:osmx"]
 pbf = ["dep:osmpbf", "dep:chrono"]
 xml = ["dep:serde", "dep:serde-aux", "dep:quick-xml"]
+
+# support for directly querying overpass
+overpass-queries = ["xml", "json"]
 
 # general filter support
 filter = []

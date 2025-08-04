@@ -11,6 +11,8 @@ use crate::SkywayError;
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 #[non_exhaustive]
 pub enum OsmFormat {
+    #[cfg_attr(feature = "cli", value(name = "geojson"))]
+    GeoJson,
     #[cfg_attr(feature = "cli", value(name = "json"))]
     Json,
     #[cfg_attr(feature = "cli", value(name = "o5m"))]
@@ -83,6 +85,8 @@ impl OsmFormat {
     /// Return if the `OsmFormat` can be encoded by the lib.
     pub const fn can_write(&self) -> bool {
         match self {
+            #[cfg(feature = "geojson")]
+            OsmFormat::GeoJson => true,
             #[cfg(feature = "json")]
             OsmFormat::Json => true,
             #[cfg(feature = "json")]
@@ -121,6 +125,8 @@ impl OsmFormat {
     #[must_use]
     pub fn writing_enabled(&self) -> bool {
         match self {
+            #[cfg(feature = "geojson")]
+            OsmFormat::GeoJson => true,
             #[cfg(feature = "json")]
             OsmFormat::Json => true,
             #[cfg(feature = "json")]
@@ -191,6 +197,7 @@ impl OsmFormat {
             let ext = ext.to_str()?.to_ascii_lowercase();
 
             match ext.as_str() {
+                "geojson" => Some(OsmFormat::GeoJson),
                 "json" => Some(OsmFormat::Json),
                 "o5m" => Some(OsmFormat::O5m),
                 "opl" => Some(OsmFormat::Opl),
@@ -207,6 +214,7 @@ impl OsmFormat {
 impl fmt::Display for OsmFormat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            OsmFormat::GeoJson => write!(f, "geojson")?,
             OsmFormat::Json => write!(f, "json")?,
             OsmFormat::Overpass => write!(f, "overpass")?,
             OsmFormat::O5m => write!(f, "o5m")?,

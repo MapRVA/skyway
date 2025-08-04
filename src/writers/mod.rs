@@ -4,6 +4,15 @@ use std::{path::PathBuf, sync::mpsc::Receiver};
 
 use crate::{SkywayError, chunks::ElementChunk, elements::Metadata};
 
+// other features will depend on this someday, so I'm keeping it separate
+#[cfg(feature = "geojson")]
+mod geo;
+
+#[cfg(feature = "geojson")]
+mod geojson;
+#[cfg(feature = "geojson")]
+pub use geojson::GeoJsonWriter;
+
 #[cfg(feature = "json")]
 mod json;
 #[cfg(feature = "json")]
@@ -24,10 +33,14 @@ mod xml;
 #[cfg(feature = "xml")]
 pub use xml::XmlWriter;
 
+/// Convert an i32 representing decimicrodegrees (10⁻⁷) to an f64 representing degrees.
+pub fn coord_to_f64(coord: i32) -> f64 {
+    return (coord as f64) / 1e7;
+}
+
 /// Convert an i32 representing decimicrodegrees (10⁻⁷) to a String representing degrees.
 pub fn coord_to_string(coord: i32) -> String {
-    let f: f64 = (coord as f64) / 1e7;
-    lexical::to_string(f)
+    lexical::to_string(coord_to_f64(coord))
 }
 
 /// `Writer` implements the output of OpenStreetMap data in a specific format.
