@@ -51,3 +51,7 @@ Please see [LICENSE.md](LICENSE.md) for more information.
 
 Test data in the `tests/` directory is derived from [OpenStreetMap](https://www.openstreetmap.org), and is therefore subject to the [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/).
 Please click [here](https://www.openstreetmap.org/copyright) for more information.
+
+## How to Map Skyways
+
+Skyways are tagged using `building=bridge` in OpenStreetMap. See [here](https://wiki.openstreetmap.org/wiki/Tag:building%3Dbridge) for more detailed instructions.
