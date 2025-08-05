@@ -65,43 +65,32 @@ impl OsmFormat {
         }
     }
 
-    /// Return if the `OsmFormat` can be decoded by the lib.
+    /// Returns `true` if skyway can read `OsmFormat`.
     pub const fn can_read(&self) -> bool {
         match self {
-            #[cfg(feature = "json")]
             OsmFormat::Json => true,
-            #[cfg(feature = "json")]
-            OsmFormat::Overpass => true,
-            #[cfg(feature = "opl")]
+            OsmFormat::Overpass => false, // Keep this false until skyway confidently supports `out geom;` (issue #13)
             OsmFormat::Opl => true,
-            #[cfg(feature = "xml")]
             OsmFormat::Xml => true,
-            #[cfg(feature = "pbf")]
             OsmFormat::Pbf => true,
             _ => false,
         }
     }
 
-    /// Return if the `OsmFormat` can be encoded by the lib.
+    /// Returns `true` if skyway can write `OsmFormat`.
     pub const fn can_write(&self) -> bool {
         match self {
-            #[cfg(feature = "geojson")]
             OsmFormat::GeoJson => true,
-            #[cfg(feature = "json")]
             OsmFormat::Json => true,
-            #[cfg(feature = "json")]
             OsmFormat::Overpass => true,
-            #[cfg(feature = "o5m")]
             OsmFormat::O5m => true,
-            #[cfg(feature = "opl")]
             OsmFormat::Opl => true,
-            #[cfg(feature = "xml")]
             OsmFormat::Xml => true,
             _ => false,
         }
     }
 
-    /// Return the `OsmFormat`s which are enabled for reading.
+    /// Return the `OsmFormat`s which are enabled for reading (feature is enabled).
     #[inline]
     #[must_use]
     pub fn reading_enabled(&self) -> bool {
@@ -120,7 +109,7 @@ impl OsmFormat {
         }
     }
 
-    /// Return the `OsmFormat`s which are enabled for writing.
+    /// Return the `OsmFormat`s which are enabled for writing (feature is enabled).
     #[inline]
     #[must_use]
     pub fn writing_enabled(&self) -> bool {
@@ -140,19 +129,20 @@ impl OsmFormat {
             _ => false,
         }
     }
+
     /// Validates format capabilities (can be evaluated at compile time)
     #[inline]
     pub fn validate_capabilities(input: &OsmFormat, output: &OsmFormat) -> Result<(), SkywayError> {
         if !input.can_read() {
             return Err(SkywayError::UnsupportedRead(format!(
-                "format {:?} does not support reading",
+                "skyway does not support reading format {:?}",
                 input
             )));
         }
 
         if !output.can_write() {
             return Err(SkywayError::UnsupportedWrite(format!(
-                "format {:?} does not support writing",
+                "skyway does not support writing format {:?}",
                 output
             )));
         }
