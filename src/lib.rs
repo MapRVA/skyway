@@ -1,5 +1,6 @@
 use chunks::ElementChunk;
 use elements::Metadata;
+use overpass::OverpassOutputFormat;
 use sort::SortStrategy;
 use thiserror::Error;
 
@@ -259,24 +260,34 @@ impl ConversionBuilder {
                     ))
                 })?;
 
-                query_endpoint(
+                let output_format = query_endpoint(
                     self.source,
                     "https://overpass-api.de/api/interpreter",
                     overpass_temp_file.path(),
                 )?;
 
-                // FIXME: need to detect JSON and support that, too
-
-                XmlReader {}.run_conversion(
-                    Some(overpass_temp_file.path().to_path_buf()),
-                    chunk_size,
-                    #[cfg(feature = "filter")]
-                    self.filters,
-                    #[cfg(feature = "filter")]
-                    self.omit_references,
-                    sort_strategy,
-                    self.preserve_generator,
-                )?
+                match output_format {
+                    OverpassOutputFormat::Json => XmlReader {}.run_conversion(
+                        Some(overpass_temp_file.path().to_path_buf()),
+                        chunk_size,
+                        #[cfg(feature = "filter")]
+                        self.filters,
+                        #[cfg(feature = "filter")]
+                        self.omit_references,
+                        sort_strategy,
+                        self.preserve_generator,
+                    )?,
+                    OverpassOutputFormat::Xml => XmlReader {}.run_conversion(
+                        Some(overpass_temp_file.path().to_path_buf()),
+                        chunk_size,
+                        #[cfg(feature = "filter")]
+                        self.filters,
+                        #[cfg(feature = "filter")]
+                        self.omit_references,
+                        sort_strategy,
+                        self.preserve_generator,
+                    )?,
+                }
             }
             #[cfg(feature = "pbf")]
             OsmFormat::Pbf => PbfReader {}.run_conversion(
