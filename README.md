@@ -19,25 +19,23 @@ Join `#skyway` in the [OpenStreetMap Slack](https://openstreetmap.us/get-involve
 ## Supported Formats
 
 **Key:**<br>
-❌ – Not Supported<br>
+❌ – Not Supported (Yet)<br>
 ➖ – Not Planned<br>
 ✅ – Supported<br>
-⚡ – Speedy!<sup>†</sup><br>
 
 | Format | Reader | Writer |
 | -------|--------|--------|
 | [GeoJSON](https://wiki.openstreetmap.org/wiki/GeoJSON) | ➖ | ❌ |
 | [GeoPackage](https://wiki.openstreetmap.org/wiki/GeoPackage) | ➖ | ❌ |
+| GeoParquet | ❌ | ❌ |
 | [GOL](https://wiki.openstreetmap.org/wiki/Geographic_Object_Library) | ❌ | ❌ |
 | [o5m](https://wiki.openstreetmap.org/wiki/O5m) | ❌ | ✅ |
-| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | ⚡ | ⚡ |
+| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | ✅ | ✅ |
 | [OSM Express](https://wiki.openstreetmap.org/wiki/OSM_Express) | ❌ | ❌ |
-| [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | ✅     | ⚡     |
+| [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | ✅     | ✅     |
 | [Overpass JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON#Overpass_API) | ❌ | ❌ |
-| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | ✅ | ⚡ |
-| [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | ⚡ | ❌ |
-
-<sup>†</sup>_When paired together, "speedy" readers and writers will generally run faster by passing data between threads._
+| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | ✅ | ✅ |
+| [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | ✅ | ❌ |
 
 ## Contributing
 
