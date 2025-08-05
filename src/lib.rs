@@ -1,6 +1,5 @@
 use chunks::ElementChunk;
 use elements::Metadata;
-use overpass::OverpassOutputFormat;
 use sort::SortStrategy;
 use thiserror::Error;
 
@@ -33,7 +32,7 @@ use filter::ElementFilter;
 #[cfg(feature = "overpass-queries")]
 mod overpass;
 #[cfg(feature = "overpass-queries")]
-use overpass::query_endpoint;
+use overpass::{OverpassOutputFormat, query_endpoint};
 #[cfg(feature = "overpass-queries")]
 use tempfile::NamedTempFile;
 
