@@ -98,7 +98,7 @@ fn run() -> Result<(), SkywayError> {
     info!("Output format determined: {:?}", to);
 
     let src = match cli.input {
-        Some(path) => match cli.no_overwrite && path.exists() {
+        Some(path) => match cli.no_overwrite && cli.output.clone().is_some_and(|p| p.exists()) {
             true => return Err(SkywayError::OutputFileExists),
             false => Some(path),
         },
