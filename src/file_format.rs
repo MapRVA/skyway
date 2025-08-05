@@ -21,6 +21,8 @@ pub enum OsmFormat {
     Opl,
     #[cfg_attr(feature = "cli", value(name = "overpass"))]
     Overpass,
+    #[cfg_attr(feature = "cli", value(name = "overpass-query"))]
+    OverpassQuery,
     #[cfg_attr(feature = "cli", value(name = "xml", alias = "osm"))]
     Xml,
     #[cfg_attr(feature = "cli", value(name = "pbf"))]
@@ -70,6 +72,7 @@ impl OsmFormat {
         match self {
             OsmFormat::Json => true,
             OsmFormat::Overpass => false, // Keep this false until skyway confidently supports `out geom;` (issue #13)
+            OsmFormat::OverpassQuery => false,
             OsmFormat::Opl => true,
             OsmFormat::Xml => true,
             OsmFormat::Pbf => true,
@@ -99,6 +102,8 @@ impl OsmFormat {
             OsmFormat::Json => true,
             #[cfg(feature = "json")]
             OsmFormat::Overpass => true,
+            #[cfg(feature = "overpass-queries")]
+            OsmFormat::OverpassQuery => true,
             #[cfg(feature = "opl")]
             OsmFormat::Opl => true,
             #[cfg(feature = "xml")]
@@ -192,6 +197,7 @@ impl OsmFormat {
                 "o5m" => Some(OsmFormat::O5m),
                 "opl" => Some(OsmFormat::Opl),
                 "osm" | "xml" => Some(OsmFormat::Xml),
+                "overpassql" => Some(OsmFormat::OverpassQuery),
                 "pbf" => Some(OsmFormat::Pbf),
                 _ => None,
             }
@@ -207,6 +213,7 @@ impl fmt::Display for OsmFormat {
             OsmFormat::GeoJson => write!(f, "geojson")?,
             OsmFormat::Json => write!(f, "json")?,
             OsmFormat::Overpass => write!(f, "overpass")?,
+            OsmFormat::OverpassQuery => write!(f, "overpassql")?,
             OsmFormat::O5m => write!(f, "o5m")?,
             OsmFormat::Opl => write!(f, "opl")?,
             OsmFormat::Xml => write!(f, "xml")?,

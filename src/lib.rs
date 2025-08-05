@@ -29,6 +29,13 @@ pub mod filter;
 #[cfg(feature = "filter")]
 use filter::ElementFilter;
 
+#[cfg(feature = "overpass-queries")]
+mod overpass;
+#[cfg(feature = "overpass-queries")]
+use overpass::query_endpoint;
+#[cfg(feature = "overpass-queries")]
+use tempfile::NamedTempFile;
+
 /// Errors skyway might return.
 #[derive(Error, Debug)]
 pub enum SkywayError {
@@ -243,6 +250,34 @@ impl ConversionBuilder {
                 sort_strategy,
                 self.preserve_generator,
             )?,
+            #[cfg(feature = "overpass-queries")]
+            OsmFormat::OverpassQuery => {
+                let overpass_temp_file = NamedTempFile::new().map_err(|e| {
+                    SkywayError::UnexpectedError(format!(
+                        "Unable to create tempfile for Overpass endpoint response: {}",
+                        e
+                    ))
+                })?;
+
+                query_endpoint(
+                    self.source,
+                    "https://overpass-api.de/api/interpreter",
+                    overpass_temp_file.path(),
+                )?;
+
+                // FIXME: need to detect JSON and support that, too
+
+                XmlReader {}.run_conversion(
+                    Some(overpass_temp_file.path().to_path_buf()),
+                    chunk_size,
+                    #[cfg(feature = "filter")]
+                    self.filters,
+                    #[cfg(feature = "filter")]
+                    self.omit_references,
+                    sort_strategy,
+                    self.preserve_generator,
+                )?
+            }
             #[cfg(feature = "pbf")]
             OsmFormat::Pbf => PbfReader {}.run_conversion(
                 self.source,
