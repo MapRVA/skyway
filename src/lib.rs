@@ -104,6 +104,8 @@ pub struct ConversionBuilder {
     filters: Vec<Box<dyn ElementFilter>>,
     #[cfg(feature = "filter")]
     omit_references: bool,
+    #[cfg(feature = "overpass-queries")]
+    endpoint: Option<String>,
     sort: bool,
     sort_strategy: Option<SortStrategy>,
     chunk_size: Option<usize>,
@@ -121,6 +123,8 @@ impl ConversionBuilder {
             filters: Vec::new(),
             #[cfg(feature = "filter")]
             omit_references: false,
+            #[cfg(feature = "overpass-queries")]
+            endpoint: None,
             sort: false,
             sort_strategy: None,
             chunk_size: None,
@@ -134,6 +138,12 @@ impl ConversionBuilder {
 
     pub fn with_dest(mut self, dest: Option<PathBuf>) -> Self {
         self.dest = dest;
+        self
+    }
+
+    #[cfg(feature = "overpass-queries")]
+    pub fn with_endpoint(mut self, endpoint: String) -> Self {
+        self.endpoint = Some(endpoint);
         self
     }
 
@@ -261,7 +271,9 @@ impl ConversionBuilder {
 
                 let output_format = query_endpoint(
                     self.source,
-                    "https://overpass-api.de/api/interpreter",
+                    &self
+                        .endpoint
+                        .unwrap_or("https://overpass-api.de/api/interpreter".to_string()),
                     overpass_temp_file.path(),
                 )?;
 

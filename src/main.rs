@@ -67,6 +67,11 @@ struct Cli {
     #[arg(value_parser = clap::value_parser!(SortStrategy))]
     sort_strategy: Option<SortStrategy>,
 
+    #[cfg(feature = "overpass-queries")]
+    /// Endpoint for Overpass API server (only used if input format is overpass-query)
+    #[arg(long)]
+    endpoint: Option<String>,
+
     /// Do not include referenced elements unless they themselves pass through filters
     #[arg(long)]
     omit_references: bool,
@@ -114,6 +119,13 @@ fn run() -> Result<(), SkywayError> {
     #[cfg(feature = "filter")]
     {
         conversion_builder = conversion_builder.with_omit_references(cli.omit_references);
+    }
+
+    #[cfg(feature = "overpass-queries")]
+    {
+        if let Some(endpoint) = cli.endpoint {
+            conversion_builder = conversion_builder.with_endpoint(endpoint);
+        }
     }
 
     if let Some(chunk_size) = cli.chunk_size {
