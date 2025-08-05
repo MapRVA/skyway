@@ -21,12 +21,10 @@ When paired together, "speedy" readers and writers will generally run faster by 
 **Key:**<br>
 ❌ – Not Supported<br>
 ✅ – Supported<br>
-⚡ – Speedy!<br>
 
 | Format | Shortname | Reader | Writer |
 | -------|-----------|--------|--------|
 | [o5m](https://wiki.openstreetmap.org/wiki/O5m) | `o5m` | ❌ | ✅ |
-| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ⚡ | ⚡ |
-| [OSM JSON](https://wiki.openstreetmap.org/wiki/OSM_JSON) | `json` | ✅ | ⚡ |
-| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ⚡ |
-| [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | `pbf` | ⚡ | ❌ |
+| [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ✅ | ✅ |
+| [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ✅ |
+| [PBF](https://wiki.openstreetmap.org/wiki/PBF_Format) | `pbf` | ✅ | ❌ |
