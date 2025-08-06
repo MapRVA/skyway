@@ -117,6 +117,11 @@ fn ring_assignment<'a>(
         }
     }
 
+    // There could be a dangling ring!
+    if !current_ring.is_empty() && ring_is_closed(&current_ring) {
+        rings.push(current_ring);
+    }
+
     rings
 }
 
