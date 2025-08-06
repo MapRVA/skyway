@@ -63,7 +63,7 @@ pub fn read_elements_and_metadata(
             preserve_generator,
         ),
         #[cfg(feature = "json")]
-        Ok(OsmFormat::Json) | Ok(OsmFormat::Overpass) => JsonReader {}.run_conversion(
+        Ok(OsmFormat::Json) => JsonReader {}.run_conversion(
             Some(path.to_owned()),
             chunk_size,
             filters,

@@ -345,12 +345,6 @@ impl ConversionBuilder {
             OsmFormat::Opl => {
                 OplWriter {}.write(element_chunk_receiver, metadata_receiver, self.dest)
             }
-            #[cfg(feature = "json")]
-            OsmFormat::Overpass => JsonWriter { overpass: true }.write(
-                element_chunk_receiver,
-                metadata_receiver,
-                self.dest,
-            ),
             #[cfg(feature = "xml")]
             OsmFormat::Xml => {
                 XmlWriter {}.write(element_chunk_receiver, metadata_receiver, self.dest)

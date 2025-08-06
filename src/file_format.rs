@@ -19,8 +19,6 @@ pub enum OsmFormat {
     O5m,
     #[cfg_attr(feature = "cli", value(name = "opl"))]
     Opl,
-    #[cfg_attr(feature = "cli", value(name = "overpass"))]
-    Overpass,
     #[cfg_attr(feature = "cli", value(name = "overpass-query"))]
     OverpassQuery,
     #[cfg_attr(feature = "cli", value(name = "xml", alias = "osm"))]
@@ -71,8 +69,7 @@ impl OsmFormat {
     pub const fn can_read(&self) -> bool {
         match self {
             OsmFormat::Json => true,
-            OsmFormat::Overpass => false, // Keep this false until skyway confidently supports `out geom;` (issue #13)
-            OsmFormat::OverpassQuery => false,
+            OsmFormat::OverpassQuery => true,
             OsmFormat::Opl => true,
             OsmFormat::Xml => true,
             OsmFormat::Pbf => true,
@@ -85,7 +82,6 @@ impl OsmFormat {
         match self {
             OsmFormat::GeoJson => true,
             OsmFormat::Json => true,
-            OsmFormat::Overpass => true,
             OsmFormat::O5m => true,
             OsmFormat::Opl => true,
             OsmFormat::Xml => true,
@@ -100,8 +96,6 @@ impl OsmFormat {
         match self {
             #[cfg(feature = "json")]
             OsmFormat::Json => true,
-            #[cfg(feature = "json")]
-            OsmFormat::Overpass => true,
             #[cfg(feature = "overpass-queries")]
             OsmFormat::OverpassQuery => true,
             #[cfg(feature = "opl")]
@@ -123,8 +117,6 @@ impl OsmFormat {
             OsmFormat::GeoJson => true,
             #[cfg(feature = "json")]
             OsmFormat::Json => true,
-            #[cfg(feature = "json")]
-            OsmFormat::Overpass => true,
             #[cfg(feature = "o5m")]
             OsmFormat::O5m => true,
             #[cfg(feature = "opl")]
@@ -212,7 +204,6 @@ impl fmt::Display for OsmFormat {
         match self {
             OsmFormat::GeoJson => write!(f, "geojson")?,
             OsmFormat::Json => write!(f, "json")?,
-            OsmFormat::Overpass => write!(f, "overpass")?,
             OsmFormat::OverpassQuery => write!(f, "overpassql")?,
             OsmFormat::O5m => write!(f, "o5m")?,
             OsmFormat::Opl => write!(f, "opl")?,
