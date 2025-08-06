@@ -42,23 +42,6 @@ fn build_multilinestring(
     }
 }
 
-// ----- MultiPolygon Helper Structs -----
-
-struct PolygonGroup<'a> {
-    outer: Vec<&'a Element>,
-    holes: Vec<Vec<&'a Element>>,
-}
-
-struct RingGroupingResult<'a> {
-    groups: Vec<PolygonGroup<'a>>,
-    additional: Vec<AdditionalPolygon<'a>>,
-}
-
-struct AdditionalPolygon<'a> {
-    ring: &'a Vec<WayOrientation<'a>>,
-    tags: HashMap<String, String>,
-}
-
 enum WayOrientation<'a> {
     Forward(&'a Element),
     Backward(&'a Element),
