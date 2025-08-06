@@ -54,11 +54,7 @@ fn elements_to_geometry_collection(
                 }
             }
             ElementType::Relation { .. } => {
-                if let Some(relation_geometries) =
-                    construct_relation_geometry(element, &all_elements)
-                {
-                    geometries.extend(relation_geometries);
-                }
+                geometries.extend(construct_relation_geometry(element, &all_elements));
             }
         }
     }

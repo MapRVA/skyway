@@ -211,20 +211,38 @@ fn find_holes_for_outer(outer_idx: usize, used: &[bool], containment: &[Vec<bool
         .collect()
 }
 
+fn ring_to_linestring(ring: &[WayOrientation], all_elements: &HashMap<i64, Element>) -> LineString {
+    let mut points = Vec::new();
+    for way in ring {
+        for node_id in way.nodes() {
+            match all_elements.get(&node_id) {
+                Some(e) => match &e.element_type {
+                    ElementType::Node { lat, lon } => {
+                        points.push(coord! {x: coord_to_f64(*lon), y: coord_to_f64(*lat)})
+                    }
+                    _ => unreachable!(),
+                },
+                None => unreachable!(),
+            }
+        }
+    }
+    LineString::new(points)
+}
+
 /// Find out which rings are nested into which other rings, and build polygons from them
 fn ring_grouping<'a>(
     rings: Vec<Vec<WayOrientation<'a>>>,
     relation: &Element,
     all_elements: &HashMap<i64, Element>,
-) -> Option<RingGroupingResult<'a>> {
+) -> Vec<TaggedGeometry> {
     if rings.is_empty() {
-        return None;
+        return Vec::new();
     }
 
     let n = rings.len();
-    let mut polygon_groups = Vec::new();
-    let mut additional_polygons = Vec::new();
+    // let mut additional_polygons = Vec::new();
     let mut used_rings = vec![false; n];
+    let mut out_polygons = Vec::new();
 
     // Convert rings to polygons for geometric operations
     let ring_polygons: Vec<Option<Polygon>> = rings
@@ -237,6 +255,7 @@ fn ring_grouping<'a>(
     while let Some(outer_idx) = find_outer_ring(&used_rings, &containment_matrix) {
         used_rings[outer_idx] = true;
 
+        // RG-4 Final all unused rings contained by ring outer_idx, but not contained by other unused rings
         let hole_indices = find_holes_for_outer(outer_idx, &used_rings, &containment_matrix);
 
         // Mark hole rings as used
@@ -245,6 +264,7 @@ fn ring_grouping<'a>(
         }
 
         // RG-5: Handle rings with different tags than the relation
+
         // additional_polygons.extend(
         //     hole_indices
         //         .iter()
@@ -274,81 +294,53 @@ fn ring_grouping<'a>(
         //         }),
         // );
 
-        // RG-7: Construct polygon group
-        let holes: Vec<Vec<&Element>> = hole_indices
+        // RG-7: Construct polygon and test its validity
+        let outer_linestring = ring_to_linestring(&rings[outer_idx], all_elements);
+        let inner_linestrings: Vec<LineString> = hole_indices
             .into_iter()
-            .map(|idx| {
-                rings[idx]
-                    .iter()
-                    .map(|orientation| match orientation {
-                        WayOrientation::Forward(elem) => *elem,
-                        WayOrientation::Backward(elem) => *elem,
-                    })
-                    .collect()
-            })
+            .map(|idx| ring_to_linestring(&rings[idx], all_elements))
             .collect();
 
-        let outer_elements: Vec<&Element> = rings[outer_idx]
-            .iter()
-            .map(|orientation| match orientation {
-                WayOrientation::Forward(elem) => *elem,
-                WayOrientation::Backward(elem) => *elem,
-            })
-            .collect();
+        let polygon = Polygon::new(outer_linestring, inner_linestrings);
 
-        polygon_groups.push(PolygonGroup {
-            outer: outer_elements,
-            holes,
-        });
-    }
-
-    Some(RingGroupingResult {
-        groups: polygon_groups,
-        additional: additional_polygons,
-    })
-}
-
-// ----- Multipolygon Creation -----
-
-fn multipolygon_creation<'a>(
-    polygon_groups: Vec<PolygonGroup<'a>>,
-    all_elements: &HashMap<i64, Element>,
-) -> Option<Geometry> {
-    if polygon_groups.is_empty() {
-        return None;
-    }
-
-    let polygons: Vec<Polygon> = polygon_groups
-        .into_iter()
-        .map(|group| {
-            let outer = ring_to_polygon(&group.outer, all_elements)?
-                .exterior()
-                .clone();
-
-            let holes: Vec<_> = group
-                .holes
-                .iter()
-                .map(|ring| ring_to_polygon(ring, all_elements).map(|p| p.exterior().clone()))
-                .collect::<Option<Vec<_>>>()?;
-
-            Some(Polygon::new(outer, holes))
-        })
-        .collect::<Option<Vec<_>>>()?;
-
-    // MC-1: Check for intersections between polygons
-    for i in 0..polygons.len() {
-        for j in (i + 1)..polygons.len() {
-            if polygons[i].intersects(&polygons[j]) {
-                return None;
-            }
+        if polygon.is_valid() {
+            out_polygons.push(polygon);
+        } else {
+            return Vec::new();
         }
     }
 
-    // MC-2: Construct multipolygon from all polygons
-    match polygons.len() {
-        1 => Some(Geometry::Polygon(polygons.into_iter().next().unwrap())),
-        _ => Some(Geometry::MultiPolygon(MultiPolygon::new(polygons))),
+    // Let's go ahead and take care of Multipolygon Creation
+    let mut out_vec = Vec::new();
+    match out_polygons.len() {
+        0 => return Vec::new(),
+        1 => {
+            // MC-2
+            out_vec.push(TaggedGeometry {
+                geometry: Geometry::Polygon(out_polygons[0].clone()),
+                tags: relation.tags.clone(),
+            });
+        }
+        _ => {
+            // MC-1
+            for (i, polygon) in out_polygons[..out_polygons.len() - 1].iter().enumerate() {
+                for other_polygon in out_polygons[i + 1..].iter() {
+                    if polygon.intersects(other_polygon) {
+                        return Vec::new();
+                    }
+                }
+            }
+            // MC-2
+            out_vec.push(TaggedGeometry {
+                geometry: Geometry::MultiPolygon(MultiPolygon::new(out_polygons)),
+                tags: relation.tags.clone(),
+            });
+        }
     }
+
+    // Add additional polygons from RG-5 to out_vec?
+
+    out_vec
 }
 
 /// Convert a ring of ways into a Polygon
@@ -385,7 +377,7 @@ fn ring_to_polygon(
 fn build_multipolygon(
     relation: &Element,
     all_elements: &HashMap<i64, Element>,
-) -> Option<Vec<TaggedGeometry>> {
+) -> Vec<TaggedGeometry> {
     let ElementType::Relation { members } = &relation.element_type else {
         unreachable!();
     };
@@ -401,38 +393,22 @@ fn build_multipolygon(
     let rings = ring_assignment(unassigned_ways);
 
     if rings.is_empty() {
-        return None;
+        return Vec::new();
     }
 
     // Ring Grouping: Determine ring relationships and group into polygons
-    let RingGroupingResult { groups, additional } = ring_grouping(rings, relation, all_elements)?;
-
-    // (Multi)polygon Creation: Convert to geo geometries
-    let main_geometry = multipolygon_creation(groups, all_elements)?;
-
-    let mut output_geometries = vec![TaggedGeometry {
-        geometry: main_geometry,
-        tags: relation.tags.clone(),
-    }];
-
-    // Add additional polygons from RG-5 (rings with different tags)
-    output_geometries.extend(additional.iter().filter_map(|add| {
-        ring_to_polygon(&add.ring, all_elements).map(|polygon| TaggedGeometry {
-            geometry: Geometry::Polygon(polygon),
-            tags: add.tags.clone(),
-        })
-    }));
-
-    Some(output_geometries)
+    ring_grouping(rings, relation, all_elements)
 }
 
 pub fn construct_relation_geometry(
     relation: &Element,
     all_elements: &HashMap<i64, Element>,
-) -> Option<Vec<TaggedGeometry>> {
+) -> Vec<TaggedGeometry> {
     match relation.tags.get("type").map(|s| s.as_str()) {
         Some("multipolygon" | "boundary") => build_multipolygon(relation, all_elements),
-        Some("multilinestring") => build_multilinestring(relation, all_elements).map(|g| vec![g]),
-        _ => None,
+        Some("multilinestring") => {
+            build_multilinestring(relation, all_elements).map_or_else(|| Vec::new(), |g| vec![g])
+        }
+        _ => Vec::new(),
     }
 }
