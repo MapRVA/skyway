@@ -13,6 +13,7 @@ use crate::{
 use super::{TaggedGeometry, way_to_linestring};
 
 // ----- MultiLineStrings -----
+
 fn build_multilinestring(
     relation: &Element,
     all_elements: &HashMap<i64, Element>,
@@ -54,74 +55,124 @@ struct RingGroupingResult<'a> {
 }
 
 struct AdditionalPolygon<'a> {
-    ring: Vec<&'a Element>,
+    ring: &'a Vec<WayOrientation<'a>>,
     tags: HashMap<String, String>,
+}
+
+enum WayOrientation<'a> {
+    Forward(&'a Element),
+    Backward(&'a Element),
+}
+
+impl<'a> WayOrientation<'a> {
+    fn nodes(&self) -> Vec<i64> {
+        match self {
+            WayOrientation::Forward(elem) => match &elem.element_type {
+                ElementType::Way { nodes } => nodes.clone(),
+                _ => Vec::new(),
+            },
+            WayOrientation::Backward(elem) => match &elem.element_type {
+                ElementType::Way { nodes } => {
+                    let mut reversed = nodes.clone();
+                    reversed.reverse();
+                    reversed
+                }
+                _ => Vec::new(),
+            },
+        }
+    }
 }
 
 // ----- MultiPolygon Ring Assignment -----
 
-fn ring_is_closed(ring: &[&Element]) -> bool {
+fn ring_is_closed(ring: &[WayOrientation]) -> bool {
     if ring.is_empty() {
         return false;
     }
 
-    match (&ring[0].element_type, &ring.last().unwrap().element_type) {
-        (ElementType::Way { nodes: first }, ElementType::Way { nodes: last }) => {
-            first.first() == last.last()
+    let first_way = match ring.first().unwrap() {
+        WayOrientation::Forward(elem) => elem,
+        WayOrientation::Backward(elem) => elem,
+    };
+
+    let last_way = match ring.last().unwrap() {
+        WayOrientation::Forward(elem) => elem,
+        WayOrientation::Backward(elem) => elem,
+    };
+
+    match (&first_way.element_type, &last_way.element_type) {
+        (ElementType::Way { nodes: first_nodes }, ElementType::Way { nodes: last_nodes }) => {
+            let first_start = match ring.first().unwrap() {
+                WayOrientation::Forward(_) => first_nodes.first(),
+                WayOrientation::Backward(_) => first_nodes.last(),
+            };
+
+            let last_end = match ring.last().unwrap() {
+                WayOrientation::Forward(_) => last_nodes.last(),
+                WayOrientation::Backward(_) => last_nodes.first(),
+            };
+
+            first_start == last_end
         }
         _ => false,
     }
 }
 
 /// Take unassigned ways and attempt to form closed rings from them
-fn ring_assignment<'a>(
-    mut unassigned_ways: Vec<(&'a i64, &'a ElementType)>,
-    all_elements: &'a HashMap<i64, Element>,
-) -> Vec<Vec<&'a Element>> {
+fn ring_assignment<'a>(mut unassigned_ways: Vec<&'a Element>) -> Vec<Vec<WayOrientation<'a>>> {
     let mut rings = Vec::new();
-    let mut current_ring: Vec<&Element> = Vec::new();
+    let mut current_ring: Vec<WayOrientation> = Vec::new();
 
-    while let Some((way_id, _)) = unassigned_ways.pop().or_else(|| {
-        if !current_ring.is_empty() {
-            unassigned_ways.last().map(|&x| x)
-        } else {
-            None
+    // start a new ring
+    while let Some(way) = unassigned_ways.pop() {
+        current_ring.push(WayOrientation::Forward(way));
+
+        while !ring_is_closed(&current_ring) {
+            let (_, current_last_node) = match current_ring.last().unwrap() {
+                WayOrientation::Forward(elem) => match &elem.element_type {
+                    ElementType::Way { nodes } => (elem, nodes.last()),
+                    _ => unreachable!(),
+                },
+                WayOrientation::Backward(elem) => match &elem.element_type {
+                    ElementType::Way { nodes } => (elem, nodes.first()),
+                    _ => unreachable!(),
+                },
+            };
+
+            let mut found_index = None;
+            let mut found_orientation = None;
+
+            for (i, remaining_way) in unassigned_ways.iter().enumerate() {
+                let remaining_nodes = match &remaining_way.element_type {
+                    ElementType::Way { nodes } => nodes,
+                    _ => continue,
+                };
+
+                if remaining_nodes.first() == current_last_node {
+                    found_index = Some(i);
+                    found_orientation = Some(true); // forward
+                    break;
+                } else if remaining_nodes.last() == current_last_node {
+                    found_index = Some(i);
+                    found_orientation = Some(false); // backward
+                    break;
+                }
+            }
+
+            if let (Some(index), Some(is_forward)) = (found_index, found_orientation) {
+                let way = unassigned_ways.remove(index);
+                if is_forward {
+                    current_ring.push(WayOrientation::Forward(way));
+                } else {
+                    current_ring.push(WayOrientation::Backward(way));
+                }
+            } else {
+                // No matching way found - ring cannot be closed
+                return Vec::new();
+            }
         }
-    }) {
-        current_ring.push(&all_elements[&way_id]);
-
-        if ring_is_closed(&current_ring) {
-            rings.push(std::mem::take(&mut current_ring));
-            continue;
-        }
-
-        // RA-4: If the current ring is not closed, get the end node of the current ring
-        let Some(end_node) = current_ring
-            .last()
-            .and_then(|elem| match &elem.element_type {
-                ElementType::Way { nodes } => nodes.last(),
-                _ => None,
-            })
-        else {
-            break;
-        };
-
-        if let Some(idx) = unassigned_ways.iter().position(|(_, way_type)| {
-            matches!(way_type, ElementType::Way { nodes } if
-                nodes.first() == Some(end_node) || nodes.last() == Some(end_node))
-        }) {
-            let (connecting_id, _) = unassigned_ways.remove(idx);
-            current_ring.push(&all_elements[&connecting_id]);
-        } else {
-            break;
-        }
+        rings.push(std::mem::take(&mut current_ring));
     }
-
-    // There could be a dangling ring!
-    if !current_ring.is_empty() && ring_is_closed(&current_ring) {
-        rings.push(current_ring);
-    }
-
     rings
 }
 
@@ -162,15 +213,12 @@ fn find_holes_for_outer(outer_idx: usize, used: &[bool], containment: &[Vec<bool
 
 /// Find out which rings are nested into which other rings, and build polygons from them
 fn ring_grouping<'a>(
-    rings: Vec<Vec<&'a Element>>,
+    rings: Vec<Vec<WayOrientation<'a>>>,
     relation: &Element,
     all_elements: &HashMap<i64, Element>,
 ) -> Option<RingGroupingResult<'a>> {
     if rings.is_empty() {
-        return Some(RingGroupingResult {
-            groups: Vec::new(),
-            additional: Vec::new(),
-        });
+        return None;
     }
 
     let n = rings.len();
@@ -182,9 +230,6 @@ fn ring_grouping<'a>(
     let ring_polygons: Vec<Option<Polygon>> = rings
         .iter()
         .map(|ring| ring_to_polygon(ring, all_elements))
-        .collect::<Option<Vec<_>>>()?
-        .into_iter()
-        .map(Some)
         .collect();
 
     let containment_matrix = build_containment_matrix(&ring_polygons);
@@ -200,34 +245,59 @@ fn ring_grouping<'a>(
         }
 
         // RG-5: Handle rings with different tags than the relation
-        additional_polygons.extend(
-            hole_indices
-                .iter()
-                .filter(|&&idx| {
-                    rings[idx]
-                        .iter()
-                        .any(|way| !way.tags.is_empty() && way.tags != relation.tags)
-                })
-                .map(|&idx| {
-                    let mut combined_tags = HashMap::new();
-                    for way in &rings[idx] {
-                        combined_tags.extend(way.tags.clone());
-                    }
-                    AdditionalPolygon {
-                        ring: rings[idx].clone(),
-                        tags: combined_tags,
-                    }
-                }),
-        );
+        // additional_polygons.extend(
+        //     hole_indices
+        //         .iter()
+        //         .filter(|&&idx| {
+        //             rings[idx].iter().any(|orientation| {
+        //                 let way = match orientation {
+        //                     WayOrientation::Forward(elem) => elem,
+        //                     WayOrientation::Backward(elem) => elem,
+        //                 };
+        //                 !way.tags.is_empty() && way.tags != relation.tags
+        //             })
+        //         })
+        //         .map(|&idx| {
+        //             let mut combined_tags = HashMap::new();
+        //             for orientation in &rings[idx] {
+        //                 let way = match orientation {
+        //                     WayOrientation::Forward(elem) => elem,
+        //                     WayOrientation::Backward(elem) => elem,
+        //                 };
+        //                 combined_tags.extend(way.tags.clone());
+        //             }
+        //             let polygon = ring_to_polygon(&rings[idx], all_elements);
+        //             additional_polygons.push(TaggedGeometry {
+        //                 geometry: polygon,
+        //                 tags: combined_tags,
+        //             });
+        //         }),
+        // );
 
         // RG-7: Construct polygon group
         let holes: Vec<Vec<&Element>> = hole_indices
             .into_iter()
-            .map(|idx| rings[idx].clone())
+            .map(|idx| {
+                rings[idx]
+                    .iter()
+                    .map(|orientation| match orientation {
+                        WayOrientation::Forward(elem) => *elem,
+                        WayOrientation::Backward(elem) => *elem,
+                    })
+                    .collect()
+            })
+            .collect();
+
+        let outer_elements: Vec<&Element> = rings[outer_idx]
+            .iter()
+            .map(|orientation| match orientation {
+                WayOrientation::Forward(elem) => *elem,
+                WayOrientation::Backward(elem) => *elem,
+            })
             .collect();
 
         polygon_groups.push(PolygonGroup {
-            outer: rings[outer_idx].clone(),
+            outer: outer_elements,
             holes,
         });
     }
@@ -282,15 +352,14 @@ fn multipolygon_creation<'a>(
 }
 
 /// Convert a ring of ways into a Polygon
-fn ring_to_polygon(ring: &[&Element], all_elements: &HashMap<i64, Element>) -> Option<Polygon> {
+fn ring_to_polygon(
+    ring: &Vec<WayOrientation>,
+    all_elements: &HashMap<i64, Element>,
+) -> Option<Polygon> {
     let mut all_points = Vec::new();
 
     for way in ring {
-        let ElementType::Way { nodes } = &way.element_type else {
-            return None; // Ring contains non-way element
-        };
-
-        for &node_id in nodes {
+        for node_id in way.nodes() {
             let node_element = all_elements.get(&node_id)?;
             let ElementType::Node { lat, lon } = node_element.element_type else {
                 return None; // Node ID references non-node element
@@ -322,17 +391,14 @@ fn build_multipolygon(
     };
 
     // RA-1: Collect all member ways into unassigned_ways Vec
-    let unassigned_ways: Vec<(&i64, &ElementType)> = members
+    let unassigned_ways: Vec<&Element> = members
         .iter()
         .filter_map(|member| all_elements.get(&member.id))
-        .filter_map(|element| match &element.element_type {
-            w @ ElementType::Way { .. } => Some((&element.id, w)),
-            _ => None,
-        })
+        .filter(|element| matches!(&element.element_type, ElementType::Way { .. }))
         .collect();
 
     // Ring Assignment: Form closed rings from unassigned ways
-    let rings = ring_assignment(unassigned_ways, all_elements);
+    let rings = ring_assignment(unassigned_ways);
 
     if rings.is_empty() {
         return None;
