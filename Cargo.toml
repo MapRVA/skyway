@@ -98,3 +98,7 @@ cli = ["dep:clap", "dep:env_logger", "dep:indicatif"]
 [profile.release]
 lto = "fat"
 codegen-units = 1
+
+[profile.profiling]
+inherits = "release"
+debug = 1
