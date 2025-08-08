@@ -14,4 +14,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 skyway = { workspace = true }
-pyo3 = { version = "0.24.1", features = ["extension-module"] }
+pyo3 = { version = "0.24.1", features = ["abi3", "extension-module"] }
