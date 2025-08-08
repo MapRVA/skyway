@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 /// Element types without any additional metadata.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SimpleElementType {
     Node,
     Way,
