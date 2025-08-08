@@ -44,11 +44,11 @@ fn start_progress(message: &str) -> ProgressBar {
 struct Cli {
     /// Source file format
     #[arg(long)]
-    from: Option<OsmFormat>,
+    from: Option<String>,
 
     /// Destination file format
     #[arg(long)]
-    to: Option<OsmFormat>,
+    to: Option<String>,
 
     /// Path to input file (if not given, reads from stdin)
     #[arg(long)]

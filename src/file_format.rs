@@ -1,5 +1,3 @@
-#[cfg(feature = "cli")]
-use clap::ValueEnum;
 use std::ffi::OsStr;
 use std::fmt;
 use std::path::PathBuf;
@@ -8,22 +6,14 @@ use crate::SkywayError;
 
 /// Enum that represents the different OSM file formats skyway supports.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "cli", derive(ValueEnum))]
 #[non_exhaustive]
 pub enum OsmFormat {
-    #[cfg_attr(feature = "cli", value(name = "geojson"))]
     GeoJson,
-    #[cfg_attr(feature = "cli", value(name = "json"))]
     Json,
-    #[cfg_attr(feature = "cli", value(name = "o5m"))]
     O5m,
-    #[cfg_attr(feature = "cli", value(name = "opl"))]
     Opl,
-    #[cfg_attr(feature = "cli", value(name = "overpass-query"))]
     OverpassQuery,
-    #[cfg_attr(feature = "cli", value(name = "xml", alias = "osm"))]
     Xml,
-    #[cfg_attr(feature = "cli", value(name = "pbf"))]
     Pbf,
 }
 
@@ -32,12 +22,31 @@ impl OsmFormat {
         SkywayError::UnknownFormat(ext.to_string())
     }
 
+    #[inline]
+    pub fn from_identifier<S>(id: S) -> Option<Self>
+    where
+        S: AsRef<str>,
+    {
+        match id.as_ref() {
+            "geojson" => Some(OsmFormat::GeoJson),
+            "json" => Some(OsmFormat::Json),
+            "o5m" => Some(OsmFormat::O5m),
+            "opl" => Some(OsmFormat::Opl),
+            "overpass-query" => Some(OsmFormat::OverpassQuery),
+            "xml" | "osm" => Some(OsmFormat::Xml),
+            "pbf" => Some(OsmFormat::Pbf),
+            _ => None,
+        }
+    }
+
     pub fn parse(
-        cli_format: Option<Self>,
+        cli_format: Option<String>,
         file_path: &Option<PathBuf>,
     ) -> Result<Self, SkywayError> {
-        if let Some(format) = cli_format {
-            Ok(format)
+        if let Some(format_str) = cli_format {
+            Self::from_identifier(&format_str).ok_or(Self::format_error(
+                format!("Unknown format identifier: {}", format_str).as_str(),
+            ))
         } else {
             let path = file_path.as_ref().ok_or(Self::format_error(
                 "no file path given or format specified.",
@@ -204,7 +213,7 @@ impl fmt::Display for OsmFormat {
         match self {
             OsmFormat::GeoJson => write!(f, "geojson")?,
             OsmFormat::Json => write!(f, "json")?,
-            OsmFormat::OverpassQuery => write!(f, "overpassql")?,
+            OsmFormat::OverpassQuery => write!(f, "overpass-query")?,
             OsmFormat::O5m => write!(f, "o5m")?,
             OsmFormat::Opl => write!(f, "opl")?,
             OsmFormat::Xml => write!(f, "xml")?,
