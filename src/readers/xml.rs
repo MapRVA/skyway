@@ -128,12 +128,12 @@ impl FakeElementManager {
         fake_id
     }
 
-    /// Get a fake ID for an element which does have a known real ID
+    /// Get a fake ID for an element which has a known real ID
     fn get_fake_id_for_real_id(&mut self, real_id: i64) -> i64 {
         if let Some(fake_id) = self.assigned_elements.get(&real_id) {
             return *fake_id;
         } else {
-            let fake_id = self.next_fake_element_id;
+            let fake_id = self.get_fake_id();
             self.assigned_elements.insert(real_id, fake_id);
             self.next_fake_element_id += 1;
             fake_id
@@ -146,9 +146,8 @@ impl FakeElementManager {
         if let Some(&fake_id) = self.coordinate_to_fake_id.get(&coord_key) {
             fake_id
         } else {
-            let fake_id = self.next_fake_element_id;
+            let fake_id = self.get_fake_id();
             self.coordinate_to_fake_id.insert(coord_key, fake_id);
-            self.next_fake_element_id += 1;
             fake_id
         }
     }

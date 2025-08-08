@@ -110,7 +110,7 @@ pub struct ConversionBuilder {
     sort_strategy: Option<SortStrategy>,
     chunk_size: Option<usize>,
     preserve_generator: bool,
-    rebuild_geometry: bool,
+    rebuild_geometry: Option<bool>,
 }
 
 impl ConversionBuilder {
@@ -130,7 +130,7 @@ impl ConversionBuilder {
             sort_strategy: None,
             chunk_size: None,
             preserve_generator: true,
-            rebuild_geometry: false,
+            rebuild_geometry: None,
         }
     }
 
@@ -161,7 +161,7 @@ impl ConversionBuilder {
     }
 
     pub fn with_rebuild_geometry(mut self, rebuild_geometry: bool) -> Self {
-        self.rebuild_geometry = rebuild_geometry;
+        self.rebuild_geometry = Some(rebuild_geometry);
         self
     }
 
@@ -284,9 +284,24 @@ impl ConversionBuilder {
                     overpass_temp_file.path(),
                 )?;
 
+                // Note that rebuild geometry defaults to `true` when OverpassQuery is the input format
                 match output_format {
-                    OverpassOutputFormat::Json => XmlReader::new(self.rebuild_geometry)
-                        .run_conversion(
+                    OverpassOutputFormat::Json => {
+                        unimplemented!()
+                        // JsonReader::new(self.rebuild_geometry.unwrap_or(true))
+                        // .run_conversion(
+                        //     Some(overpass_temp_file.path().to_path_buf()),
+                        //     chunk_size,
+                        //     #[cfg(feature = "filter")]
+                        //     self.filters,
+                        //     #[cfg(feature = "filter")]
+                        //     self.omit_references,
+                        //     sort_strategy,
+                        //     self.preserve_generator,
+                        //)?)
+                    }
+                    OverpassOutputFormat::Xml => {
+                        XmlReader::new(self.rebuild_geometry.unwrap_or(true)).run_conversion(
                             Some(overpass_temp_file.path().to_path_buf()),
                             chunk_size,
                             #[cfg(feature = "filter")]
@@ -295,18 +310,8 @@ impl ConversionBuilder {
                             self.omit_references,
                             sort_strategy,
                             self.preserve_generator,
-                        )?,
-                    OverpassOutputFormat::Xml => XmlReader::new(self.rebuild_geometry)
-                        .run_conversion(
-                            Some(overpass_temp_file.path().to_path_buf()),
-                            chunk_size,
-                            #[cfg(feature = "filter")]
-                            self.filters,
-                            #[cfg(feature = "filter")]
-                            self.omit_references,
-                            sort_strategy,
-                            self.preserve_generator,
-                        )?,
+                        )?
+                    }
                 }
             }
             #[cfg(feature = "pbf")]
@@ -321,16 +326,17 @@ impl ConversionBuilder {
                 self.preserve_generator,
             )?,
             #[cfg(feature = "xml")]
-            OsmFormat::Xml => XmlReader::new(self.rebuild_geometry).run_conversion(
-                self.source,
-                chunk_size,
-                #[cfg(feature = "filter")]
-                self.filters,
-                #[cfg(feature = "filter")]
-                self.omit_references,
-                sort_strategy,
-                self.preserve_generator,
-            )?,
+            OsmFormat::Xml => XmlReader::new(self.rebuild_geometry.unwrap_or(false))
+                .run_conversion(
+                    self.source,
+                    chunk_size,
+                    #[cfg(feature = "filter")]
+                    self.filters,
+                    #[cfg(feature = "filter")]
+                    self.omit_references,
+                    sort_strategy,
+                    self.preserve_generator,
+                )?,
             _ => unreachable!(), // have already checked the validity of input and output
         };
 
