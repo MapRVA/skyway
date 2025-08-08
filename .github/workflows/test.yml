@@ -43,12 +43,14 @@ jobs:
         with:
           command: build
           args: --manifest-path skyway/Cargo.toml --features "reqwest/rustls-tls"
+          use-rust-cache: false
           target: ${{ matrix.platform.target }}
       - name: Build binary (no features)
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
           args: --no-default-features --manifest-path skyway/Cargo.toml
+          use-rust-cache: false
           target: ${{ matrix.platform.target }}
       - name: Run tests
         uses: houseabsolute/actions-rust-cross@v1
