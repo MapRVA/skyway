@@ -38,7 +38,7 @@ jobs:
     runs-on: ${{ matrix.platform.runs-on }}
     steps:
       - name: Install openssl
-        if: matrix.platform.runs-on == "ubuntu-24.04"
+        if: matrix.platform.runs-on == 'ubuntu-24.04'
         run: sudo apt install -y libssl-dev
       - uses: actions/checkout@v4
       - name: Build binary
