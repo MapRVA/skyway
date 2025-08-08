@@ -11,7 +11,7 @@ homepage = "https://maprva.github.io/skyway/"
 repository = "https://github.com/MapRVA/skyway"
 
 [workspace.dependencies]
-skyway = { path = "skyway", default-features = false }
+skyway = { path = "skyway" }
 
 [profile.release]
 lto = "fat"

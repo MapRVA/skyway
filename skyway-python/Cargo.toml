@@ -13,16 +13,5 @@ name = "skyway_python"
 crate-type = ["cdylib"]
 
 [dependencies]
-skyway = { workspace = true, default-features = false, features = [
-    "geojson",
-    "json",
-    "o5m",
-    "opl",
-    # "overpass-queries",
-    "pbf",
-    "xml",
-    "filter",
-    "cel",
-    "skyfilter",
-] }
+skyway = { workspace = true }
 pyo3 = { version = "0.24.1", features = ["extension-module"] }

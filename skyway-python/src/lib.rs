@@ -47,9 +47,9 @@ fn convert(
 
     conversion_builder = conversion_builder.with_omit_references(omit_references);
 
-    // if let Some(endpoint) = endpoint {
-    //     conversion_builder = conversion_builder.with_endpoint(endpoint);
-    // }
+    if let Some(endpoint) = endpoint {
+        conversion_builder = conversion_builder.with_endpoint(endpoint);
+    }
 
     if let Some(chunk_size) = chunk_size {
         conversion_builder = conversion_builder.with_chunk_size(chunk_size)
