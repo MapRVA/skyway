@@ -59,6 +59,21 @@ pub enum SkywayError {
     UnexpectedError(String),
 }
 
+/// Validate input path, taking into account user's overwrite preference
+pub fn validate_input_with_overwrite_check(
+    input: Option<PathBuf>,
+    output: Option<PathBuf>,
+    no_overwrite: bool,
+) -> Result<Option<PathBuf>, SkywayError> {
+    match input {
+        Some(path) => match no_overwrite && output.is_some_and(|p| p.exists()) {
+            true => Err(SkywayError::OutputFileExists),
+            false => Ok(Some(path)),
+        },
+        None => Ok(None),
+    }
+}
+
 #[cfg(feature = "cli")]
 pub trait FileFormatOptions: ValueEnum {
     fn format_error(ext: &str) -> SkywayError;

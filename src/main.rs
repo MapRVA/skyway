@@ -4,7 +4,10 @@ use log::info;
 
 use std::{path::PathBuf, process};
 
-use skyway::{ConversionBuilder, OsmFormat, SkywayError, sort::SortStrategy};
+use skyway::{
+    ConversionBuilder, OsmFormat, SkywayError, sort::SortStrategy,
+    validate_input_with_overwrite_check,
+};
 
 #[cfg(feature = "filter")]
 use skyway::filter::filter_from_path;
@@ -106,13 +109,7 @@ fn run() -> Result<(), SkywayError> {
     let to = OsmFormat::parse(cli.to, &cli.output)?;
     info!("Output format determined: {:?}", to);
 
-    let src = match cli.input {
-        Some(path) => match cli.no_overwrite && cli.output.clone().is_some_and(|p| p.exists()) {
-            true => return Err(SkywayError::OutputFileExists),
-            false => Some(path),
-        },
-        None => None,
-    };
+    let src = validate_input_with_overwrite_check(cli.input, cli.output.clone(), cli.no_overwrite)?;
 
     // create a ConversionBuilder that will handle the conversion
     let mut conversion_builder = ConversionBuilder::new(from, to)
