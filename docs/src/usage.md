@@ -19,9 +19,9 @@ The shortname is used to indicate the format when running skyway, e.g. `skyway -
 When paired together, "speedy" readers and writers will generally run faster by passing data between threads.
 
 **Key:**<br>
+✅ – Supported<br>
 ➖ – Not Planned<br>
 ❌ – Not Supported<br>
-✅ – Supported<br>
 
 | Format | Shortname | Reader | Writer |
 | -------|-----------|--------|--------|

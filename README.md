@@ -19,9 +19,9 @@ Join `#skyway` in the [OpenStreetMap Slack](https://openstreetmap.us/get-involve
 ## Supported Formats
 
 **Key:**<br>
-❌ – Not Supported (Yet)<br>
-➖ – Not Planned<br>
 ✅ – Supported<br>
+➖ – Not Planned<br>
+❌ – Not Supported (Yet)<br>
 
 | Format | Reader | Writer |
 | -------|--------|--------|
