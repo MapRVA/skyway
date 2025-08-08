@@ -1,7 +1,7 @@
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::QName;
 use rayon::prelude::*;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::io::BufRead;
 use std::mem;
 
@@ -10,7 +10,7 @@ use std::str::from_utf8;
 use std::sync::mpsc::Sender;
 
 use crate::SkywayError;
-use crate::elements::{Element, ElementBuilder, ElementTypeBuilder, Member};
+use crate::elements::{Element, ElementBuilder, ElementType, ElementTypeBuilder, Member};
 use crate::{
     chunks::{ChunkBuilder, ElementChunk},
     elements::{Metadata, SimpleElementType},
@@ -106,6 +106,54 @@ impl ElementBuffer {
     }
 }
 
+struct FakeElementManager {
+    assigned_elements: HashMap<i64, i64>,
+    coordinate_to_fake_id: HashMap<(i32, i32), i64>,
+    next_fake_element_id: i64,
+}
+
+impl FakeElementManager {
+    fn new() -> Self {
+        FakeElementManager {
+            assigned_elements: HashMap::new(),
+            coordinate_to_fake_id: HashMap::new(),
+            next_fake_element_id: i64::MIN,
+        }
+    }
+
+    /// Get a fake ID for an element which doesn't have a known real ID
+    fn get_fake_id(&mut self) -> i64 {
+        let fake_id = self.next_fake_element_id;
+        self.next_fake_element_id += 1;
+        fake_id
+    }
+
+    /// Get a fake ID for an element which does have a known real ID
+    fn get_fake_id_for_real_id(&mut self, real_id: i64) -> i64 {
+        if let Some(fake_id) = self.assigned_elements.get(&real_id) {
+            return *fake_id;
+        } else {
+            let fake_id = self.next_fake_element_id;
+            self.assigned_elements.insert(real_id, fake_id);
+            self.next_fake_element_id += 1;
+            fake_id
+        }
+    }
+
+    /// Get a fake ID for coordinates, deduplicating if we've seen these coords before
+    fn get_fake_id_for_coordinates(&mut self, lat: i32, lon: i32) -> i64 {
+        let coord_key = (lat, lon);
+        if let Some(&fake_id) = self.coordinate_to_fake_id.get(&coord_key) {
+            fake_id
+        } else {
+            let fake_id = self.next_fake_element_id;
+            self.coordinate_to_fake_id.insert(coord_key, fake_id);
+            self.next_fake_element_id += 1;
+            fake_id
+        }
+    }
+}
+
 struct ParseMachine {
     read_buffer: Vec<u8>,
     reader: quick_xml::reader::Reader<Box<dyn BufRead + Send>>,
@@ -114,6 +162,12 @@ struct ParseMachine {
     in_osm: bool,
     current_element: Option<SimpleElementType>,
     metadata_sender: Sender<Metadata>,
+    rebuild_geometries: bool,
+    fake_id_manager: FakeElementManager,
+    in_relation_member: bool,
+    current_member: Option<Member>,
+    current_member_type: Option<SimpleElementType>,
+    current_member_fake_nodes: Vec<i64>,
 }
 
 impl ParseMachine {
@@ -121,6 +175,7 @@ impl ParseMachine {
         reader: quick_xml::reader::Reader<Box<dyn BufRead + Send>>,
         chunk_builder: ChunkBuilder,
         metadata_sender: Sender<Metadata>,
+        rebuild_geometries: bool,
     ) -> Self {
         Self {
             read_buffer: Vec::new(),
@@ -130,6 +185,12 @@ impl ParseMachine {
             in_osm: false,
             current_element: None,
             metadata_sender,
+            rebuild_geometries,
+            fake_id_manager: FakeElementManager::new(),
+            in_relation_member: false,
+            current_member: None,
+            current_member_type: None,
+            current_member_fake_nodes: Vec::new(),
         }
     }
 
@@ -169,15 +230,152 @@ impl ParseMachine {
                     }
                     Ok(())
                 }
+                QName(b"member") => {
+                    // For geom output, member tags may not be empty
+                    if let Some(SimpleElementType::Relation) = self.current_element {
+                        self.in_relation_member = true;
+
+                        // Parse member attributes
+                        let mut role = None;
+                        let mut ref_id = None;
+                        let mut type_ = None;
+                        let mut lat = None;
+                        let mut lon = None;
+
+                        for attr in s.attributes() {
+                            let attr =
+                                attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+                            match attr.key.into_inner() {
+                                b"role" => {
+                                    role = Some(attr_value_to_str(attr.value.as_ref())?.to_string())
+                                }
+                                b"ref" => {
+                                    ref_id =
+                                        attr_value_to_str(attr.value.as_ref())?.parse::<i64>().ok()
+                                }
+                                b"type" => {
+                                    type_ = match attr_value_to_str(attr.value.as_ref())? {
+                                        "node" => Some(SimpleElementType::Node),
+                                        "way" => Some(SimpleElementType::Way),
+                                        "relation" => Some(SimpleElementType::Relation),
+                                        _ => None,
+                                    }
+                                }
+                                b"lat" => {
+                                    if let Ok(lat_val) =
+                                        attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
+                                    {
+                                        lat = Some((lat_val * 10_000_000.0) as i32);
+                                    }
+                                }
+                                b"lon" => {
+                                    if let Ok(lon_val) =
+                                        attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
+                                    {
+                                        lon = Some((lon_val * 10_000_000.0) as i32);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if let (Some(id), Some(t)) = (ref_id, type_) {
+                            let member_id = if self.rebuild_geometries
+                                && t == SimpleElementType::Node
+                                && lat.is_some()
+                                && lon.is_some()
+                            {
+                                // Create a fake node for node members with coordinates
+                                let fake_id = self.fake_id_manager.get_fake_id_for_real_id(id);
+                                let fake_node = Element {
+                                    id: fake_id,
+                                    changeset: None,
+                                    user: None,
+                                    version: None,
+                                    uid: None,
+                                    timestamp: None,
+                                    visible: None,
+                                    tags: HashMap::new(),
+                                    element_type: ElementType::Node {
+                                        lat: lat.unwrap(),
+                                        lon: lon.unwrap(),
+                                    },
+                                };
+                                self.element_buffer.push(fake_node);
+                                fake_id
+                            } else {
+                                id
+                            };
+
+                            self.current_member = Some(Member {
+                                role,
+                                id: member_id,
+                                t: Some(t.clone()),
+                            });
+
+                            // Track the member type for fake way creation
+                            self.current_member_type = Some(t);
+                        }
+                    }
+                    Ok(())
+                }
                 _ => Ok(()),
             },
-            Event::End(_) => {
-                if let Ok(Some(element)) = self.finish_element() {
-                    self.element_buffer.push(element);
-                    self.current_element = None;
+            Event::End(e) => match e.name() {
+                QName(b"member") => {
+                    self.in_relation_member = false;
+
+                    // If we have a stored member, process it
+                    if let Some(mut member) = self.current_member.take() {
+                        // If this was a way member with fake nodes, create a fake way
+                        if self.rebuild_geometries
+                            && matches!(self.current_member_type, Some(SimpleElementType::Way))
+                            && !self.current_member_fake_nodes.is_empty()
+                        {
+                            let fake_way_id = self.fake_id_manager.get_fake_id();
+
+                            // Create the fake way element
+                            let fake_way = Element {
+                                id: fake_way_id,
+                                changeset: None,
+                                user: None,
+                                version: None,
+                                uid: None,
+                                timestamp: None,
+                                visible: None,
+                                tags: HashMap::new(),
+                                element_type: ElementType::Way {
+                                    nodes: self.current_member_fake_nodes.clone(),
+                                },
+                            };
+                            self.element_buffer.push(fake_way);
+
+                            // Update member to reference the fake way
+                            member.id = fake_way_id;
+                        }
+
+                        if let Some(SimpleElementType::Relation) = self.current_element {
+                            if let Some(ElementTypeBuilder::RelationBuilder { members }) =
+                                &mut self.element_builder.element_type
+                            {
+                                members.push(member);
+                            }
+                        }
+                    }
+
+                    // Clear member tracking state
+                    self.current_member_type = None;
+                    self.current_member_fake_nodes.clear();
+                    Ok(())
                 }
-                Ok(())
-            }
+                _ => {
+                    if let Ok(Some(element)) = self.finish_element() {
+                        self.element_buffer.push(element);
+                        self.current_element = None;
+                    }
+                    Ok(())
+                }
+            },
             Event::Empty(e) => match e.name() {
                 QName(b"node") => {
                     // <node ... /> elements are registered as "empty" because they
@@ -338,22 +536,118 @@ impl ParseMachine {
     fn handle_empty_element(&mut self, empty: BytesStart) -> Result<(), SkywayError> {
         match empty.name().into_inner() {
             b"nd" => {
+                // Handle <nd> inside ways or inside relation members
+                let mut ref_id = None;
+                let mut lat = None;
+                let mut lon = None;
+
+                // Parse attributes
+                for attr in empty.attributes() {
+                    let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
+                    match attr.key.into_inner() {
+                        b"ref" => {
+                            ref_id = attr_value_to_str(attr.value.as_ref())?.parse::<i64>().ok()
+                        }
+                        b"lat" => {
+                            if let Ok(lat_val) =
+                                attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
+                            {
+                                lat = Some((lat_val * 10_000_000.0) as i32);
+                            }
+                        }
+                        b"lon" => {
+                            if let Ok(lon_val) =
+                                attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
+                            {
+                                lon = Some((lon_val * 10_000_000.0) as i32);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Handle <nd> inside a way
                 if let Some(SimpleElementType::Way) = self.current_element {
                     if let Some(ElementTypeBuilder::WayBuilder { nodes }) =
                         &mut self.element_builder.element_type
                     {
-                        for attr in empty.attributes() {
-                            let attr =
-                                attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
-                            if attr.key.into_inner() == b"ref" {
-                                if let Ok(node_ref) =
-                                    attr_value_to_str(attr.value.as_ref())?.parse::<i64>()
-                                {
-                                    nodes.push(node_ref);
-                                    return Ok(());
-                                }
-                            }
+                        if self.rebuild_geometries && lat.is_some() && lon.is_some() {
+                            // Create a fake node for geom output
+                            let fake_id = if let Some(real_id) = ref_id {
+                                self.fake_id_manager.get_fake_id_for_real_id(real_id)
+                            } else {
+                                self.fake_id_manager.get_fake_id()
+                            };
+                            nodes.push(fake_id);
+
+                            // Create the fake node element
+                            let fake_node = Element {
+                                id: fake_id,
+                                changeset: None,
+                                user: None,
+                                version: None,
+                                uid: None,
+                                timestamp: None,
+                                visible: None,
+                                tags: HashMap::new(),
+                                element_type: ElementType::Node {
+                                    lat: lat.unwrap(),
+                                    lon: lon.unwrap(),
+                                },
+                            };
+                            self.element_buffer.push(fake_node);
+                        } else if let Some(node_ref) = ref_id {
+                            nodes.push(node_ref);
                         }
+                    }
+                }
+                // Handle <nd> inside a relation member (for geom output)
+                else if self.in_relation_member
+                    && self.rebuild_geometries
+                    && lat.is_some()
+                    && lon.is_some()
+                {
+                    // Create a fake node for relation member geometry
+                    // Use coordinate-based deduplication to ensure shared nodes are reused
+                    let lat_val = lat.unwrap();
+                    let lon_val = lon.unwrap();
+
+                    // Check if we've already created a fake node for these coordinates
+                    let coord_key = (lat_val, lon_val);
+                    let already_exists = self
+                        .fake_id_manager
+                        .coordinate_to_fake_id
+                        .contains_key(&coord_key);
+
+                    let fake_id = if let Some(real_id) = ref_id {
+                        self.fake_id_manager.get_fake_id_for_real_id(real_id)
+                    } else {
+                        self.fake_id_manager
+                            .get_fake_id_for_coordinates(lat_val, lon_val)
+                    };
+
+                    // Only create the node element if this is the first time we've seen these coordinates
+                    if !already_exists {
+                        let fake_node = Element {
+                            id: fake_id,
+                            changeset: None,
+                            user: None,
+                            version: None,
+                            uid: None,
+                            timestamp: None,
+                            visible: None,
+                            tags: HashMap::new(),
+                            element_type: ElementType::Node {
+                                lat: lat_val,
+                                lon: lon_val,
+                            },
+                        };
+                        self.element_buffer.push(fake_node);
+                    }
+
+                    // If this is a way member, collect the fake node ID
+                    if matches!(self.current_member_type, Some(SimpleElementType::Way)) {
+                        self.current_member_fake_nodes.push(fake_id);
                     }
                 }
             }
@@ -365,6 +659,8 @@ impl ParseMachine {
                         let mut role = None;
                         let mut ref_id = None;
                         let mut type_ = None;
+                        let mut lat = None;
+                        let mut lon = None;
 
                         for attr in empty.attributes() {
                             let attr =
@@ -374,7 +670,8 @@ impl ParseMachine {
                                     role = Some(attr_value_to_str(attr.value.as_ref())?.to_string())
                                 }
                                 b"ref" => {
-                                    ref_id = attr_value_to_str(attr.value.as_ref())?.parse().ok()
+                                    ref_id =
+                                        attr_value_to_str(attr.value.as_ref())?.parse::<i64>().ok()
                                 }
                                 b"type" => {
                                     type_ = match attr_value_to_str(attr.value.as_ref())? {
@@ -384,14 +681,55 @@ impl ParseMachine {
                                         _ => None,
                                     }
                                 }
+                                b"lat" => {
+                                    if let Ok(lat_val) =
+                                        attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
+                                    {
+                                        lat = Some((lat_val * 10_000_000.0) as i32);
+                                    }
+                                }
+                                b"lon" => {
+                                    if let Ok(lon_val) =
+                                        attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
+                                    {
+                                        lon = Some((lon_val * 10_000_000.0) as i32);
+                                    }
+                                }
                                 _ => {}
                             }
                         }
 
                         if let (Some(id), Some(t)) = (ref_id, type_) {
+                            let member_id = if self.rebuild_geometries
+                                && t == SimpleElementType::Node
+                                && lat.is_some()
+                                && lon.is_some()
+                            {
+                                // Create a fake node for node members with coordinates
+                                let fake_id = self.fake_id_manager.get_fake_id_for_real_id(id);
+                                let fake_node = Element {
+                                    id: fake_id,
+                                    changeset: None,
+                                    user: None,
+                                    version: None,
+                                    uid: None,
+                                    timestamp: None,
+                                    visible: None,
+                                    tags: HashMap::new(),
+                                    element_type: ElementType::Node {
+                                        lat: lat.unwrap(),
+                                        lon: lon.unwrap(),
+                                    },
+                                };
+                                self.element_buffer.push(fake_node);
+                                fake_id
+                            } else {
+                                id
+                            };
+
                             members.push(Member {
                                 role,
-                                id,
+                                id: member_id,
                                 t: Some(t),
                             });
                         }
@@ -409,11 +747,13 @@ fn attr_value_to_str(value: &[u8]) -> Result<&str, XmlReadError> {
 }
 
 #[derive(Clone)]
-pub struct XmlReader {}
+pub struct XmlReader {
+    rebuild_geometries: bool,
+}
 
 impl XmlReader {
-    pub fn new() -> Self {
-        XmlReader {}
+    pub fn new(rebuild_geometries: bool) -> Self {
+        XmlReader { rebuild_geometries }
     }
 }
 
@@ -425,7 +765,12 @@ impl Reader for XmlReader {
         chunk_builder: ChunkBuilder,
     ) -> impl ParallelIterator<Item = ElementChunk> {
         let reader = quick_xml::reader::Reader::from_reader(super::get_reader(src));
-        let parse_machine = ParseMachine::new(reader, chunk_builder, metadata_sender);
+        let parse_machine = ParseMachine::new(
+            reader,
+            chunk_builder,
+            metadata_sender,
+            self.rebuild_geometries,
+        );
         match parse_machine.into_chunk_iter() {
             Ok(result) => result,
             Err(e) => {

@@ -54,7 +54,7 @@ pub fn read_elements_and_metadata(
             preserve_generator,
         ),
         #[cfg(feature = "xml")]
-        Ok(OsmFormat::Xml) => XmlReader {}.run_conversion(
+        Ok(OsmFormat::Xml) => XmlReader::new(false).run_conversion(
             Some(path.to_owned()),
             chunk_size,
             filters,

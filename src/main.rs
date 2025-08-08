@@ -84,6 +84,10 @@ struct Cli {
     #[arg(long)]
     preserve_generator: bool,
 
+    /// Create fake elements to rebuild geometries from Overpass geom output
+    #[arg(long)]
+    rebuild_geometry: bool,
+
     /// Maximum number of elements to store in each chunk passed between threads
     #[arg(long)]
     chunk_size: Option<usize>,
@@ -114,7 +118,8 @@ fn run() -> Result<(), SkywayError> {
     let mut conversion_builder = ConversionBuilder::new(from, to)
         .with_source(src)
         .with_dest(cli.output)
-        .with_preserve_generator(cli.preserve_generator);
+        .with_preserve_generator(cli.preserve_generator)
+        .with_rebuild_geometry(cli.rebuild_geometry);
 
     #[cfg(feature = "filter")]
     {

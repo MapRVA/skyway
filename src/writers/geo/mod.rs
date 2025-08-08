@@ -26,9 +26,9 @@ fn elements_to_geometry_collection(
     let mut geometries = Vec::new();
 
     for element in all_elements.values() {
-        match &element.element_type {
-            ElementType::Node { lat, lon } => {
-                if !element.tags.is_empty() {
+        if !element.tags.is_empty() {
+            match &element.element_type {
+                ElementType::Node { lat, lon } => {
                     geometries.push(TaggedGeometry {
                         geometry: Geometry::Point(Point::new(
                             coord_to_f64(*lon),
@@ -37,24 +37,27 @@ fn elements_to_geometry_collection(
                         tags: element.tags.clone(),
                     });
                 }
-            }
-            ElementType::Way { nodes } => {
-                if let Some(way_linestring) = way_to_linestring(nodes, &all_elements) {
-                    if way_is_area(&way_linestring, &element.tags) {
-                        geometries.push(TaggedGeometry {
-                            geometry: Geometry::Polygon(Polygon::new(way_linestring, Vec::new())),
-                            tags: element.tags.clone(),
-                        });
-                    } else {
-                        geometries.push(TaggedGeometry {
-                            geometry: Geometry::LineString(way_linestring),
-                            tags: element.tags.clone(),
-                        });
+                ElementType::Way { nodes } => {
+                    if let Some(way_linestring) = way_to_linestring(nodes, &all_elements) {
+                        if way_is_area(&way_linestring, &element.tags) {
+                            geometries.push(TaggedGeometry {
+                                geometry: Geometry::Polygon(Polygon::new(
+                                    way_linestring,
+                                    Vec::new(),
+                                )),
+                                tags: element.tags.clone(),
+                            });
+                        } else {
+                            geometries.push(TaggedGeometry {
+                                geometry: Geometry::LineString(way_linestring),
+                                tags: element.tags.clone(),
+                            });
+                        }
                     }
                 }
-            }
-            ElementType::Relation { .. } => {
-                geometries.extend(construct_relation_geometry(element, &all_elements));
+                ElementType::Relation { .. } => {
+                    geometries.extend(construct_relation_geometry(element, &all_elements));
+                }
             }
         }
     }

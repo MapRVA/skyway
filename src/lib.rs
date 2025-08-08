@@ -110,6 +110,7 @@ pub struct ConversionBuilder {
     sort_strategy: Option<SortStrategy>,
     chunk_size: Option<usize>,
     preserve_generator: bool,
+    rebuild_geometry: bool,
 }
 
 impl ConversionBuilder {
@@ -129,6 +130,7 @@ impl ConversionBuilder {
             sort_strategy: None,
             chunk_size: None,
             preserve_generator: true,
+            rebuild_geometry: false,
         }
     }
 
@@ -155,6 +157,11 @@ impl ConversionBuilder {
 
     pub fn with_preserve_generator(mut self, preserve_generator: bool) -> Self {
         self.preserve_generator = preserve_generator;
+        self
+    }
+
+    pub fn with_rebuild_geometry(mut self, rebuild_geometry: bool) -> Self {
+        self.rebuild_geometry = rebuild_geometry;
         self
     }
 
@@ -278,26 +285,28 @@ impl ConversionBuilder {
                 )?;
 
                 match output_format {
-                    OverpassOutputFormat::Json => XmlReader {}.run_conversion(
-                        Some(overpass_temp_file.path().to_path_buf()),
-                        chunk_size,
-                        #[cfg(feature = "filter")]
-                        self.filters,
-                        #[cfg(feature = "filter")]
-                        self.omit_references,
-                        sort_strategy,
-                        self.preserve_generator,
-                    )?,
-                    OverpassOutputFormat::Xml => XmlReader {}.run_conversion(
-                        Some(overpass_temp_file.path().to_path_buf()),
-                        chunk_size,
-                        #[cfg(feature = "filter")]
-                        self.filters,
-                        #[cfg(feature = "filter")]
-                        self.omit_references,
-                        sort_strategy,
-                        self.preserve_generator,
-                    )?,
+                    OverpassOutputFormat::Json => XmlReader::new(self.rebuild_geometry)
+                        .run_conversion(
+                            Some(overpass_temp_file.path().to_path_buf()),
+                            chunk_size,
+                            #[cfg(feature = "filter")]
+                            self.filters,
+                            #[cfg(feature = "filter")]
+                            self.omit_references,
+                            sort_strategy,
+                            self.preserve_generator,
+                        )?,
+                    OverpassOutputFormat::Xml => XmlReader::new(self.rebuild_geometry)
+                        .run_conversion(
+                            Some(overpass_temp_file.path().to_path_buf()),
+                            chunk_size,
+                            #[cfg(feature = "filter")]
+                            self.filters,
+                            #[cfg(feature = "filter")]
+                            self.omit_references,
+                            sort_strategy,
+                            self.preserve_generator,
+                        )?,
                 }
             }
             #[cfg(feature = "pbf")]
@@ -312,7 +321,7 @@ impl ConversionBuilder {
                 self.preserve_generator,
             )?,
             #[cfg(feature = "xml")]
-            OsmFormat::Xml => XmlReader {}.run_conversion(
+            OsmFormat::Xml => XmlReader::new(self.rebuild_geometry).run_conversion(
                 self.source,
                 chunk_size,
                 #[cfg(feature = "filter")]
