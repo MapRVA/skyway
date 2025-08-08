@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     paths:
-      - src/**
+      - skyway/**
       - Cargo.toml
       - Cargo.lock
       - .github/workflows/test.yml
