@@ -19,11 +19,13 @@ The shortname is used to indicate the format when running skyway, e.g. `skyway -
 When paired together, "speedy" readers and writers will generally run faster by passing data between threads.
 
 **Key:**<br>
+➖ – Not Planned<br>
 ❌ – Not Supported<br>
 ✅ – Supported<br>
 
 | Format | Shortname | Reader | Writer |
 | -------|-----------|--------|--------|
+| [GeoJSON](https://wiki.openstreetmap.org/wiki/GeoJSON) | ➖ | ✅ |
 | [o5m](https://wiki.openstreetmap.org/wiki/O5m) | `o5m` | ❌ | ✅ |
 | [OPL](https://wiki.openstreetmap.org/wiki/OPL_format) | `opl` | ✅ | ✅ |
 | [OSM XML](https://wiki.openstreetmap.org/wiki/OSM_XML) | `xml` | ✅ | ✅ |

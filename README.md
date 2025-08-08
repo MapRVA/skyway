@@ -25,7 +25,7 @@ Join `#skyway` in the [OpenStreetMap Slack](https://openstreetmap.us/get-involve
 
 | Format | Reader | Writer |
 | -------|--------|--------|
-| [GeoJSON](https://wiki.openstreetmap.org/wiki/GeoJSON) | ➖ | ❌ |
+| [GeoJSON](https://wiki.openstreetmap.org/wiki/GeoJSON) | ➖ | ✅ |
 | [GeoPackage](https://wiki.openstreetmap.org/wiki/GeoPackage) | ➖ | ❌ |
 | GeoParquet | ❌ | ❌ |
 | [GOL](https://wiki.openstreetmap.org/wiki/Geographic_Object_Library) | ❌ | ❌ |
