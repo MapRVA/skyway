@@ -47,7 +47,7 @@ pub enum SkywayError {
     UnsupportedWrite(String),
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
-    #[error("File already exits")]
+    #[error("File already exists")]
     OutputFileExists,
     #[error("Invalid input file: {0}")]
     InvalidInputFile(String),
