@@ -1,0 +1,7 @@
+version = 1
+requires-python = ">=3.12"
+
+[[package]]
+name = "skyway"
+version = "0.7.1"
+source = { editable = "." }

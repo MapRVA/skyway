@@ -18,9 +18,9 @@ use std::{
 };
 
 use crate::{
-    SkywayError,
     chunks::{Chunk, ElementChunk},
     elements::{Element, ElementType},
+    SkywayError,
 };
 
 /// Represents a filter that can be evaluated on an `Element`, transforming it.

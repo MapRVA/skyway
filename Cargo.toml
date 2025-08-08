@@ -1,99 +1,17 @@
-[package]
-authors = ["Jacob Hall <email@jacobhall.net>"]
-description = "A command-line OpenStreetMap file converter"
-edition = "2024"
-homepage = "https://maprva.github.io/skyway/"
-license = "GPL-3.0-or-later"
-name = "skyway"
-repository = "https://github.com/MapRVA/skyway"
+[workspace]
+resolver = "3"
+members = ["skyway", "skyway-python"]
+
+[workspace.package]
 version = "0.7.1"
+edition = "2024"
+license = "GPL-3.0-or-later"
+authors = ["Jacob Hall <email@jacobhall.net>"]
+homepage = "https://maprva.github.io/skyway/"
+repository = "https://github.com/MapRVA/skyway"
 
-[lib]
-name = "skyway"
-path = "src/lib.rs"
-
-[[bin]]
-name = "skyway"
-path = "src/main.rs"
-required-features = ["cli"]
-
-[dependencies]
-bit-vec = { version = "0.8.0", optional = true }
-cel-interpreter = { version = "0.9.1", optional = true }
-chrono = { version = "0.4.41", optional = true }
-clap = { version = "4.5.40", features = ["derive"], optional = true }
-env_logger = { version = "0.11.8", optional = true }
-geo = { version = "0.30.0", optional = true }
-geojson = { version = "0.24.2", optional = true }
-indicatif = { version = "0.17.8", optional = true }
-itertools = "0.14.0"
-json = { version = "0.12.4", optional = true }
-lexical = "7.0.4"
-log = "0.4.27"
-osmpbf = { version = "0.3.5", optional = true }
-osmx = { version = "0.2.0", optional = true }
-pest = { version = "2.8.0", optional = true }
-pest_derive = { version = "2.8.0", optional = true }
-quick-xml = { version = "0.37.5", features = [
-    "overlapped-lists",
-    "serialize",
-], optional = true }
-rayon = "1.10.0"
-regex = { version = "1.11.1", optional = true }
-reqwest = { version = "0.12.22", features = [
-    "http2",
-    "rustls-tls-native-roots",
-    "blocking",
-], default-features = false, optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde-aux = { version = "4.5.0", optional = true }
-serde_json = { version = "1.0", optional = true }
-tempfile = "3.20.0"
-thiserror = "2.0.12"
-
-[dev-dependencies]
-toml = "0.8.23"
-
-[features]
-default = [
-    "cli",
-    "geojson",
-    "json",
-    "o5m",
-    "opl",
-    "overpass-queries",
-    "pbf",
-    "xml",
-    "filter",
-    "cel",
-    "skyfilter",
-]
-
-# by default, all convert and filter features are enabled
-# conversion filetypes
-json = ["dep:json", "dep:serde", "dep:serde_json"]
-geojson = ["geo", "dep:geojson"]
-o5m = ["dep:bit-vec"]
-opl = []
-osmx = ["dep:osmx"]
-pbf = ["dep:osmpbf", "dep:chrono"]
-xml = ["dep:serde", "dep:serde-aux", "dep:quick-xml"]
-
-# geo type conversion
-geo = ["dep:geo"]
-
-# API query sources
-overpass-queries = ["xml", "json", "dep:reqwest"]
-
-# general filter support
-filter = []
-
-# filter types
-cel = ["filter", "dep:cel-interpreter"]
-skyfilter = ["filter", "dep:pest", "dep:pest_derive", "dep:regex"]
-
-# cli helpers (required to build binary)
-cli = ["dep:clap", "dep:env_logger", "dep:indicatif"]
+[workspace.dependencies]
+skyway = { path = "skyway", default-features = false }
 
 [profile.release]
 lto = "fat"

@@ -1,0 +1,28 @@
+[package]
+name = "skyway-python"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lib]
+name = "skyway_python"
+crate-type = ["cdylib"]
+
+[dependencies]
+skyway = { workspace = true, default-features = false, features = [
+    "geojson",
+    "json",
+    "o5m",
+    "opl",
+    # "overpass-queries",
+    "pbf",
+    "xml",
+    "filter",
+    "cel",
+    "skyfilter",
+] }
+pyo3 = { version = "0.24.1", features = ["extension-module"] }
