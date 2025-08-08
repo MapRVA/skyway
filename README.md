@@ -1,6 +1,6 @@
 # skyway
 
-[![tests badge](https://github.com/MapRVA/skyway/actions/workflows/test.yml/badge.svg)](https://github.com/MapRVA/skyway/actions/workflows/test.yml)
+[![tests badge](https://github.com/MapRVA/skyway/actions/workflows/ci.yml/badge.svg)](https://github.com/MapRVA/skyway/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/skyway.svg)](https://crates.io/crates/skyway)
 
 skyway is a command-line OpenStreetMap data conversion and filtering utility.
