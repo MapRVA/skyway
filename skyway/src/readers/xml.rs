@@ -6,7 +6,6 @@ use std::io::BufRead;
 use std::mem;
 
 use std::path::PathBuf;
-use std::str::from_utf8;
 use std::sync::mpsc::Sender;
 
 use crate::SkywayError;
@@ -44,13 +43,13 @@ fn generate_metadata(osm_event: BytesStart) -> Metadata {
     for attr in osm_event.attributes() {
         if let Ok(attr) = attr {
             match attr.key.into_inner() {
-                b"version" => {
+                "version" => {
                     metadata.version = attr_value_to_str(attr.value.as_ref())
                         .ok()
                         .map(|s| s.to_string())
                 }
 
-                b"generator" => {
+                "generator" => {
                     metadata.generator = attr_value_to_str(attr.value.as_ref())
                         .ok()
                         .map(|s| s.to_string());
@@ -200,8 +199,8 @@ impl ParseMachine {
         for attr in tag.attributes() {
             let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
             match attr.key.into_inner() {
-                b"k" => k = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
-                b"v" => v = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                "k" => k = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                "v" => v = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
                 _ => {}
             }
         }
@@ -216,20 +215,20 @@ impl ParseMachine {
     fn process_event(&mut self, event: Event) -> Result<(), SkywayError> {
         match event {
             Event::Start(s) => match s.name() {
-                QName(b"osm") => {
+                QName("osm") => {
                     self.in_osm = true;
                     self.metadata_sender
                         .send(generate_metadata(s))
                         .expect("Unable to send metadata out of reader process");
                     Ok(())
                 }
-                QName(b"node") | QName(b"way") | QName(b"relation") => {
+                QName("node") | QName("way") | QName("relation") => {
                     if let Ok(Some(element_type)) = self.start_element(s) {
                         self.current_element = Some(element_type);
                     }
                     Ok(())
                 }
-                QName(b"member") => {
+                QName("member") => {
                     // For geom output, member tags may not be empty
                     if let Some(SimpleElementType::Relation) = self.current_element {
                         self.in_relation_member = true;
@@ -245,14 +244,14 @@ impl ParseMachine {
                             let attr =
                                 attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
                             match attr.key.into_inner() {
-                                b"role" => {
+                                "role" => {
                                     role = Some(attr_value_to_str(attr.value.as_ref())?.to_string())
                                 }
-                                b"ref" => {
+                                "ref" => {
                                     ref_id =
                                         attr_value_to_str(attr.value.as_ref())?.parse::<i64>().ok()
                                 }
-                                b"type" => {
+                                "type" => {
                                     type_ = match attr_value_to_str(attr.value.as_ref())? {
                                         "node" => Some(SimpleElementType::Node),
                                         "way" => Some(SimpleElementType::Way),
@@ -260,14 +259,14 @@ impl ParseMachine {
                                         _ => None,
                                     }
                                 }
-                                b"lat" => {
+                                "lat" => {
                                     if let Ok(lat_val) =
                                         attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
                                     {
                                         lat = Some((lat_val * 10_000_000.0) as i32);
                                     }
                                 }
-                                b"lon" => {
+                                "lon" => {
                                     if let Ok(lon_val) =
                                         attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
                                     {
@@ -321,7 +320,7 @@ impl ParseMachine {
                 _ => Ok(()),
             },
             Event::End(e) => match e.name() {
-                QName(b"member") => {
+                QName("member") => {
                     self.in_relation_member = false;
 
                     // If we have a stored member, process it
@@ -376,7 +375,7 @@ impl ParseMachine {
                 }
             },
             Event::Empty(e) => match e.name() {
-                QName(b"node") => {
+                QName("node") => {
                     // <node ... /> elements are registered as "empty" because they
                     // don't have separate <node> and </node> events.
                     // FIXME: make this more concise, this logic is not all necessary, we know it's a node
@@ -389,7 +388,7 @@ impl ParseMachine {
                     }
                     Ok(())
                 }
-                QName(b"tag") => self.handle_tag(e),
+                QName("tag") => self.handle_tag(e),
                 _ => self.handle_empty_element(e),
             },
             _ => Ok(()),
@@ -444,29 +443,29 @@ impl ParseMachine {
         for attr in start.attributes() {
             let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
             match attr.key.into_inner() {
-                b"id" => {
+                "id" => {
                     self.element_builder.id = attr_value_to_str(attr.value.as_ref())?.parse().ok()
                 }
-                b"version" => {
+                "version" => {
                     self.element_builder.version =
                         attr_value_to_str(attr.value.as_ref())?.parse().ok()
                 }
-                b"timestamp" => {
+                "timestamp" => {
                     self.element_builder.timestamp =
                         Some(attr_value_to_str(attr.value.as_ref())?.to_string())
                 }
-                b"changeset" => {
+                "changeset" => {
                     self.element_builder.changeset =
                         attr_value_to_str(attr.value.as_ref())?.parse().ok()
                 }
-                b"uid" => {
+                "uid" => {
                     self.element_builder.uid = attr_value_to_str(attr.value.as_ref())?.parse().ok()
                 }
-                b"user" => {
+                "user" => {
                     self.element_builder.user =
                         Some(attr_value_to_str(attr.value.as_ref())?.to_string())
                 }
-                b"visible" => {
+                "visible" => {
                     self.element_builder.visible =
                         Some(attr_value_to_str(attr.value.as_ref())? == "true")
                 }
@@ -475,15 +474,15 @@ impl ParseMachine {
         }
 
         let element_type = match start.name().into_inner() {
-            b"node" => {
+            "node" => {
                 let mut lat = None;
                 let mut lon = None;
 
                 for attr in start.attributes() {
                     let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
                     match attr.key.into_inner() {
-                        b"lat" => lat = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
-                        b"lon" => lon = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                        "lat" => lat = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
+                        "lon" => lon = attr_value_to_str(attr.value.as_ref())?.parse().ok(),
                         _ => {}
                     }
                 }
@@ -500,13 +499,13 @@ impl ParseMachine {
 
                 Some(SimpleElementType::Node)
             }
-            b"way" => {
+            "way" => {
                 self.element_builder.element_type =
                     Some(ElementTypeBuilder::WayBuilder { nodes: Vec::new() });
 
                 Some(SimpleElementType::Way)
             }
-            b"relation" => {
+            "relation" => {
                 self.element_builder.element_type = Some(ElementTypeBuilder::RelationBuilder {
                     members: Vec::new(),
                 });
@@ -534,7 +533,7 @@ impl ParseMachine {
 
     fn handle_empty_element(&mut self, empty: BytesStart) -> Result<(), SkywayError> {
         match empty.name().into_inner() {
-            b"nd" => {
+            "nd" => {
                 // Handle <nd> inside ways or inside relation members
                 let mut ref_id = None;
                 let mut lat = None;
@@ -544,17 +543,17 @@ impl ParseMachine {
                 for attr in empty.attributes() {
                     let attr = attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
                     match attr.key.into_inner() {
-                        b"ref" => {
+                        "ref" => {
                             ref_id = attr_value_to_str(attr.value.as_ref())?.parse::<i64>().ok()
                         }
-                        b"lat" => {
+                        "lat" => {
                             if let Ok(lat_val) =
                                 attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
                             {
                                 lat = Some((lat_val * 10_000_000.0) as i32);
                             }
                         }
-                        b"lon" => {
+                        "lon" => {
                             if let Ok(lon_val) =
                                 attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
                             {
@@ -650,7 +649,7 @@ impl ParseMachine {
                     }
                 }
             }
-            b"member" => {
+            "member" => {
                 if let Some(SimpleElementType::Relation) = self.current_element {
                     if let Some(ElementTypeBuilder::RelationBuilder { members }) =
                         &mut self.element_builder.element_type
@@ -665,14 +664,14 @@ impl ParseMachine {
                             let attr =
                                 attr.map_err(|e| XmlReadError::ParsingError(e.to_string()))?;
                             match attr.key.into_inner() {
-                                b"role" => {
+                                "role" => {
                                     role = Some(attr_value_to_str(attr.value.as_ref())?.to_string())
                                 }
-                                b"ref" => {
+                                "ref" => {
                                     ref_id =
                                         attr_value_to_str(attr.value.as_ref())?.parse::<i64>().ok()
                                 }
-                                b"type" => {
+                                "type" => {
                                     type_ = match attr_value_to_str(attr.value.as_ref())? {
                                         "node" => Some(SimpleElementType::Node),
                                         "way" => Some(SimpleElementType::Way),
@@ -680,14 +679,14 @@ impl ParseMachine {
                                         _ => None,
                                     }
                                 }
-                                b"lat" => {
+                                "lat" => {
                                     if let Ok(lat_val) =
                                         attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
                                     {
                                         lat = Some((lat_val * 10_000_000.0) as i32);
                                     }
                                 }
-                                b"lon" => {
+                                "lon" => {
                                     if let Ok(lon_val) =
                                         attr_value_to_str(attr.value.as_ref())?.parse::<f64>()
                                     {
@@ -741,8 +740,8 @@ impl ParseMachine {
     }
 }
 
-fn attr_value_to_str(value: &[u8]) -> Result<&str, XmlReadError> {
-    from_utf8(value).map_err(|e| XmlReadError::ParsingError(e.to_string()))
+fn attr_value_to_str(value: &str) -> Result<&str, XmlReadError> {
+    Ok(value)
 }
 
 #[derive(Clone)]
