@@ -1,50 +1,50 @@
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
+
 use crate::elements::SimpleElementType;
 
 use super::numbers::{SignBit, convert_index, convert_number};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct StringPair(Vec<u8>);
-
-impl IntoIterator for StringPair {
-    type Item = u8;
-    type IntoIter = std::vec::IntoIter<u8>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
+const STRING_TABLE_CAPACITY: usize = 15_000;
 
 pub struct StringTable {
-    cached_tags: Vec<StringPair>,
+    positions: HashMap<Arc<[u8]>, u64>,
+    insertion_order: VecDeque<Arc<[u8]>>,
+    next_sequence: u64,
 }
 
 impl StringTable {
     pub fn new() -> Self {
         StringTable {
-            cached_tags: Vec::new(),
+            positions: HashMap::new(),
+            insertion_order: VecDeque::new(),
+            next_sequence: 0,
         }
     }
 
     fn hit_cache(&mut self, bytes: Vec<u8>) -> Vec<u8> {
-        let str_pair = StringPair(bytes);
-
-        // determine index of string in StringTable
-        // tag_position will be Option<usize>
-        let tag_position = self.cached_tags.iter().position(|b| b == &str_pair);
-
-        // if key, value were found in TagTable, return
-        // index converted to o5m byte sequence. Otherwise,
-        // insert the new tag into the TagTable then return
-        // its byte sequence
-        match tag_position {
-            // increment by 1 to accomodate zero-indexed vector
-            Some(v) => convert_index(v + 1),
-            None => {
-                self.cached_tags.insert(0, str_pair.clone());
-                self.cached_tags.truncate(15000);
-                str_pair.0
-            }
+        if let Some(&inserted_at) = self.positions.get(bytes.as_slice()) {
+            let index = usize::try_from(self.next_sequence - inserted_at)
+                .expect("o5m string table index should fit in usize");
+            return convert_index(index);
         }
+
+        let key: Arc<[u8]> = Arc::from(bytes.as_slice());
+        self.positions.insert(Arc::clone(&key), self.next_sequence);
+        self.insertion_order.push_back(key);
+        self.next_sequence += 1;
+
+        if self.insertion_order.len() > STRING_TABLE_CAPACITY {
+            let oldest = self
+                .insertion_order
+                .pop_front()
+                .expect("o5m string table should contain an entry to evict");
+            self.positions.remove(oldest.as_ref());
+        }
+
+        bytes
     }
 
     // convert a tag (surrounding both key and value with zero-bytes)
@@ -191,5 +191,36 @@ mod tests {
         assert_eq!(string_table.hit_cache(vec1), vec![0x03]);
 
         assert_eq!(string_table.hit_cache(vec3), vec![0x01]);
+    }
+
+    #[test]
+    fn test_string_table_capacity_and_eviction() {
+        let mut string_table = StringTable::new();
+        let entries: Vec<Vec<u8>> = (0..=STRING_TABLE_CAPACITY)
+            .map(|value| (value as u64).to_le_bytes().to_vec())
+            .collect();
+
+        for entry in &entries[..STRING_TABLE_CAPACITY] {
+            assert_eq!(string_table.hit_cache(entry.clone()), *entry);
+        }
+
+        assert_eq!(
+            string_table.hit_cache(entries[STRING_TABLE_CAPACITY - 1].clone()),
+            convert_index(1)
+        );
+        assert_eq!(
+            string_table.hit_cache(entries[0].clone()),
+            convert_index(STRING_TABLE_CAPACITY)
+        );
+
+        assert_eq!(
+            string_table.hit_cache(entries[STRING_TABLE_CAPACITY].clone()),
+            entries[STRING_TABLE_CAPACITY]
+        );
+        assert_eq!(
+            string_table.hit_cache(entries[1].clone()),
+            convert_index(STRING_TABLE_CAPACITY)
+        );
+        assert_eq!(string_table.hit_cache(entries[0].clone()), entries[0]);
     }
 }
