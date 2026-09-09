@@ -1,0 +1,7 @@
+n1 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob Tname=one x-77.44 y37.54
+n2 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob T x-77.45 y37.55
+n3 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob T x-77.43 y37.53
+w5 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob Thighway=path Nn2,n1
+w20 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob Thighway=residential Nn3,n1
+r2 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob Ttype=route Mn2@stop,r10@
+r10 v1 dV c1 t2020-01-01T00:00:00Z i1 ubob Ttype=multipolygon Mw20@outer,w5@inner

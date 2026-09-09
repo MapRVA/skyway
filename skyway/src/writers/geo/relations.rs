@@ -7,16 +7,27 @@ use geo::{
 
 use crate::{
     coord_to_f64,
-    elements::{Element, ElementType},
+    elements::{Element, ElementKey, ElementType, Member},
 };
 
 use super::{TaggedGeometry, way_to_linestring};
+
+/// Resolve a relation member to its element.
+///
+/// A member with no type cannot be resolved, because a bare ID is ambiguous
+/// across element types, so it contributes nothing to the geometry.
+fn lookup_member<'a>(
+    member: &Member,
+    all_elements: &'a HashMap<ElementKey, Element>,
+) -> Option<&'a Element> {
+    all_elements.get(&member.key()?)
+}
 
 // ----- MultiLineStrings -----
 
 fn build_multilinestring(
     relation: &Element,
-    all_elements: &HashMap<i64, Element>,
+    all_elements: &HashMap<ElementKey, Element>,
 ) -> Option<TaggedGeometry> {
     let ElementType::Relation { members } = &relation.element_type else {
         unreachable!();
@@ -24,7 +35,7 @@ fn build_multilinestring(
 
     let linestrings: Vec<LineString> = members
         .iter()
-        .filter_map(|member| all_elements.get(&member.id))
+        .filter_map(|member| lookup_member(member, all_elements))
         .filter_map(|element| match &element.element_type {
             ElementType::Way { nodes } => way_to_linestring(nodes, all_elements),
             _ => None,
@@ -194,11 +205,14 @@ fn find_holes_for_outer(outer_idx: usize, used: &[bool], containment: &[Vec<bool
         .collect()
 }
 
-fn ring_to_linestring(ring: &[WayOrientation], all_elements: &HashMap<i64, Element>) -> LineString {
+fn ring_to_linestring(
+    ring: &[WayOrientation],
+    all_elements: &HashMap<ElementKey, Element>,
+) -> LineString {
     let mut points = Vec::new();
     for way in ring {
         for node_id in way.nodes() {
-            match all_elements.get(&node_id) {
+            match all_elements.get(&ElementKey::Node(node_id)) {
                 Some(e) => match &e.element_type {
                     ElementType::Node { lat, lon } => {
                         points.push(coord! {x: coord_to_f64(*lon), y: coord_to_f64(*lat)})
@@ -216,7 +230,7 @@ fn ring_to_linestring(ring: &[WayOrientation], all_elements: &HashMap<i64, Eleme
 fn ring_grouping<'a>(
     rings: Vec<Vec<WayOrientation<'a>>>,
     relation: &Element,
-    all_elements: &HashMap<i64, Element>,
+    all_elements: &HashMap<ElementKey, Element>,
 ) -> Vec<TaggedGeometry> {
     if rings.is_empty() {
         return Vec::new();
@@ -329,13 +343,13 @@ fn ring_grouping<'a>(
 /// Convert a ring of ways into a Polygon
 fn ring_to_polygon(
     ring: &Vec<WayOrientation>,
-    all_elements: &HashMap<i64, Element>,
+    all_elements: &HashMap<ElementKey, Element>,
 ) -> Option<Polygon> {
     let mut all_points = Vec::new();
 
     for way in ring {
         for node_id in way.nodes() {
-            let node_element = all_elements.get(&node_id)?;
+            let node_element = all_elements.get(&ElementKey::Node(node_id))?;
             let ElementType::Node { lat, lon } = node_element.element_type else {
                 return None; // Node ID references non-node element
             };
@@ -359,7 +373,7 @@ fn ring_to_polygon(
 /// Build multipolygon geometries from a relation
 fn build_multipolygon(
     relation: &Element,
-    all_elements: &HashMap<i64, Element>,
+    all_elements: &HashMap<ElementKey, Element>,
 ) -> Vec<TaggedGeometry> {
     let ElementType::Relation { members } = &relation.element_type else {
         unreachable!();
@@ -368,7 +382,7 @@ fn build_multipolygon(
     // RA-1: Collect all member ways into unassigned_ways Vec
     let unassigned_ways: Vec<&Element> = members
         .iter()
-        .filter_map(|member| all_elements.get(&member.id))
+        .filter_map(|member| lookup_member(member, all_elements))
         .filter(|element| matches!(&element.element_type, ElementType::Way { .. }))
         .collect();
 
@@ -385,7 +399,7 @@ fn build_multipolygon(
 
 pub fn construct_relation_geometry(
     relation: &Element,
-    all_elements: &HashMap<i64, Element>,
+    all_elements: &HashMap<ElementKey, Element>,
 ) -> Vec<TaggedGeometry> {
     match relation.tags.get("type").map(|s| s.as_str()) {
         Some("multipolygon" | "boundary") => build_multipolygon(relation, all_elements),

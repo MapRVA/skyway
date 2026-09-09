@@ -114,18 +114,37 @@ where
     source: I,
     buffer: BinaryHeap<Chunk<T>>,
     next_index: usize,
+    strict: bool,
+    incomplete: bool,
 }
 
 impl<I, T: Sized + Send> OrderedChunkIterator<I, T>
 where
     I: Iterator<Item = Chunk<T>>,
 {
+    /// Restore chunk order, panicking if the source ends with a chunk missing.
     pub fn new(source: I) -> Self {
         OrderedChunkIterator {
             source,
             buffer: BinaryHeap::new(),
             next_index: 0,
+            strict: true,
+            incomplete: false,
         }
+    }
+
+    /// Restore chunk order, ending quietly if the source ends with a chunk
+    /// missing. Check [`Self::is_incomplete`] afterwards.
+    pub fn tolerant(source: I) -> Self {
+        OrderedChunkIterator {
+            strict: false,
+            ..Self::new(source)
+        }
+    }
+
+    /// True if the source ended before every expected chunk arrived.
+    pub fn is_incomplete(&self) -> bool {
+        self.incomplete
     }
 }
 
@@ -137,52 +156,68 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let source_exhausted = match self.source.next() {
-                // does the source iterator have more output?
-                Some(output) => {
-                    // push the next output from the iterator into the buffer
-                    self.buffer.push(output);
-                    false
-                }
-                None => true,
-            };
-
-            loop {
-                match self.buffer.peek() {
-                    // does the buffer have content available?
-                    Some(output_peek) => {
-                        // does the next content in the buffer have the index we want?
-                        if output_peek.index == self.next_index {
-                            let output = self.buffer.pop().unwrap();
-                            // increment the index to represent what we're looking for next
-                            self.next_index += 1;
-                            return Some(output.content);
-                        } else {
-                            // the next content on the buffer is not what we're looking fors
-                            break;
-                        }
-                    }
-                    None => {
-                        // there is no content available in the buffer,
-                        // was there any fresh output from the source iterator?
-                        if source_exhausted {
-                            // there was not, we are done here
-                            return None;
-                        } else {
-                            // there was, implying there could be more!
-                            break;
-                        }
-                    }
-                }
+            // Hand out the next chunk in sequence as soon as it is available.
+            if self
+                .buffer
+                .peek()
+                .is_some_and(|chunk| chunk.index == self.next_index)
+            {
+                let chunk = self.buffer.pop().unwrap();
+                self.next_index += 1;
+                return Some(chunk.content);
             }
 
-            // this should never happen!
-            if source_exhausted && !self.buffer.is_empty() {
-                panic!(
-                    "ERROR: The source iterator of chunks was exhausted, but the next chunk could not be found (index {})",
-                    self.next_index
-                );
+            match self.source.next() {
+                Some(chunk) => self.buffer.push(chunk),
+                None => {
+                    if !self.buffer.is_empty() {
+                        if self.strict {
+                            panic!(
+                                "ERROR: The source iterator of chunks was exhausted, but the next chunk could not be found (index {})",
+                                self.next_index
+                            );
+                        }
+                        self.incomplete = true;
+                    }
+                    return None;
+                }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn chunks(indexes: &[usize]) -> Vec<Chunk<usize>> {
+        indexes
+            .iter()
+            .map(|&index| Chunk {
+                index,
+                content: index * 10,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn restores_sequence() {
+        let ordered: Vec<usize> =
+            OrderedChunkIterator::new(chunks(&[2, 0, 3, 1]).into_iter()).collect();
+        assert_eq!(ordered, vec![0, 10, 20, 30]);
+    }
+
+    #[test]
+    fn tolerant_reports_missing_chunks() {
+        let mut ordered = OrderedChunkIterator::tolerant(chunks(&[0, 2]).into_iter());
+        assert_eq!(ordered.next(), Some(0));
+        assert_eq!(ordered.next(), None);
+        assert!(ordered.is_incomplete());
+    }
+
+    #[test]
+    #[should_panic]
+    fn strict_panics_on_missing_chunks() {
+        let _: Vec<usize> = OrderedChunkIterator::new(chunks(&[1]).into_iter()).collect();
     }
 }

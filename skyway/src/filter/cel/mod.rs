@@ -1,4 +1,7 @@
-use crate::{SkywayError, filter::ElementFilter};
+use crate::{
+    SkywayError,
+    filter::{ElementFilter, FilterCapabilities},
+};
 use cel_interpreter::{Context, Program, Value};
 
 use crate::elements::{Element, ElementType};
@@ -53,6 +56,11 @@ impl ElementFilter for CelFilter {
                 false
             }
         }
+    }
+
+    fn capabilities(&self) -> FilterCapabilities {
+        // CEL programs are pure expressions over a read-only view of the element.
+        FilterCapabilities::TAGS_ONLY
     }
 }
 

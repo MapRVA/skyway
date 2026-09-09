@@ -1,0 +1,6 @@
+name = "Assumed input order skips sorting"
+description = "When the user asserts the input is already in the requested order, the planner trusts it and preserves the sequence, even though this input is not actually sorted."
+input = "input.opl"
+sort_strategy = "type-id"
+assume_input_order = "type-id"
+expected_output = "expected.opl"

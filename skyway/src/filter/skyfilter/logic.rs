@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use crate::elements::{Element, ElementType};
-use crate::filter::ElementFilter;
+use crate::filter::{ElementFilter, FilterCapabilities};
 
 #[derive(Debug)]
 pub enum StringOrRegex {
@@ -141,5 +141,10 @@ impl ElementFilter for SkyFilter {
             }
         }
         true // commit element if we've exhausted all statements
+    }
+
+    fn capabilities(&self) -> FilterCapabilities {
+        // SkyFilter statements only select elements and edit tags.
+        FilterCapabilities::TAGS_ONLY
     }
 }

@@ -1,5 +1,5 @@
 use chrono::{DateTime, SecondsFormat};
-use osmpbf::{BlobDecode, BlobReader, HeaderBlock};
+use osmpbf::{BlobReader, BlobType, HeaderBlock};
 use rayon::prelude::*;
 
 use std::{collections::HashMap, path::PathBuf, sync::mpsc::Sender};
@@ -146,7 +146,7 @@ fn convert_element(element: osmpbf::Element) -> Element {
     }
 }
 
-fn build_metadata_from_block(header_block: Box<HeaderBlock>) -> Metadata {
+fn build_metadata_from_block(header_block: HeaderBlock) -> Metadata {
     Metadata {
         version: None,
         generator: header_block.writing_program().map(|s| s.to_owned()),
@@ -176,26 +176,40 @@ impl Reader for PbfReader {
         let reader = BlobReader::new(src);
 
         reader
-            .filter_map(move |blob| match blob.unwrap().decode() {
-                Ok(BlobDecode::OsmData(block)) => Some(block),
-                Ok(BlobDecode::OsmHeader(block)) => {
-                    metadata_sender
-                        .send(build_metadata_from_block(block))
-                        .expect("Couldn't send metadata to main thread!");
-                    None
+            .filter_map(move |blob| {
+                let blob = blob.unwrap();
+                // Inspect the type without decompressing data blocks. Headers
+                // stay in input order and do not consume a chunk index.
+                match blob.get_type() {
+                    BlobType::OsmData => Some(blob),
+                    BlobType::OsmHeader => {
+                        let block = blob
+                            .to_headerblock()
+                            .unwrap_or_else(|e| panic!("ERROR: unable to read PBF input: {e:?}"));
+                        metadata_sender
+                            .send(build_metadata_from_block(block))
+                            .expect("Couldn't send metadata to main thread!");
+                        None
+                    }
+                    BlobType::Unknown(_) => None,
                 }
-                Err(e) => panic!("ERROR: unable to read PBF input: {e:?}"),
-                _ => None,
             })
             .enumerate()
             .par_bridge()
-            .map(|(block_index, block)| ElementChunk {
-                index: block_index,
-                content: block
-                    .elements()
-                    .map(convert_element)
-                    .collect::<Vec<Element>>()
-                    .into_boxed_slice(),
+            .map(|(block_index, blob)| {
+                // Decompression, protobuf decoding, and element conversion all
+                // run outside par_bridge's serialized input iteration.
+                let block = blob
+                    .to_primitiveblock()
+                    .unwrap_or_else(|e| panic!("ERROR: unable to read PBF input: {e:?}"));
+                ElementChunk {
+                    index: block_index,
+                    content: block
+                        .elements()
+                        .map(convert_element)
+                        .collect::<Vec<Element>>()
+                        .into_boxed_slice(),
+                }
             })
     }
 }
@@ -204,6 +218,50 @@ impl Reader for PbfReader {
 mod tests {
 
     use super::*;
+    use osmpbf::BlobDecode;
+    use std::{io::Cursor, sync::mpsc::channel};
+
+    #[test]
+    fn parallel_decoding_preserves_data_indices_elements_and_metadata() {
+        let fixture = include_bytes!("../../tests/read/pbf/input.pbf");
+        let mut expected_chunks = Vec::new();
+        let mut expected_metadata = Vec::new();
+        for blob in BlobReader::new(Cursor::new(fixture)) {
+            match blob.unwrap().decode().unwrap() {
+                BlobDecode::OsmHeader(block) => {
+                    expected_metadata.push(build_metadata_from_block(*block));
+                }
+                BlobDecode::OsmData(block) => {
+                    expected_chunks.push(block.elements().map(convert_element).collect::<Vec<_>>());
+                }
+                BlobDecode::Unknown(_) => {}
+            }
+        }
+        assert_eq!(expected_chunks.len(), 3);
+        assert_eq!(expected_metadata.len(), 1);
+
+        for workers in [1, 4] {
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(workers)
+                .build()
+                .unwrap();
+            let (sender, receiver) = channel();
+            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/read/pbf/input.pbf");
+            let mut chunks: Vec<_> = pool.install(|| {
+                PbfReader::new()
+                    .read_file(Some(path), sender, ChunkBuilder::new(8000))
+                    .collect()
+            });
+            chunks.sort_by_key(|chunk| chunk.index);
+
+            assert_eq!(chunks.len(), expected_chunks.len());
+            for (index, (actual, expected)) in chunks.iter().zip(&expected_chunks).enumerate() {
+                assert_eq!(actual.index, index);
+                assert_eq!(actual.content.as_ref(), expected.as_slice());
+            }
+            assert_eq!(receiver.into_iter().collect::<Vec<_>>(), expected_metadata);
+        }
+    }
 
     #[test]
     fn test_convert_timestamp() {

@@ -1,20 +1,16 @@
 //! Utilities for sorting OSM elements.
 
-use std::{
-    sync::mpsc::{Receiver, Sender, channel},
-    thread,
-};
-
 #[cfg(feature = "cli")]
 use clap::ValueEnum;
 
 use crate::{
-    chunks::ElementChunk,
+    chunks::{ChunkBuilder, ElementChunk},
     elements::{Element, ElementType},
+    plan::{Order, OutputOrderRequest},
 };
 
 /// Enum that represents the different sorting strategies skyway supports.
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum SortStrategy {
     // First nodes, then ways, then relations
@@ -31,203 +27,158 @@ pub enum SortStrategy {
     None,
 }
 
-enum ElementStorage {
-    ById {
-        elements: Vec<Element>,
-    },
-    ByType {
-        nodes: Vec<Element>,
-        ways: Vec<Element>,
-        relations: Vec<Element>,
-    },
-    ByTypeAndId {
-        nodes: Vec<Element>,
-        ways: Vec<Element>,
-        relations: Vec<Element>,
-    },
-    None {
-        elements: Vec<Element>,
-    },
-}
-
-impl ElementStorage {
-    pub fn append(&mut self, element: Element) {
-        match self {
-            ElementStorage::ById { elements } => elements.push(element),
-            ElementStorage::ByType {
-                nodes,
-                ways,
-                relations,
-            } => match element.element_type {
-                ElementType::Node { .. } => nodes.push(element),
-                ElementType::Way { .. } => ways.push(element),
-                ElementType::Relation { .. } => relations.push(element),
-            },
-            ElementStorage::ByTypeAndId {
-                nodes,
-                ways,
-                relations,
-            } => match element.element_type {
-                ElementType::Node { .. } => nodes.push(element),
-                ElementType::Way { .. } => ways.push(element),
-                ElementType::Relation { .. } => relations.push(element),
-            },
-            ElementStorage::None { elements } => elements.push(element),
-        }
-    }
-
-    pub fn sort(mut self) -> Self {
-        match &mut self {
-            ElementStorage::ById { elements } => {
-                elements.sort_by(|a, b| a.id.cmp(&b.id));
-            }
-            ElementStorage::ByType { .. } => (),
-            ElementStorage::ByTypeAndId {
-                nodes,
-                ways,
-                relations,
-            } => {
-                nodes.sort_by(|a, b| a.id.cmp(&b.id));
-                ways.sort_by(|a, b| a.id.cmp(&b.id));
-                relations.sort_by(|a, b| a.id.cmp(&b.id));
-            }
-            ElementStorage::None { .. } => (),
-        }
-        self
-    }
-}
-
-impl From<&SortStrategy> for ElementStorage {
-    fn from(value: &SortStrategy) -> Self {
-        match value {
-            SortStrategy::Id => ElementStorage::ById {
-                elements: Vec::new(),
-            },
-            SortStrategy::Type => ElementStorage::ByType {
-                nodes: Vec::new(),
-                ways: Vec::new(),
-                relations: Vec::new(),
-            },
-            SortStrategy::TypeAndId => ElementStorage::ByTypeAndId {
-                nodes: Vec::new(),
-                ways: Vec::new(),
-                relations: Vec::new(),
-            },
-            SortStrategy::None => ElementStorage::None {
-                elements: Vec::new(),
-            },
+impl From<SortStrategy> for OutputOrderRequest {
+    fn from(strategy: SortStrategy) -> Self {
+        match strategy {
+            SortStrategy::Type => OutputOrderRequest::Sorted(Order::Type),
+            SortStrategy::Id => OutputOrderRequest::Sorted(Order::Id),
+            SortStrategy::TypeAndId => OutputOrderRequest::Sorted(Order::TypeAndId),
+            SortStrategy::None => OutputOrderRequest::PreserveInput,
         }
     }
 }
 
-struct ElementStorageChunker {
-    storage: ElementStorage,
+fn type_rank(element: &Element) -> u8 {
+    match element.element_type {
+        ElementType::Node { .. } => 0,
+        ElementType::Way { .. } => 1,
+        ElementType::Relation { .. } => 2,
+    }
+}
+
+/// Sort `elements` into `order`. The sort is stable, so elements that compare
+/// equal keep their existing relative sequence.
+pub fn sort_elements(elements: &mut [Element], order: Order) {
+    match order {
+        Order::Type => elements.sort_by_key(type_rank),
+        Order::Id => elements.sort_by_key(|e| e.id),
+        Order::TypeAndId => elements.sort_by_key(|e| (type_rank(e), e.id)),
+    }
+}
+
+/// Split `elements` into chunks of at most `chunk_size`, numbered from zero.
+pub fn chunk_elements(
+    elements: Vec<Element>,
     chunk_size: usize,
-    current_index: usize,
+) -> impl Iterator<Item = ElementChunk> {
+    ChunkBuilder::new(chunk_size).chunk_iterator(elements.into_iter())
 }
 
-impl ElementStorageChunker {
-    fn new(storage: ElementStorage, chunk_size: usize) -> Self {
-        ElementStorageChunker {
-            storage,
-            chunk_size,
-            current_index: 0,
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+    use crate::elements::ElementKey;
+
+    fn element(key: ElementKey) -> Element {
+        Element {
+            changeset: None,
+            user: None,
+            version: None,
+            uid: None,
+            id: key.id(),
+            timestamp: None,
+            visible: None,
+            tags: HashMap::new(),
+            element_type: match key {
+                ElementKey::Node(_) => ElementType::Node { lat: 0, lon: 0 },
+                ElementKey::Way(_) => ElementType::Way { nodes: Vec::new() },
+                ElementKey::Relation(_) => ElementType::Relation {
+                    members: Vec::new(),
+                },
+            },
         }
     }
 
-    fn extract_next_chunk(&mut self, size: usize) -> Option<Vec<Element>> {
-        match &mut self.storage {
-            ElementStorage::ById { elements } | ElementStorage::None { elements } => {
-                if elements.is_empty() {
-                    return None;
-                }
-
-                let take_count = elements.len().min(size);
-                let remaining = elements.len() - take_count;
-
-                // Take elements from the end to avoid shifting the entire vector
-                let chunk: Vec<Element> = elements.drain(remaining..).collect();
-
-                Some(chunk)
-            }
-            ElementStorage::ByType {
-                nodes,
-                ways,
-                relations,
-            }
-            | ElementStorage::ByTypeAndId {
-                nodes,
-                ways,
-                relations,
-            } => {
-                // FIXME: this won't send a partial chunk once one element type is completed
-                let mut chunk = Vec::with_capacity(size);
-
-                while !nodes.is_empty() && chunk.len() < size {
-                    chunk.push(nodes.pop().unwrap());
-                }
-
-                while !ways.is_empty() && chunk.len() < size {
-                    chunk.push(ways.pop().unwrap());
-                }
-
-                while !relations.is_empty() && chunk.len() < size {
-                    chunk.push(relations.pop().unwrap());
-                }
-
-                if chunk.is_empty() { None } else { Some(chunk) }
-            }
-        }
-    }
-}
-
-impl Iterator for ElementStorageChunker {
-    type Item = ElementChunk;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let elements = self.extract_next_chunk(self.chunk_size)?;
-
-        let chunk = ElementChunk {
-            index: self.current_index,
-            content: elements.into_boxed_slice(),
-        };
-
-        self.current_index += 1;
-        Some(chunk)
-    }
-}
-
-pub struct ElementSorter {
-    sort_strategy: SortStrategy,
-}
-
-impl ElementSorter {
-    pub fn new(sort_strategy: SortStrategy) -> Self {
-        ElementSorter { sort_strategy }
+    fn keys(elements: &[Element]) -> Vec<ElementKey> {
+        elements.iter().map(Element::key).collect()
     }
 
-    pub fn sort(self, chunk_receiver: Receiver<ElementChunk>, chunk_sender: Sender<ElementChunk>) {
-        let mut element_storage = ElementStorage::from(&self.sort_strategy);
+    fn sample() -> Vec<Element> {
+        use ElementKey::*;
+        [
+            Way(20),
+            Node(3),
+            Relation(10),
+            Node(1),
+            Way(5),
+            Relation(2),
+            Node(2),
+        ]
+        .into_iter()
+        .map(element)
+        .collect()
+    }
 
-        let (new_chunk_sender, new_chunk_receiver) = channel::<ElementChunk>();
+    #[test]
+    fn sort_by_type_is_stable() {
+        use ElementKey::*;
+        let mut elements = sample();
+        sort_elements(&mut elements, Order::Type);
+        assert_eq!(
+            keys(&elements),
+            vec![
+                Node(3),
+                Node(1),
+                Node(2),
+                Way(20),
+                Way(5),
+                Relation(10),
+                Relation(2)
+            ]
+        );
+    }
 
-        thread::spawn(move || {
-            element_storage = element_storage.sort();
+    #[test]
+    fn sort_by_id_ignores_type() {
+        use ElementKey::*;
+        let mut elements = sample();
+        sort_elements(&mut elements, Order::Id);
+        assert_eq!(
+            keys(&elements),
+            vec![
+                Node(1),
+                Relation(2),
+                Node(2),
+                Node(3),
+                Way(5),
+                Relation(10),
+                Way(20)
+            ]
+        );
+    }
 
-            for chunk in new_chunk_receiver {
-                for element in chunk.content {
-                    element_storage.append(element);
-                }
-            }
+    #[test]
+    fn sort_by_type_and_id() {
+        use ElementKey::*;
+        let mut elements = sample();
+        sort_elements(&mut elements, Order::TypeAndId);
+        assert_eq!(
+            keys(&elements),
+            vec![
+                Node(1),
+                Node(2),
+                Node(3),
+                Way(5),
+                Way(20),
+                Relation(2),
+                Relation(10)
+            ]
+        );
+    }
 
-            let element_storage_chunker = ElementStorageChunker::new(element_storage, 8000);
-            for chunk in element_storage_chunker.into_iter() {
-                chunk_sender.send(chunk).expect("Unable to send chunk.")
-            }
-        });
-
-        for chunk in chunk_receiver {
-            new_chunk_sender.send(chunk).expect("Unable to send chunk.")
-        }
+    #[test]
+    fn chunking_numbers_from_zero() {
+        let chunks: Vec<ElementChunk> = chunk_elements(sample(), 3).collect();
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(
+            chunks.iter().map(|c| c.index).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+        assert_eq!(
+            chunks.iter().map(|c| c.content.len()).collect::<Vec<_>>(),
+            vec![3, 3, 1]
+        );
     }
 }

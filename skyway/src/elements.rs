@@ -40,6 +40,89 @@ pub struct Element {
     pub element_type: ElementType,
 }
 
+/// Identity of an element in a snapshot dataset: one element per (type, ID).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ElementKey {
+    Node(i64),
+    Way(i64),
+    Relation(i64),
+}
+
+impl ElementKey {
+    pub fn new(element_type: &SimpleElementType, id: i64) -> Self {
+        match element_type {
+            SimpleElementType::Node => ElementKey::Node(id),
+            SimpleElementType::Way => ElementKey::Way(id),
+            SimpleElementType::Relation => ElementKey::Relation(id),
+        }
+    }
+
+    pub fn id(self) -> i64 {
+        match self {
+            ElementKey::Node(id) | ElementKey::Way(id) | ElementKey::Relation(id) => id,
+        }
+    }
+}
+
+impl std::fmt::Display for ElementKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ElementKey::Node(id) => write!(f, "node {id}"),
+            ElementKey::Way(id) => write!(f, "way {id}"),
+            ElementKey::Relation(id) => write!(f, "relation {id}"),
+        }
+    }
+}
+
+impl Member {
+    /// The member's identity, if its type is known.
+    ///
+    /// A bare ID is ambiguous across element types, so an untyped member
+    /// cannot be resolved to a particular element.
+    pub fn key(&self) -> Option<ElementKey> {
+        self.t.as_ref().map(|t| ElementKey::new(t, self.id))
+    }
+}
+
+impl Element {
+    /// The element's type, without its type-specific data.
+    pub fn simple_type(&self) -> SimpleElementType {
+        match self.element_type {
+            ElementType::Node { .. } => SimpleElementType::Node,
+            ElementType::Way { .. } => SimpleElementType::Way,
+            ElementType::Relation { .. } => SimpleElementType::Relation,
+        }
+    }
+
+    /// The element's identity.
+    pub fn key(&self) -> ElementKey {
+        ElementKey::new(&self.simple_type(), self.id)
+    }
+
+    /// Keys of every element this element references directly.
+    ///
+    /// Member types are preserved. A relation member without a type cannot be
+    /// resolved, because a bare ID is ambiguous across element types, so it
+    /// is reported as an error.
+    pub fn reference_keys(&self) -> Result<Vec<ElementKey>, crate::SkywayError> {
+        match &self.element_type {
+            ElementType::Node { .. } => Ok(Vec::new()),
+            ElementType::Way { nodes } => Ok(nodes.iter().map(|id| ElementKey::Node(*id)).collect()),
+            ElementType::Relation { members } => members
+                .iter()
+                .map(|member| {
+                    member.key().ok_or_else(|| {
+                        crate::SkywayError::InvalidInputFile(format!(
+                            "relation {} has a member with ID {} but no type, so its references cannot be resolved",
+                            self.id, member.id
+                        ))
+                    })
+                })
+                .collect(),
+        }
+    }
+}
+
 /// Builder type for ElementType, must be used with ElementBuilder.
 #[derive(Debug, PartialEq)]
 pub enum ElementTypeBuilder {

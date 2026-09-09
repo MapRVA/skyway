@@ -1,0 +1,5 @@
+name = "Sort by type and ID"
+description = "Nodes, then ways, then relations, each sorted by ID."
+input = "input.opl"
+sort_strategy = "type-id"
+expected_output = "expected.opl"

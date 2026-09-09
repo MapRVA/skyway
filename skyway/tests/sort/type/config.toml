@@ -1,0 +1,5 @@
+name = "Sort by type"
+description = "Nodes, then ways, then relations. Within a type, the input sequence is kept."
+input = "input.opl"
+sort_strategy = "type"
+expected_output = "expected.opl"

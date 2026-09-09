@@ -69,7 +69,7 @@ default = [
 # conversion filetypes
 json = ["dep:json", "dep:serde", "dep:serde_json"]
 geojson = ["geo", "dep:geojson"]
-o5m = ["dep:bit-vec"]
+o5m = ["dep:bit-vec", "dep:chrono"]
 opl = []
 osmx = ["dep:osmx"]
 pbf = ["dep:osmpbf", "dep:chrono"]

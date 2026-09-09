@@ -4,7 +4,7 @@ use geo::{LineString, coord};
 
 use crate::{
     coord_to_f64,
-    elements::{Element, ElementType},
+    elements::{Element, ElementKey, ElementType},
 };
 
 pub fn way_is_area(linestring: &LineString, tags: &HashMap<String, String>) -> bool {
@@ -207,11 +207,11 @@ pub fn way_is_area(linestring: &LineString, tags: &HashMap<String, String>) -> b
 
 pub fn way_to_linestring(
     nodes: &[i64],
-    all_elements: &HashMap<i64, Element>,
+    all_elements: &HashMap<ElementKey, Element>,
 ) -> Option<LineString> {
     let mut points = Vec::new();
     for node_id in nodes {
-        match all_elements.get(node_id) {
+        match all_elements.get(&ElementKey::Node(*node_id)) {
             Some(e) => match &e.element_type {
                 ElementType::Node { lat, lon } => {
                     points.push(coord! {x: coord_to_f64(*lon), y: coord_to_f64(*lat)})

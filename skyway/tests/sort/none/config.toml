@@ -1,0 +1,5 @@
+name = "No sorting"
+description = "An explicit request to preserve the input sequence."
+input = "input.opl"
+sort_strategy = "none"
+expected_output = "expected.opl"

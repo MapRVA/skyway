@@ -1,0 +1,5 @@
+name = "Sort by ID"
+description = "All elements are sorted by ID regardless of type. Elements with equal IDs keep their input sequence."
+input = "input.opl"
+sort_strategy = "id"
+expected_output = "expected.opl"

@@ -5,7 +5,7 @@ use log::info;
 use std::{path::PathBuf, process};
 
 use skyway::{
-    ConversionBuilder, OsmFormat, SkywayError, sort::SortStrategy,
+    ConversionBuilder, OsmFormat, SkywayError, plan::Order, sort::SortStrategy,
     validate_input_with_overwrite_check,
 };
 
@@ -65,10 +65,27 @@ struct Cli {
     #[arg(value_parser = clap::value_parser!(PathBuf))]
     output: Option<PathBuf>,
 
-    /// Sort order for output elements
+    /// Sort order for output elements ("none" preserves the input sequence)
     #[arg(long)]
     #[arg(value_parser = clap::value_parser!(SortStrategy))]
     sort_strategy: Option<SortStrategy>,
+
+    /// Assert that the input is already in this order (trusted without checking)
+    #[arg(long)]
+    #[arg(value_parser = clap::value_parser!(Order))]
+    assume_input_order: Option<Order>,
+
+    /// Print how the conversion would run, then exit without converting
+    #[arg(long)]
+    explain_plan: bool,
+
+    /// Number of worker threads (defaults to one per CPU)
+    #[arg(long)]
+    threads: Option<usize>,
+
+    /// Never write temporary files (filters cannot then preserve references when reading stdin)
+    #[arg(long)]
+    no_temp_files: bool,
 
     #[cfg(feature = "overpass-queries")]
     /// Endpoint for Overpass API server (only used if input format is overpass-query)
@@ -116,7 +133,11 @@ fn run() -> Result<(), SkywayError> {
         .with_source(src)
         .with_dest(cli.output)
         .with_preserve_generator(cli.preserve_generator)
-        .with_rebuild_geometry(cli.rebuild_geometry);
+        .with_rebuild_geometry(cli.rebuild_geometry)
+        .with_sort_strategy(cli.sort_strategy)
+        .with_assumed_input_order(cli.assume_input_order)
+        .with_allow_temp_files(!cli.no_temp_files)
+        .with_threads(cli.threads);
 
     #[cfg(feature = "filter")]
     {
@@ -141,6 +162,11 @@ fn run() -> Result<(), SkywayError> {
             let element_filter = filter_from_path(&filter)?;
             conversion_builder = conversion_builder.add_filter(element_filter)
         }
+    }
+
+    if cli.explain_plan {
+        print!("{}", conversion_builder.explain_plan()?);
+        return Ok(());
     }
 
     let progress = start_progress("Running conversion...");
